@@ -3,6 +3,8 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/):
 PATCH for fixes and visual changes, MINOR for new features.
 
+## Unreleased
+
 ## 0.8.0
 - About popup: link to the GitHub repository.
 - About popup: "Check for updates" asks GitHub for the latest release (only on click).

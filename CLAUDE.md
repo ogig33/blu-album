@@ -34,10 +34,12 @@ Out of scope (do not build, suggest the alternative):
 - **Values come from the API**, not hard-coded: source names, play / action URLs, quality, etc.
 - UI language English, minimalist design. **Communicate with the owner in German.**
 - **No default IP address** in the app.
-- **Semantic versioning, bumped by Claude on every delivered change:** PATCH for fixes and
-  visual changes, MINOR for new features, MAJOR only when the owner says so. The version is set
-  only in `APP.version` (shown in the settings footer and the about popup). Add a line to
-  `CHANGELOG.md`.
+- **Semantic versioning, set only for a GitHub release:** every delivered change gets a line
+  under `## Unreleased` at the top of `CHANGELOG.md`; `APP.version` stays as it is. When the
+  owner asks for a release, Claude calculates the version once from all collected changes
+  (MINOR if any new feature, else PATCH; MAJOR only when the owner says so), sets it in
+  `APP.version` (the only place; shown in the settings footer and the about popup), renames
+  `Unreleased` to the version, then commits, tags `vX.Y.Z` and creates the release.
 - Do not publish anything (GitHub release, artifact, pages) without asking the owner first.
 - Check layout changes in Safari as well (see "Known pitfalls").
 
@@ -111,7 +113,7 @@ Pitfalls:
   which answers from the fixtures and records all commands. Runs in Chrome and Edge (installed
   apps, Playwright channels) and Safari (Playwright WebKit); `--browser chrome|safari|edge`.
 - Workflow for a change: verify unknown API behaviour in Bruno → adapt or add the UI test (and
-  the mock) → change the code → all UI tests green → bump the version → CHANGELOG.
+  the mock) → change the code → all UI tests green → CHANGELOG line under `Unreleased`.
 
 ## Backlog / ideas
 - Genres via `/library/v1` (postponed, 27 requests per genre)
