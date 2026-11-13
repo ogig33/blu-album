@@ -79,6 +79,9 @@ Used endpoints:
   `/Clear`, `/AddFavourite`, `/DeleteFavourite`, `/Settings`, `/Services`, `/Version` (API
   version), `/GitVersion` (BluOS version), `/Artwork?service=…&album=…&artist=…`.
 
+Outside the player (only on click): `https://api.github.com/repos/ogig33/blu-album/releases/latest`
+(`tag_name`, `html_url`; CORS `*`, works from a local file) – update check in the about popup.
+
 Pitfalls:
 - `/Delete?id=N` removes a **queue track**; `/Delete?service=BluOS&name=…` deletes a **saved playlist**.
 - USB albums have no favourite actions (no heart on USB covers).

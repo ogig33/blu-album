@@ -41,6 +41,13 @@ async function start(browser, opts = {}) {
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("dialog", (d) => d.accept(opts.promptValue));
   await page.route(`http://${IP}:11000/**`, player.route);
+  // GitHub API (update check): records every request; answers with gh.answer = {status, body} or fails.
+  const gh = { urls: [], answer: null };
+  await page.route("https://api.github.com/**", (r) => {
+    gh.urls.push(r.request().url());
+    if (!gh.answer) return r.abort();
+    return r.fulfill({ status: gh.answer.status, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(gh.answer.body) });
+  });
   if (opts.storage) await page.addInitScript((s) => Object.entries(s).forEach(([k, v]) => localStorage.setItem(k, v)), opts.storage);
   await page.goto(APP);
   if (opts.connect !== false) {
@@ -54,7 +61,7 @@ async function start(browser, opts = {}) {
   const msg = () => page.textContent("#msg");
   const settle = (ms = 400) => page.waitForTimeout(ms);
   const chip = (name) => page.click(`#az button:text-is("${name}")`);
-  return { page, player, errors, $$text, tiles, msg, settle, chip, close: () => ctx.close() };
+  return { page, player, gh, errors, $$text, tiles, msg, settle, chip, close: () => ctx.close() };
 }
 
 // ---------- scenarios ----------
@@ -381,7 +388,7 @@ test("settings: design day / night", async (t) => {
   ok(dark !== light, "background changes");
 });
 
-test("about: popup with name, version, copyright, player info and stats", async (t) => {
+test("about: popup with name, version, copyright, GitHub link, player info and stats", async (t) => {
   await t.page.click("#gear");
   await t.page.click("#aboutb");
   await t.page.waitForSelector("#infodlg[open]");
@@ -390,6 +397,31 @@ test("about: popup with name, version, copyright, player info and stats", async 
   ok(/Albums/.test(txt) && /Playlists/.test(txt), "stats");
   ok(/BluOS version\s*4\.18\.18/.test(txt) && /API version\s*v0\.5\.43/.test(txt), "player versions");
   ok(txt.includes("Room") && txt.includes(await t.page.evaluate(() => playerName)), "room name");
+  const link = await t.page.$eval("#infodlg a#repo", (a) => ({ href: a.href, text: a.textContent, target: a.target }));
+  eq(link, { href: "https://github.com/ogig33/blu-album", text: "github.com/ogig33/blu-album", target: "_blank" }, "GitHub link");
+});
+
+test("about: update check only on click, newer / same version / failure", async (t) => {
+  const version = await t.page.evaluate(() => APP.version);
+  await t.page.click("#gear");
+  await t.page.click("#aboutb");
+  await t.page.waitForSelector("#infodlg[open]");
+  await t.settle(300);
+  eq(t.gh.urls, [], "no GitHub request before the click");
+  const check = async () => {
+    await t.page.click("#updb");
+    await t.page.waitForFunction(() => !/Checking/.test(document.querySelector("#updmsg").textContent) && document.querySelector("#updmsg").textContent);
+    return t.page.textContent("#updmsg");
+  };
+  const url = "https://github.com/ogig33/blu-album/releases/tag/v99.0.0";
+  t.gh.answer = { status: 200, body: { tag_name: "v99.0.0", html_url: url } };
+  eq(await check(), "Update available: v99.0.0", "newer release");
+  eq(await t.page.$eval("#updmsg a", (a) => [a.href, a.target]), [url, "_blank"], "release link");
+  eq(t.gh.urls, ["https://api.github.com/repos/ogig33/blu-album/releases/latest"], "one request to the latest release");
+  t.gh.answer = { status: 200, body: { tag_name: "v" + version, html_url: url } };
+  eq(await check(), "You have the latest version.", "same version");
+  t.gh.answer = { status: 403, body: { message: "rate limit" } };
+  eq(await check(), "Update check failed (HTTP 403).", "failed request");
 });
 
 test("no JavaScript errors in a full session", async (t) => {

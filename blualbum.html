@@ -1493,6 +1493,23 @@ dialog::backdrop {
   color: var(--dim);
   font-size: 13px;
 }
+#infodlg .abt a {
+  color: var(--acc);
+  text-decoration: none;
+}
+#infodlg .abt a:hover {
+  text-decoration: underline;
+}
+#infodlg .abt .upd {
+  margin-top: 10px;
+}
+#infodlg .abt .upd button {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+#infodlg .abt #updmsg:empty {
+  display: none;
+}
 #infodlg .abt .legal {
   margin-top: 10px;
   font-size: 11px;
@@ -1579,7 +1596,7 @@ dialog::backdrop {
     </div>
   </div>
 </dialog>
-<!-- About popup (opened from the footer line of the settings panel): app name, version, copyright, library stats -->
+<!-- About popup (opened from the footer line of the settings panel): app name, version, copyright, GitHub link, update check, library stats -->
 <dialog id="infodlg">
   <form method="dialog"><button id="infoclose" aria-label="Close">✕</button></form>
   <div class="abt">
@@ -1587,6 +1604,9 @@ dialog::backdrop {
     <p>Album player for BluOS devices</p>
     <p>Version <span id="ver2"></span></p>
     <p>Copyright &copy; 2026 Ingmar Gebert</p>
+    <p><a id="repo" target="_blank" rel="noopener"></a></p>
+    <p class="upd"><button type="button" id="updb">Check for updates</button></p>
+    <p id="updmsg" aria-live="polite"></p>
     <p class="legal">BluAlbum is an independent project and not affiliated with or endorsed by Lenbrook / Bluesound. BluOS is a trademark of Lenbrook Industries.</p>
   </div>
   <section id="info" aria-live="polite"></section>
@@ -1707,7 +1727,10 @@ dialog::backdrop {
 // Fixed values: texts, A-Z sections, quality filters, cover sizes, icons.
 
 // App name and version (semantic versioning MAJOR.MINOR.PATCH). The only place where the version is set.
-const APP = { name: "BluAlbum", version: "0.7.6" };
+// Source code and releases on GitHub (link in the about popup).
+const APP = { name: "BluAlbum", version: "0.8.0", repo: "https://github.com/ogig33/blu-album" };
+// Latest release on GitHub (update check in the about popup, only on click). Answers with CORS "*".
+const RELEASES_LATEST = "https://api.github.com/repos/ogig33/blu-album/releases/latest";
 // Service names of the player: the music library and the saved playlists.
 const SVC_LIBRARY = "LocalMusic", SVC_PLAYLISTS = "BluOS";
 // Shown when fetch() fails with a TypeError: usually the browser lacks Local Network permission.
@@ -3249,6 +3272,39 @@ async function loadVersions() {
   playerRows = [["BluOS version", os], ["API version", apiv]].filter((x) => x[1]);
   renderLib();
 }
+// Update check (about popup, on click): compares the latest GitHub release with APP.version.
+// Only this request leaves the home network, and only when the user asks for it.
+async function checkUpdate() {
+  const msg = $("#updmsg"), b = $("#updb");
+  const num = (v) => String(v).replace(/^v/, "").split(".").map((x) => parseInt(x, 10) || 0);
+  const newer = (a, c) => {
+    for (let i = 0; i < 3; i++) if ((a[i] || 0) !== (c[i] || 0)) return (a[i] || 0) > (c[i] || 0);
+    return false;
+  };
+  b.disabled = true;
+  msg.textContent = "Checking\u2026";
+  try {
+    const r = await fetch(RELEASES_LATEST, { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const rel = await r.json();
+    if (!rel.tag_name) throw new Error("no release");
+    if (newer(num(rel.tag_name), num(APP.version))) {
+      msg.textContent = "Update available: ";
+      const a = document.createElement("a");
+      a.href = rel.html_url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = rel.tag_name;
+      msg.append(a);
+    } else {
+      msg.textContent = "You have the latest version.";
+    }
+  } catch (e) {
+    msg.textContent = "Update check failed (" + e.message + ").";
+  } finally {
+    b.disabled = false;
+  }
+}
 // Applies and stores the design. "system" removes data-theme so prefers-color-scheme decides.
 function applyTheme(t) {
   if (t !== "light" && t !== "dark") t = "system";
@@ -3296,6 +3352,10 @@ $("#cchg").onclick = () => {
 };
 // Version in the settings footer and the about popup
 $("#ver").textContent = $("#ver2").textContent = "v" + APP.version;
+// GitHub link in the about popup (shown without "https://")
+$("#repo").href = APP.repo;
+$("#repo").textContent = APP.repo.replace(/^https:\/\//, "");
+$("#updb").onclick = checkUpdate;
 // Footer line opens the about popup.
 $("#aboutb").onclick = () => {
   $("#infodlg").showModal();

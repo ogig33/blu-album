@@ -24,7 +24,8 @@ them, look at the details and play them, right in the browser.
 - **Player bar:** play/pause, previous/next, seek, volume, quality tag of the current track
 - **Full-screen view** of the current track
 - **Settings:** music sources, which chip groups are shown, cover size, light/dark/system design
-- **About:** room name, BluOS and API version, library statistics
+- **About:** room name, BluOS and API version, library statistics, link to this repository,
+  update check on click
 
 BluAlbum is about albums of your own music library. Streaming services, radio, presets and
 inputs stay in the BluOS app.
@@ -39,8 +40,9 @@ inputs stay in the BluOS app.
 BluAlbum talks to the player directly in your home network
 (`http://<player>:11000`, the BluOS Custom Integration API).
 
-Nothing is installed and no data leaves your network. Settings such as the last IP
-address and the design are kept in the browser's local storage.
+Nothing is installed and no data leaves your network, except when you click
+**Check for updates** in the about popup: then BluAlbum asks GitHub for the latest release.
+Settings such as the last IP address and the design are kept in the browser's local storage.
 
 ## Requirements
 - A BluOS player with a music library (network share) and/or a USB drive, in the same network
