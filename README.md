@@ -1,5 +1,7 @@
 # BluAlbum
 
+[![Proudly Vibe Coded](https://vibecoded.fyi/badges/flat/main/proudly-vibe-coded.svg)](https://vibecoded.fyi/)
+
 **Album player for BluOS devices.** A single HTML file that turns the music library of a
 BluOS player (Bluesound, NAD, …) into an album wall: browse your albums by cover, filter
 them, look at the details and play them, right in the browser.
