@@ -31,21 +31,20 @@ inputs stay in the BluOS app.
 
 ## Use it
 1. Download [`blualbum.html`](blualbum.html) (or the file from the latest release).
-2. Open it in your browser (double click). Tested with Safari and Chrome on macOS.
+2. Open it in your browser (double click). Tested with Safari, Chrome and Microsoft Edge on macOS.
 3. Enter the IP address of your player, e.g. `192.168.1.50`, and press **Connect**.
-   The address is shown in your router's device list.
+   You find the address in the BluOS Controller app under **Settings > Diagnostics**
+   or in your router's device list.
 
-The file has to be opened locally. It talks to the player directly in your home network
-(`http://<player>:11000`, the BluOS Custom Integration API). A page served over HTTPS,
-for example GitHub Pages, is not allowed by the browser to reach the player, so BluAlbum
-is not offered as a hosted page.
+BluAlbum talks to the player directly in your home network
+(`http://<player>:11000`, the BluOS Custom Integration API).
 
 Nothing is installed and no data leaves your network. Settings such as the last IP
 address and the design are kept in the browser's local storage.
 
 ## Requirements
 - A BluOS player with a music library (network share) and/or a USB drive, in the same network
-- A current browser (tested with Safari and Chrome)
+- A current browser (tested with Safari, Chrome and Microsoft Edge)
 
 Tested with BluOS 4.18.18 (API v0.5.43) on a Bluesound Powernode.
 
