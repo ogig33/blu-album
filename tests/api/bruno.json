@@ -1,0 +1,6 @@
+{
+  "version": "1",
+  "name": "BluAlbum API",
+  "type": "collection",
+  "ignore": ["node_modules", ".git", "fixtures"]
+}

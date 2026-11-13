@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<browse serviceIcon="/images/LibraryIcon.png" serviceName="Library" searchKey="LocalMusic:Search" type="contextMenu">
+  <item actionURL="/DeleteFavourite?album=1&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="Remove favourite" type="favourite-delete"></item>
+  <item actionURL="/Add?album=1&amp;artist=Peter+Gabriel&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+  <item actionURL="/Add?album=1&amp;artist=Peter+Gabriel&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+  <item actionURL="/Add?album=1&amp;artist=Peter+Gabriel&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+  <item actionURL="/Add?album=1&amp;artist=Peter+Gabriel&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+</browse>

@@ -1,0 +1,8 @@
+# Recorded player answers with personal details (sanitized copies live in tests/ui/fixtures)
+tests/api/fixtures/
+# Node / Playwright
+node_modules/
+test-results/
+playwright-report/
+# macOS
+.DS_Store

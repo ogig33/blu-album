@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<albums category="FAVOURITES" id="327701" service="LocalMusic">
+	<album isFavourite="1">
+		<alb>1</alb>
+		<art>Peter Gabriel</art>
+	</album>
+	<album isFavourite="1">
+		<alb>Brothers In Arms</alb>
+		<art>Dire Straits</art>
+	</album>
+	<album isFavourite="1">
+		<alb>Buddha and Bonsai Vol. 2</alb>
+		<art>Oliver Shanti</art>
+	</album>
+	<album isFavourite="1">
+		<alb>Tears Roll Down</alb>
+		<art>Tears For Fears</art>
+	</album>
+	<album isFavourite="1">
+		<alb>The Wall HiRes</alb>
+		<art>Pink Floyd</art>
+	</album>
+</albums>

@@ -1,0 +1,73 @@
+meta {
+  name: 07 Albums of a section
+  type: http
+  seq: 7
+}
+
+get {
+  url: http://{{host}}:11000/Browse
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const key = bru.getVar("sectionKey");
+  if (!key) {
+    // Needed key not found by an earlier request
+    bru.runner.skipRequest();
+    return;
+  }
+  // Same request as the app: with the inline context menu items
+  req.setUrl("http://" + bru.getEnvVar("host") + ":11000/Browse?key=" + encodeURIComponent(key) + "&withContextMenuItems=1");
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("07-albums-section.xml");
+
+  const a = items("album")[0];
+  bru.setVar("albumKey", a ? attr(a, "browseKey") : "");
+  bru.setVar("albumPlay", a ? attr(a, "playURL") : "");
+  const addLast = (body.split(a || "#none#")[1] || "").match(/actionURL="([^"]*)"[^>]*type="addAll-last"/);
+  bru.setVar("albumAddLast", addLast ? dec(addLast[1]) : "");
+  bru.setVar("albumCm", a ? attr(a, "contextMenuKey") : "");
+  bru.setVar("albumImage", a ? attr(a, "image") : "");
+  bru.setVar("albumTitle", a ? attr(a, "text") : "");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+
+  test("albums have text, text2, image, browseKey, playURL, contextMenuKey", () => {
+    const a = items("album");
+    expect(a.length).to.be.above(0);
+    a.forEach((t) => ["text", "text2", "image", "browseKey", "playURL", "contextMenuKey"].forEach((n) => expect(attr(t, n), n + " of " + attr(t, "text")).to.not.equal("")));
+  });
+  test("inline context menu offers addAll-last", () => expect(/type="addAll-last"/.test(body)).to.equal(true));
+}

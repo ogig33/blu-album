@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<browse serviceIcon="/images/LibraryIcon.png" serviceName="Library" searchKey="LocalMusic:Search" type="sections">
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=%23" text="#" text2="40" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=A" text="A" text2="143" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=B" text="B" text2="130" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=C" text="C" text2="126" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=D" text="D" text2="82" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=E" text="E" text2="63" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=F" text="F" text2="59" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=G" text="G" text2="57" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=H" text="H" text2="64" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=I" text="I" text2="56" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=J" text="J" text2="22" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=K" text="K" text2="24" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=L" text="L" text2="100" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=M" text="M" text2="108" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=N" text="N" text2="42" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=O" text="O" text2="48" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=P" text="P" text2="81" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=Q" text="Q" text2="5" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=R" text="R" text2="62" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=S" text="S" text2="186" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=T" text="T" text2="329" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=U" text="U" text2="27" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=V" text="V" text2="34" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=W" text="W" text2="53" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=X" text="X" text2="2" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=Y" text="Y" text2="12" type="section"></item>
+  <item browseKey="LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fservice=LocalMusic&amp;limit=50&amp;section=Z" text="Z" text2="7" type="section"></item>
+</browse>

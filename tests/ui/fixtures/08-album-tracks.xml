@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<browse serviceIcon="/images/LibraryIcon.png" serviceName="Library" searchKey="LocalMusic:Search" type="tracks" playURL="/Add?service=LocalMusic&amp;album=1&amp;artist=Peter+Gabriel&amp;playnow=1">
+  <item contextMenuKey="LocalMusic:CM/LocalMusic-Song?album=1&amp;artist=Peter+Gabriel&amp;filename=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F01-Moribund+The+Burgermeister.flac&amp;title=Moribund+The+Burgermeister" playURL="/Add?playnow=1&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F01-Moribund+The+Burgermeister.flac" autoplayURL="/Add?service=LocalMusic&amp;listindex=0&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;album=1&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="1. Moribund The Burgermeister" duration="260" image="/Artwork?service=LocalMusic&amp;artist=Peter+Gabriel&amp;album=1" type="track">
+    <contextMenu>
+      <item actionURL="/AddFavourite?fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F01-Moribund+The+Burgermeister.flac&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?clear=0&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F01-Moribund+The+Burgermeister.flac&amp;playnow=1&amp;service=LocalMusic&amp;where=next" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F01-Moribund+The+Burgermeister.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=next" text="Add next" type="add-next"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F01-Moribund+The+Burgermeister.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="add-last"></item>
+    </contextMenu>
+  </item>
+  <item contextMenuKey="LocalMusic:CM/LocalMusic-Song?album=1&amp;artist=Peter+Gabriel&amp;filename=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F02-Solsbury+Hill.flac&amp;title=Solsbury+Hill" playURL="/Add?playnow=1&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F02-Solsbury+Hill.flac" autoplayURL="/Add?service=LocalMusic&amp;listindex=1&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;album=1&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="2. Solsbury Hill" duration="262" image="/Artwork?service=LocalMusic&amp;artist=Peter+Gabriel&amp;album=1" type="track">
+    <contextMenu>
+      <item actionURL="/AddFavourite?fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F02-Solsbury+Hill.flac&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?clear=0&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F02-Solsbury+Hill.flac&amp;playnow=1&amp;service=LocalMusic&amp;where=next" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F02-Solsbury+Hill.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=next" text="Add next" type="add-next"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F02-Solsbury+Hill.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="add-last"></item>
+    </contextMenu>
+  </item>
+  <item contextMenuKey="LocalMusic:CM/LocalMusic-Song?album=1&amp;artist=Peter+Gabriel&amp;filename=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F03-Modern+Love.flac&amp;title=Modern+Love" playURL="/Add?playnow=1&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F03-Modern+Love.flac" autoplayURL="/Add?service=LocalMusic&amp;listindex=2&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;album=1&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="3. Modern Love" duration="218" image="/Artwork?service=LocalMusic&amp;artist=Peter+Gabriel&amp;album=1" type="track">
+    <contextMenu>
+      <item actionURL="/AddFavourite?fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F03-Modern+Love.flac&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?clear=0&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F03-Modern+Love.flac&amp;playnow=1&amp;service=LocalMusic&amp;where=next" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F03-Modern+Love.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=next" text="Add next" type="add-next"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F03-Modern+Love.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="add-last"></item>
+    </contextMenu>
+  </item>
+  <item contextMenuKey="LocalMusic:CM/LocalMusic-Song?album=1&amp;artist=Peter+Gabriel&amp;filename=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F04-Excuse+Me.flac&amp;title=Excuse+Me" playURL="/Add?playnow=1&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F04-Excuse+Me.flac" autoplayURL="/Add?service=LocalMusic&amp;listindex=3&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;album=1&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="4. Excuse Me" duration="200" image="/Artwork?service=LocalMusic&amp;artist=Peter+Gabriel&amp;album=1" type="track">
+    <contextMenu>
+      <item actionURL="/AddFavourite?fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F04-Excuse+Me.flac&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?clear=0&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F04-Excuse+Me.flac&amp;playnow=1&amp;service=LocalMusic&amp;where=next" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F04-Excuse+Me.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=next" text="Add next" type="add-next"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F04-Excuse+Me.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="add-last"></item>
+    </contextMenu>
+  </item>
+  <item contextMenuKey="LocalMusic:CM/LocalMusic-Song?album=1&amp;artist=Peter+Gabriel&amp;filename=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F05-Humdrum.flac&amp;title=Humdrum" playURL="/Add?playnow=1&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F05-Humdrum.flac" autoplayURL="/Add?service=LocalMusic&amp;listindex=4&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;album=1&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="5. Humdrum" duration="205" image="/Artwork?service=LocalMusic&amp;artist=Peter+Gabriel&amp;album=1" type="track">
+    <contextMenu>
+      <item actionURL="/AddFavourite?fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F05-Humdrum.flac&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?clear=0&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F05-Humdrum.flac&amp;playnow=1&amp;service=LocalMusic&amp;where=next" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F05-Humdrum.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=next" text="Add next" type="add-next"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F05-Humdrum.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="add-last"></item>
+    </contextMenu>
+  </item>
+  <item contextMenuKey="LocalMusic:CM/LocalMusic-Song?album=1&amp;artist=Peter+Gabriel&amp;filename=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F06-Slow+Burn.flac&amp;title=Slow+Burn" playURL="/Add?playnow=1&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F06-Slow+Burn.flac" autoplayURL="/Add?service=LocalMusic&amp;listindex=5&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;album=1&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="6. Slow Burn" duration="276" image="/Artwork?service=LocalMusic&amp;artist=Peter+Gabriel&amp;album=1" type="track">
+    <contextMenu>
+      <item actionURL="/AddFavourite?fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F06-Slow+Burn.flac&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?clear=0&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F06-Slow+Burn.flac&amp;playnow=1&amp;service=LocalMusic&amp;where=next" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F06-Slow+Burn.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=next" text="Add next" type="add-next"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F06-Slow+Burn.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="add-last"></item>
+    </contextMenu>
+  </item>
+  <item contextMenuKey="LocalMusic:CM/LocalMusic-Song?album=1&amp;artist=Peter+Gabriel&amp;filename=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F07-Waiting+For+The+Big+One.flac&amp;title=Waiting+For+The+Big+One" playURL="/Add?playnow=1&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F07-Waiting+For+The+Big+One.flac" autoplayURL="/Add?service=LocalMusic&amp;listindex=6&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;album=1&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="7. Waiting For The Big One" duration="436" image="/Artwork?service=LocalMusic&amp;artist=Peter+Gabriel&amp;album=1" type="track">
+    <contextMenu>
+      <item actionURL="/AddFavourite?fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F07-Waiting+For+The+Big+One.flac&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?clear=0&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F07-Waiting+For+The+Big+One.flac&amp;playnow=1&amp;service=LocalMusic&amp;where=next" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F07-Waiting+For+The+Big+One.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=next" text="Add next" type="add-next"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F07-Waiting+For+The+Big+One.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="add-last"></item>
+    </contextMenu>
+  </item>
+  <item contextMenuKey="LocalMusic:CM/LocalMusic-Song?album=1&amp;artist=Peter+Gabriel&amp;filename=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F08-Down+The+Dolce+Vita.flac&amp;title=Down+The+Dolce+Vita" playURL="/Add?playnow=1&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F08-Down+The+Dolce+Vita.flac" autoplayURL="/Add?service=LocalMusic&amp;listindex=7&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;album=1&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="8. Down The Dolce Vita" duration="306" image="/Artwork?service=LocalMusic&amp;artist=Peter+Gabriel&amp;album=1" type="track">
+    <contextMenu>
+      <item actionURL="/AddFavourite?fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F08-Down+The+Dolce+Vita.flac&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?clear=0&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F08-Down+The+Dolce+Vita.flac&amp;playnow=1&amp;service=LocalMusic&amp;where=next" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F08-Down+The+Dolce+Vita.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=next" text="Add next" type="add-next"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F08-Down+The+Dolce+Vita.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="add-last"></item>
+    </contextMenu>
+  </item>
+  <item contextMenuKey="LocalMusic:CM/LocalMusic-Song?album=1&amp;artist=Peter+Gabriel&amp;filename=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F09-Here+Comes+The+Flood.flac&amp;title=Here+Comes+The+Flood" playURL="/Add?playnow=1&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F09-Here+Comes+The+Flood.flac" autoplayURL="/Add?service=LocalMusic&amp;listindex=8&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;album=1&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="9. Here Comes The Flood" duration="339" image="/Artwork?service=LocalMusic&amp;artist=Peter+Gabriel&amp;album=1" type="track">
+    <contextMenu>
+      <item actionURL="/AddFavourite?fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F09-Here+Comes+The+Flood.flac&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?clear=0&amp;file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F09-Here+Comes+The+Flood.flac&amp;playnow=1&amp;service=LocalMusic&amp;where=next" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F09-Here+Comes+The+Flood.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=next" text="Add next" type="add-next"></item>
+      <item actionURL="/Add?file=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FPeter+Gabriel%2F1977_1%2F09-Here+Comes+The+Flood.flac&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="add-last"></item>
+    </contextMenu>
+  </item>
+</browse>

@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<browse serviceIcon="/images/LibraryIcon.png" serviceName="Library" searchKey="LocalMusic:Search" type="albums">
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=1&amp;artist=Peter+Gabriel" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=1&amp;artist=Peter+Gabriel&amp;isFavourite=1" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=1&amp;artist=Peter+Gabriel" text="1" text2="Peter Gabriel" tracks="9" isFavourite="true" image="/Artwork?service=LocalMusic&amp;album=1&amp;artist=Peter+Gabriel" type="album">
+    <contextMenu>
+      <item actionURL="/DeleteFavourite?album=1&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="Remove favourite" type="favourite-delete"></item>
+      <item actionURL="/Add?album=1&amp;artist=Peter+Gabriel&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=1&amp;artist=Peter+Gabriel&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=1&amp;artist=Peter+Gabriel&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=1&amp;artist=Peter+Gabriel&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=2&amp;artist=Peter+Gabriel" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=2&amp;artist=Peter+Gabriel" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=2&amp;artist=Peter+Gabriel" text="2" text2="Peter Gabriel" tracks="11" image="/Artwork?service=LocalMusic&amp;album=2&amp;artist=Peter+Gabriel" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=2&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=2&amp;artist=Peter+Gabriel&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=2&amp;artist=Peter+Gabriel&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=2&amp;artist=Peter+Gabriel&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=2&amp;artist=Peter+Gabriel&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=3&amp;artist=Peter+Gabriel" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=3&amp;artist=Peter+Gabriel" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=3&amp;artist=Peter+Gabriel" text="3" text2="Peter Gabriel" tracks="10" image="/Artwork?service=LocalMusic&amp;album=3&amp;artist=Peter+Gabriel" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=3&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=3&amp;artist=Peter+Gabriel&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=3&amp;artist=Peter+Gabriel&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=3&amp;artist=Peter+Gabriel&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=3&amp;artist=Peter+Gabriel&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=4&amp;artist=Peter+Gabriel" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=4&amp;artist=Peter+Gabriel" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=4&amp;artist=Peter+Gabriel" text="4" text2="Peter Gabriel" tracks="8" image="/Artwork?service=LocalMusic&amp;album=4&amp;artist=Peter+Gabriel" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=4&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=4&amp;artist=Peter+Gabriel&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=4&amp;artist=Peter+Gabriel&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=4&amp;artist=Peter+Gabriel&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=4&amp;artist=Peter+Gabriel&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=9&amp;artist=Eros+Ramazzotti" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=9&amp;artist=Eros+Ramazzotti" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=9&amp;artist=Eros+Ramazzotti" text="9" text2="Eros Ramazzotti" tracks="13" image="/Artwork?service=LocalMusic&amp;album=9&amp;artist=Eros+Ramazzotti" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=9&amp;artist=Eros+Ramazzotti&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=9&amp;artist=Eros+Ramazzotti&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=9&amp;artist=Eros+Ramazzotti&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=9&amp;artist=Eros+Ramazzotti&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=9&amp;artist=Eros+Ramazzotti&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=18&amp;artist=Moby" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=18&amp;artist=Moby" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=18&amp;artist=Moby" text="18" text2="Moby" tracks="18" image="/Artwork?service=LocalMusic&amp;album=18&amp;artist=Moby" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=18&amp;artist=Moby&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=18&amp;artist=Moby&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=18&amp;artist=Moby&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=18&amp;artist=Moby&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=18&amp;artist=Moby&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=19&amp;artist=Adele" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=19&amp;artist=Adele" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=19&amp;artist=Adele" text="19" text2="Adele" tracks="12" image="/Artwork?service=LocalMusic&amp;album=19&amp;artist=Adele" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=19&amp;artist=Adele&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=19&amp;artist=Adele&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=19&amp;artist=Adele&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=19&amp;artist=Adele&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=19&amp;artist=Adele&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=21&amp;artist=Adele" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=21&amp;artist=Adele" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=21&amp;artist=Adele" text="21" text2="Adele" tracks="13" image="/Artwork?service=LocalMusic&amp;album=21&amp;artist=Adele" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=21&amp;artist=Adele&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=21&amp;artist=Adele&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=21&amp;artist=Adele&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=21&amp;artist=Adele&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=21&amp;artist=Adele&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=101&amp;artist=Depeche+Mode" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=101&amp;artist=Depeche+Mode" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=101&amp;artist=Depeche+Mode" text="101" text2="Depeche Mode" tracks="20" image="/Artwork?service=LocalMusic&amp;album=101&amp;artist=Depeche+Mode" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=101&amp;artist=Depeche+Mode&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=101&amp;artist=Depeche+Mode&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=101&amp;artist=Depeche+Mode&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=101&amp;artist=Depeche+Mode&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=101&amp;artist=Depeche+Mode&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=187&amp;artist=Various" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=187&amp;artist=Various" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=187&amp;artist=Various" text="187" text2="Various" tracks="12" image="/Artwork?service=LocalMusic&amp;album=187&amp;artist=Various" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=187&amp;artist=Various&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=187&amp;artist=Various&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=187&amp;artist=Various&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=187&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=187&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=1984&amp;artist=Van+Halen" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=1984&amp;artist=Van+Halen" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=1984&amp;artist=Van+Halen" text="1984" text2="Van Halen" tracks="9" image="/Artwork?service=LocalMusic&amp;album=1984&amp;artist=Van+Halen" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=1984&amp;artist=Van+Halen&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=1984&amp;artist=Van+Halen&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=1984&amp;artist=Van+Halen&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=1984&amp;artist=Van+Halen&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=1984&amp;artist=Van+Halen&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=1999&amp;artist=Prince" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=1999&amp;artist=Prince" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=1999&amp;artist=Prince" text="1999" text2="Prince" tracks="3" image="/Artwork?service=LocalMusic&amp;album=1999&amp;artist=Prince" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=1999&amp;artist=Prince&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=1999&amp;artist=Prince&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=1999&amp;artist=Prince&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=1999&amp;artist=Prince&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=1999&amp;artist=Prince&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=2112&amp;artist=Rush" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=2112&amp;artist=Rush" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=2112&amp;artist=Rush" text="2112" text2="Rush" tracks="6" image="/Artwork?service=LocalMusic&amp;album=2112&amp;artist=Rush" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=2112&amp;artist=Rush&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=2112&amp;artist=Rush&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=2112&amp;artist=Rush&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=2112&amp;artist=Rush&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=2112&amp;artist=Rush&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=90125&amp;artist=Yes" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=90125&amp;artist=Yes" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=90125&amp;artist=Yes" text="90125" text2="Yes" tracks="15" image="/Artwork?service=LocalMusic&amp;album=90125&amp;artist=Yes" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=90125&amp;artist=Yes&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=90125&amp;artist=Yes&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=90125&amp;artist=Yes&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=90125&amp;artist=Yes&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=90125&amp;artist=Yes&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=10%2C000+Days&amp;artist=Tool" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=10%2C000+Days&amp;artist=Tool" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=10%2C000+Days&amp;artist=Tool" text="10,000 Days" text2="Tool" tracks="11" image="/Artwork?service=LocalMusic&amp;album=10%2C000+Days&amp;artist=Tool" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=10%2C000+Days&amp;artist=Tool&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=10%2C000+Days&amp;artist=Tool&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=10%2C000+Days&amp;artist=Tool&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=10%2C000+Days&amp;artist=Tool&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=10%2C000+Days&amp;artist=Tool&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=10%2C000+Hz+Legend&amp;artist=Air" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=10%2C000+Hz+Legend&amp;artist=Air" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=10%2C000+Hz+Legend&amp;artist=Air" text="10,000 Hz Legend" text2="Air" tracks="11" image="/Artwork?service=LocalMusic&amp;album=10%2C000+Hz+Legend&amp;artist=Air" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=10%2C000+Hz+Legend&amp;artist=Air&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=10%2C000+Hz+Legend&amp;artist=Air&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=10%2C000+Hz+Legend&amp;artist=Air&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=10%2C000+Hz+Legend&amp;artist=Air&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=10%2C000+Hz+Legend&amp;artist=Air&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=100th+Window&amp;artist=Massive+Attack" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=100th+Window&amp;artist=Massive+Attack" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=100th+Window&amp;artist=Massive+Attack" text="100th Window" text2="Massive Attack" tracks="9" image="/Artwork?service=LocalMusic&amp;album=100th+Window&amp;artist=Massive+Attack" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=100th+Window&amp;artist=Massive+Attack&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=100th+Window&amp;artist=Massive+Attack&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=100th+Window&amp;artist=Massive+Attack&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=100th+Window&amp;artist=Massive+Attack&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=100th+Window&amp;artist=Massive+Attack&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=10th+Anniversary+Collection+1993+-+2003&amp;artist=Putumayo+Presents" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=10th+Anniversary+Collection+1993+-+2003&amp;artist=Putumayo+Presents" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=10th+Anniversary+Collection+1993+-+2003&amp;artist=Putumayo+Presents" text="10th Anniversary Collection 1993 - 2003" text2="Putumayo Presents" tracks="24" image="/Artwork?service=LocalMusic&amp;album=10th+Anniversary+Collection+1993+-+2003&amp;artist=Putumayo+Presents" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=10th+Anniversary+Collection+1993+-+2003&amp;artist=Putumayo+Presents&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=10th+Anniversary+Collection+1993+-+2003&amp;artist=Putumayo+Presents&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=10th+Anniversary+Collection+1993+-+2003&amp;artist=Putumayo+Presents&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=10th+Anniversary+Collection+1993+-+2003&amp;artist=Putumayo+Presents&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=10th+Anniversary+Collection+1993+-+2003&amp;artist=Putumayo+Presents&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=111+Centoundici&amp;artist=Tiziano+Ferro" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=111+Centoundici&amp;artist=Tiziano+Ferro" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=111+Centoundici&amp;artist=Tiziano+Ferro" text="111 Centoundici" text2="Tiziano Ferro" tracks="13" image="/Artwork?service=LocalMusic&amp;album=111+Centoundici&amp;artist=Tiziano+Ferro" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=111+Centoundici&amp;artist=Tiziano+Ferro&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=111+Centoundici&amp;artist=Tiziano+Ferro&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=111+Centoundici&amp;artist=Tiziano+Ferro&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=111+Centoundici&amp;artist=Tiziano+Ferro&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=111+Centoundici&amp;artist=Tiziano+Ferro&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=12+Canciones+de+Garcia+Lorca+para+guitara&amp;artist=Paco+de+Lucia%2C+Ricardo+Modrego" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=12+Canciones+de+Garcia+Lorca+para+guitara&amp;artist=Paco+de+Lucia%2C+Ricardo+Modrego" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=12+Canciones+de+Garcia+Lorca+para+guitara&amp;artist=Paco+de+Lucia%2C+Ricardo+Modrego" text="12 Canciones de Garcia Lorca para guitara" text2="Paco de Lucia, Ricardo Modrego" tracks="12" image="/Artwork?service=LocalMusic&amp;album=12+Canciones+de+Garcia+Lorca+para+guitara&amp;artist=Paco+de+Lucia%2C+Ricardo+Modrego" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=12+Canciones+de+Garcia+Lorca+para+guitara&amp;artist=Paco+de+Lucia%2C+Ricardo+Modrego&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=12+Canciones+de+Garcia+Lorca+para+guitara&amp;artist=Paco+de+Lucia%2C+Ricardo+Modrego&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=12+Canciones+de+Garcia+Lorca+para+guitara&amp;artist=Paco+de+Lucia%2C+Ricardo+Modrego&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=12+Canciones+de+Garcia+Lorca+para+guitara&amp;artist=Paco+de+Lucia%2C+Ricardo+Modrego&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=12+Canciones+de+Garcia+Lorca+para+guitara&amp;artist=Paco+de+Lucia%2C+Ricardo+Modrego&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=12+Monkeys&amp;artist=Various" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=12+Monkeys&amp;artist=Various" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=12+Monkeys&amp;artist=Various" text="12 Monkeys" text2="Various" tracks="25" image="/Artwork?service=LocalMusic&amp;album=12+Monkeys&amp;artist=Various" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=12+Monkeys&amp;artist=Various&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=12+Monkeys&amp;artist=Various&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=12+Monkeys&amp;artist=Various&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=12+Monkeys&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=12+Monkeys&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=127+Hours&amp;artist=Various" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=127+Hours&amp;artist=Various" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=127+Hours&amp;artist=Various" text="127 Hours" text2="Various" tracks="14" image="/Artwork?service=LocalMusic&amp;album=127+Hours&amp;artist=Various" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=127+Hours&amp;artist=Various&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=127+Hours&amp;artist=Various&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=127+Hours&amp;artist=Various&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=127+Hours&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=127+Hours&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=1492+-+Conquest+Of+Paradise&amp;artist=Vangelis" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=1492+-+Conquest+Of+Paradise&amp;artist=Vangelis" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=1492+-+Conquest+Of+Paradise&amp;artist=Vangelis" text="1492 - Conquest Of Paradise" text2="Vangelis" tracks="12" image="/Artwork?service=LocalMusic&amp;album=1492+-+Conquest+Of+Paradise&amp;artist=Vangelis" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=1492+-+Conquest+Of+Paradise&amp;artist=Vangelis&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=1492+-+Conquest+Of+Paradise&amp;artist=Vangelis&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=1492+-+Conquest+Of+Paradise&amp;artist=Vangelis&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=1492+-+Conquest+Of+Paradise&amp;artist=Vangelis&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=1492+-+Conquest+Of+Paradise&amp;artist=Vangelis&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=18+Classic+Tracks&amp;artist=Johnny+Cash" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=18+Classic+Tracks&amp;artist=Johnny+Cash" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=18+Classic+Tracks&amp;artist=Johnny+Cash" text="18 Classic Tracks" text2="Johnny Cash" tracks="36" image="/Artwork?service=LocalMusic&amp;album=18+Classic+Tracks&amp;artist=Johnny+Cash" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=18+Classic+Tracks&amp;artist=Johnny+Cash&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=18+Classic+Tracks&amp;artist=Johnny+Cash&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=18+Classic+Tracks&amp;artist=Johnny+Cash&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=18+Classic+Tracks&amp;artist=Johnny+Cash&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=18+Classic+Tracks&amp;artist=Johnny+Cash&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=20+Greatest+Hits&amp;artist=Simon+%26+Garfunkel" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=20+Greatest+Hits&amp;artist=Simon+%26+Garfunkel" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=20+Greatest+Hits&amp;artist=Simon+%26+Garfunkel" text="20 Greatest Hits" text2="Simon &amp; Garfunkel" tracks="20" image="/Artwork?service=LocalMusic&amp;album=20+Greatest+Hits&amp;artist=Simon+%26+Garfunkel" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=20+Greatest+Hits&amp;artist=Simon+%26+Garfunkel&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=20+Greatest+Hits&amp;artist=Simon+%26+Garfunkel&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=20+Greatest+Hits&amp;artist=Simon+%26+Garfunkel&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=20+Greatest+Hits&amp;artist=Simon+%26+Garfunkel&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=20+Greatest+Hits&amp;artist=Simon+%26+Garfunkel&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=20+Jahre+Stereoplay&amp;artist=Various" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=20+Jahre+Stereoplay&amp;artist=Various" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=20+Jahre+Stereoplay&amp;artist=Various" text="20 Jahre Stereoplay" text2="Various" tracks="12" image="/Artwork?service=LocalMusic&amp;album=20+Jahre+Stereoplay&amp;artist=Various" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=20+Jahre+Stereoplay&amp;artist=Various&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=20+Jahre+Stereoplay&amp;artist=Various&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=20+Jahre+Stereoplay&amp;artist=Various&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=20+Jahre+Stereoplay&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=20+Jahre+Stereoplay&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=2001%3A+A+Space+Odyssey&amp;artist=Various" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=2001%3A+A+Space+Odyssey&amp;artist=Various" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=2001%3A+A+Space+Odyssey&amp;artist=Various" text="2001: A Space Odyssey" text2="Various" tracks="13" image="/Artwork?service=LocalMusic&amp;album=2001%3A+A+Space+Odyssey&amp;artist=Various" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=2001%3A+A+Space+Odyssey&amp;artist=Various&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=2001%3A+A+Space+Odyssey&amp;artist=Various&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=2001%3A+A+Space+Odyssey&amp;artist=Various&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=2001%3A+A+Space+Odyssey&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=2001%3A+A+Space+Odyssey&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=24+Postcards+in+Full+Colour&amp;artist=Max+Richter" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=24+Postcards+in+Full+Colour&amp;artist=Max+Richter" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=24+Postcards+in+Full+Colour&amp;artist=Max+Richter" text="24 Postcards in Full Colour" text2="Max Richter" tracks="24" image="/Artwork?service=LocalMusic&amp;album=24+Postcards+in+Full+Colour&amp;artist=Max+Richter" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=24+Postcards+in+Full+Colour&amp;artist=Max+Richter&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=24+Postcards+in+Full+Colour&amp;artist=Max+Richter&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=24+Postcards+in+Full+Colour&amp;artist=Max+Richter&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=24+Postcards+in+Full+Colour&amp;artist=Max+Richter&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=24+Postcards+in+Full+Colour&amp;artist=Max+Richter&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=25+%28Target+Deluxe+Edition%29&amp;artist=Adele" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=25+%28Target+Deluxe+Edition%29&amp;artist=Adele" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=25+%28Target+Deluxe+Edition%29&amp;artist=Adele" text="25 (Target Deluxe Edition)" text2="Adele" tracks="14" image="/Artwork?service=LocalMusic&amp;album=25+%28Target+Deluxe+Edition%29&amp;artist=Adele" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=25+%28Target+Deluxe+Edition%29&amp;artist=Adele&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=25+%28Target+Deluxe+Edition%29&amp;artist=Adele&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=25+%28Target+Deluxe+Edition%29&amp;artist=Adele&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=25+%28Target+Deluxe+Edition%29&amp;artist=Adele&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=25+%28Target+Deluxe+Edition%29&amp;artist=Adele&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=30+%231+Hits&amp;artist=Elvis+Presley" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=30+%231+Hits&amp;artist=Elvis+Presley" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=30+%231+Hits&amp;artist=Elvis+Presley" text="30 #1 Hits" text2="Elvis Presley" tracks="31" image="/Artwork?service=LocalMusic&amp;album=30+%231+Hits&amp;artist=Elvis+Presley" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=30+%231+Hits&amp;artist=Elvis+Presley&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=30+%231+Hits&amp;artist=Elvis+Presley&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=30+%231+Hits&amp;artist=Elvis+Presley&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=30+%231+Hits&amp;artist=Elvis+Presley&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=30+%231+Hits&amp;artist=Elvis+Presley&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=30+%28HiRes%29&amp;artist=Adele" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=30+%28HiRes%29&amp;artist=Adele" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=30+%28HiRes%29&amp;artist=Adele" text="30 (HiRes)" text2="Adele" tracks="12" image="/Artwork?service=LocalMusic&amp;album=30+%28HiRes%29&amp;artist=Adele" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=30+%28HiRes%29&amp;artist=Adele&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=30+%28HiRes%29&amp;artist=Adele&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=30+%28HiRes%29&amp;artist=Adele&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=30+%28HiRes%29&amp;artist=Adele&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=30+%28HiRes%29&amp;artist=Adele&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=30+-+very+best&amp;artist=Deep+Purple" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=30+-+very+best&amp;artist=Deep+Purple" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=30+-+very+best&amp;artist=Deep+Purple" text="30 - very best" text2="Deep Purple" tracks="18" image="/Artwork?service=LocalMusic&amp;album=30+-+very+best&amp;artist=Deep+Purple" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=30+-+very+best&amp;artist=Deep+Purple&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=30+-+very+best&amp;artist=Deep+Purple&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=30+-+very+best&amp;artist=Deep+Purple&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=30+-+very+best&amp;artist=Deep+Purple&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=30+-+very+best&amp;artist=Deep+Purple&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=4+gewinnt&amp;artist=Die+Fantastischen+Vier" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=4+gewinnt&amp;artist=Die+Fantastischen+Vier" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=4+gewinnt&amp;artist=Die+Fantastischen+Vier" text="4 gewinnt" text2="Die Fantastischen Vier" tracks="18" image="/Artwork?service=LocalMusic&amp;album=4+gewinnt&amp;artist=Die+Fantastischen+Vier" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=4+gewinnt&amp;artist=Die+Fantastischen+Vier&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=4+gewinnt&amp;artist=Die+Fantastischen+Vier&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=4+gewinnt&amp;artist=Die+Fantastischen+Vier&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=4+gewinnt&amp;artist=Die+Fantastischen+Vier&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=4+gewinnt&amp;artist=Die+Fantastischen+Vier&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=40+Years%3A+A+Charlie+Brown+Christmas&amp;artist=Various" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=40+Years%3A+A+Charlie+Brown+Christmas&amp;artist=Various" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=40+Years%3A+A+Charlie+Brown+Christmas&amp;artist=Various" text="40 Years: A Charlie Brown Christmas" text2="Various" tracks="12" image="/Artwork?service=LocalMusic&amp;album=40+Years%3A+A+Charlie+Brown+Christmas&amp;artist=Various" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=40+Years%3A+A+Charlie+Brown+Christmas&amp;artist=Various&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=40+Years%3A+A+Charlie+Brown+Christmas&amp;artist=Various&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=40+Years%3A+A+Charlie+Brown+Christmas&amp;artist=Various&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=40+Years%3A+A+Charlie+Brown+Christmas&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=40+Years%3A+A+Charlie+Brown+Christmas&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=4630+Bochum&amp;artist=Herbert+Gr%C3%B6nemeyer" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=4630+Bochum&amp;artist=Herbert+Gr%C3%B6nemeyer" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=4630+Bochum&amp;artist=Herbert+Gr%C3%B6nemeyer" text="4630 Bochum" text2="Herbert Grönemeyer" tracks="10" image="/Artwork?service=LocalMusic&amp;album=4630+Bochum&amp;artist=Herbert+Gr%C3%B6nemeyer" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=4630+Bochum&amp;artist=Herbert+Gr%C3%B6nemeyer&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=4630+Bochum&amp;artist=Herbert+Gr%C3%B6nemeyer&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=4630+Bochum&amp;artist=Herbert+Gr%C3%B6nemeyer&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=4630+Bochum&amp;artist=Herbert+Gr%C3%B6nemeyer&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=4630+Bochum&amp;artist=Herbert+Gr%C3%B6nemeyer&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=48+Hrs.&amp;artist=James+Horner" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=48+Hrs.&amp;artist=James+Horner" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=48+Hrs.&amp;artist=James+Horner" text="48 Hrs." text2="James Horner" tracks="13" image="/Artwork?service=LocalMusic&amp;album=48+Hrs.&amp;artist=James+Horner" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=48+Hrs.&amp;artist=James+Horner&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=48+Hrs.&amp;artist=James+Horner&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=48+Hrs.&amp;artist=James+Horner&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=48+Hrs.&amp;artist=James+Horner&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=48+Hrs.&amp;artist=James+Horner&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=50+Words+for+Snow&amp;artist=Kate+Bush" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=50+Words+for+Snow&amp;artist=Kate+Bush" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=50+Words+for+Snow&amp;artist=Kate+Bush" text="50 Words for Snow" text2="Kate Bush" tracks="7" image="/Artwork?service=LocalMusic&amp;album=50+Words+for+Snow&amp;artist=Kate+Bush" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=50+Words+for+Snow&amp;artist=Kate+Bush&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=50+Words+for+Snow&amp;artist=Kate+Bush&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=50+Words+for+Snow&amp;artist=Kate+Bush&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=50+Words+for+Snow&amp;artist=Kate+Bush&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=50+Words+for+Snow&amp;artist=Kate+Bush&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=%28500%29+Days+Of+Summer&amp;artist=Various" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=%28500%29+Days+Of+Summer&amp;artist=Various" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=%28500%29+Days+Of+Summer&amp;artist=Various" text="(500) Days Of Summer" text2="Various" tracks="16" image="/Artwork?service=LocalMusic&amp;album=%28500%29+Days+Of+Summer&amp;artist=Various" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=%28500%29+Days+Of+Summer&amp;artist=Various&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=%28500%29+Days+Of+Summer&amp;artist=Various&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=%28500%29+Days+Of+Summer&amp;artist=Various&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=%28500%29+Days+Of+Summer&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=%28500%29+Days+Of+Summer&amp;artist=Various&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=6+String+Theory&amp;artist=Lee+Ritenour" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=6+String+Theory&amp;artist=Lee+Ritenour" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=6+String+Theory&amp;artist=Lee+Ritenour" text="6 String Theory" text2="Lee Ritenour" tracks="15" image="/Artwork?service=LocalMusic&amp;album=6+String+Theory&amp;artist=Lee+Ritenour" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=6+String+Theory&amp;artist=Lee+Ritenour&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=6+String+Theory&amp;artist=Lee+Ritenour&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=6+String+Theory&amp;artist=Lee+Ritenour&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=6+String+Theory&amp;artist=Lee+Ritenour&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=6+String+Theory&amp;artist=Lee+Ritenour&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=8%3A30&amp;artist=Weather+Report" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=8%3A30&amp;artist=Weather+Report" playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=8%3A30&amp;artist=Weather+Report" text="8:30" text2="Weather Report" tracks="13" image="/Artwork?service=LocalMusic&amp;album=8%3A30&amp;artist=Weather+Report" type="album">
+    <contextMenu>
+      <item actionURL="/AddFavourite?album=8%3A30&amp;artist=Weather+Report&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/Add?album=8%3A30&amp;artist=Weather+Report&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?album=8%3A30&amp;artist=Weather+Report&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1&amp;where=nextAlbum" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?album=8%3A30&amp;artist=Weather+Report&amp;playnow=-1&amp;service=LocalMusic&amp;where=nextAlbum" text="Add next" type="addAll-next"></item>
+      <item actionURL="/Add?album=8%3A30&amp;artist=Weather+Report&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="addAll-last"></item>
+    </contextMenu>
+  </item>
+</browse>

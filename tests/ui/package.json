@@ -1,0 +1,11 @@
+{
+  "name": "blu-album-ui-tests",
+  "private": true,
+  "description": "UI tests for BluAlbum: the app in headless Chromium against a mock BluOS player",
+  "scripts": {
+    "test": "node run.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}

@@ -1,0 +1,68 @@
+meta {
+  name: 09 Album context menu
+  type: http
+  seq: 9
+}
+
+get {
+  url: http://{{host}}:11000/Browse
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const key = bru.getVar("albumCm");
+  if (!key) {
+    // Needed key not found by an earlier request
+    bru.runner.skipRequest();
+    return;
+  }
+  // Same request as the app: with the inline context menu items
+  req.setUrl("http://" + bru.getEnvVar("host") + ":11000/Browse?key=" + encodeURIComponent(key) + "&withContextMenuItems=1");
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("09-album-context-menu.xml");
+
+  const f = items().find((t) => /^favourite-(add|delete)$/.test(attr(t, "type")));
+  bru.setVar("favUrl", f ? attr(f, "actionURL") : "");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+
+  test("type=contextMenu", () => expect(attr(tags("browse")[0] || "", "type")).to.equal("contextMenu"));
+  test("offers add-now and addAll-last", () => {
+    ["add-now", "addAll-last"].forEach((k) => expect(items(k).length, k).to.be.above(0));
+  });
+  test("library album offers favourite-add or favourite-delete", () => {
+    expect(items().some((t) => /^favourite-(add|delete)$/.test(attr(t, "type")))).to.equal(true);
+  });
+}

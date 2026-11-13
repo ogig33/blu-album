@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<playlist name="__bluos_album_player_test__" shuffle="0" repeat="2" length="12" id="485">
+  <song service="LocalMusic" id="0">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>Under Stars</title>
+    <track>1</track>
+    <date>1983</date>
+    <time>270</time>
+    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/01. Under Stars.flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+  </song>
+  <song service="LocalMusic" id="1">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>The Secret Place</title>
+    <track>2</track>
+    <date>1983</date>
+    <time>210</time>
+    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/02. The Secret Place.flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+  </song>
+  <song service="LocalMusic" id="2">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>Matta</title>
+    <track>3</track>
+    <date>1983</date>
+    <time>260</time>
+    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/03. Matta.flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+  </song>
+  <song service="LocalMusic" id="3">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>Signals</title>
+    <track>4</track>
+    <date>1983</date>
+    <time>167</time>
+    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/04. Signals.flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+  </song>
+  <song service="LocalMusic" id="4">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>An Ending (Ascent)</title>
+    <track>5</track>
+    <date>1983</date>
+    <time>266</time>
+    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/05. An Ending (Ascent).flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+  </song>
+  <song service="LocalMusic" id="5">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>Under Stars II</title>
+    <track>6</track>
+    <date>1983</date>
+    <time>203</time>
+    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/06. Under Stars II.flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+  </song>
+  <song service="LocalMusic" id="6">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>Drift</title>
+    <track>7</track>
+    <date>1983</date>
+    <time>189</time>
+    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/07. Drift.flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+  </song>
+  <song service="LocalMusic" id="7">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>Silver Morning</title>
+    <track>8</track>
+    <date>1983</date>
+    <time>159</time>
+    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/08. Silver Morning.flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+  </song>
+  <song service="LocalMusic" id="8">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>Deep Blue Day</title>
+    <track>9</track>
+    <date>1983</date>
+    <time>239</time>
+    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/09. Deep Blue Day.flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+  </song>
+  <song service="LocalMusic" id="9">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>Weightless</title>
+    <track>10</track>
+    <date>1983</date>
+    <time>275</time>
+    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/10. Weightless.flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+  </song>
+  <song service="LocalMusic" id="10">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>Always Returning</title>
+    <track>11</track>
+    <date>1983</date>
+    <time>244</time>
+    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/11. Always Returning.flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+  </song>
+  <song service="LocalMusic" id="11">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>Stars</title>
+    <track>12</track>
+    <date>1983</date>
+    <time>480</time>
+    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/12. Stars.flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+  </song>
+</playlist>

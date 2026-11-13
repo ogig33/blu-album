@@ -1,0 +1,64 @@
+meta {
+  name: 01 Top menu
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://{{host}}:11000/Browse?withContextMenuItems=1
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("01-top-menu.xml");
+
+  // Remember the source keys for the following requests
+  const link = items("link");
+  const lib = link.find((t) => /LibraryIcon/.test(attr(t, "image")));
+  const usb = link.find((t) => /USBIcon/.test(attr(t, "image")));
+  const pl = link.find((t) => /myplaylists/i.test(attr(t, "image")));
+  bru.setVar("libKey", lib ? attr(lib, "browseKey") : "");
+  bru.setVar("usbKey", usb ? attr(usb, "browseKey") : "");
+  bru.setVar("libSvc", lib ? attr(lib, "browseKey").split(":")[0] : "");
+  bru.setVar("usbSvc", usb ? attr(usb, "browseKey").split(":")[0] : "");
+  bru.setVar("playlistsKey", pl ? attr(pl, "browseKey") : "");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+
+  test("has a library or USB source", () => {
+    expect(items("link").some((t) => /LibraryIcon|USBIcon/.test(attr(t, "image")))).to.equal(true);
+  });
+  test("has the saved playlists entry (icon ci_myplaylists)", () => {
+    expect(items("link").some((t) => /myplaylists/i.test(attr(t, "image")))).to.equal(true);
+  });
+}

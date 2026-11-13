@@ -1,0 +1,3491 @@
+<!doctype html>
+<!--
+  BluAlbum – album player for BluOS devices (version: see APP in the script)
+  Unofficial, single-file album browser and player remote for BluOS players.
+  BluAlbum is an independent project and not affiliated with or endorsed by Lenbrook / Bluesound.
+  BluOS is a trademark of Lenbrook Industries.
+  Everything (HTML, CSS, JavaScript) is in this one file; open it in a browser.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BluAlbum</title>
+<meta name="application-name" content="BluAlbum">
+<meta name="apple-mobile-web-app-title" content="BluAlbum">
+<style>
+/* ---------- Colour tokens ----------
+   Dark is the default. "System" (no data-theme attribute) follows prefers-color-scheme;
+   the toggle in the settings panel forces data-theme="light" or "dark". */
+:root {
+  --bar:#18191b;
+  --bg:#212225;
+  --panel:#2c2d31;
+  --line:#3c3d42;
+  --ink:#dddad3;
+  --dim:#9c9ca2;
+  --acc:#d3b062;
+  --accink:#1c1709;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bar:#e4e1d7;
+    --bg:#f4f2ed;
+    --panel:#fff;
+    --line:#d9d5ca;
+    --ink:#1b1d24;
+    --dim:#6a6f80;
+    --acc:#b8860b;
+    --accink:#fff;
+  }
+}
+:root[data-theme="light"] {
+  --bar:#e4e1d7;
+  --bg:#f4f2ed;
+  --panel:#fff;
+  --line:#d9d5ca;
+  --ink:#1b1d24;
+  --dim:#6a6f80;
+  --acc:#b8860b;
+  --accink:#fff;
+}
+:root[data-theme="dark"] {
+  --bar:#18191b;
+  --bg:#212225;
+  --panel:#2c2d31;
+  --line:#3c3d42;
+  --ink:#dddad3;
+  --dim:#9c9ca2;
+  --acc:#d3b062;
+  --accink:#1c1709;
+}
+/* ---------- Base ---------- */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+}
+body {
+  padding-bottom: 98px;
+  background: var(--bg);
+  color: var(--ink);
+  font:
+    15px/1.4 -apple-system,
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+}
+/* ---------- Header ---------- */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bar);
+  border-bottom: 1px solid var(--line);
+  padding: 10px 14px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+h1 {
+  font:
+    600 20px/1 Georgia,
+    "Iowan Old Style",
+    serif;
+  margin: 0 8px 0 0;
+}
+input,
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+input {
+  min-width: 0;
+}
+#gear {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--acc);
+  border: 0;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+#qbtn {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--acc);
+  border: 0;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+#qbtn svg {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+#qbtn:hover {
+  filter: brightness(1.2);
+}
+#qbtn:active {
+  transform: scale(.92);
+}
+/* ---------- Queue panel (slides in from the right) ---------- */
+#qside {
+  position: fixed;
+  right: 0;
+  top: var(--hh,56px);
+  bottom: var(--fh,56px);
+  z-index: 15;
+  width: min(360px, 92vw);
+  background: var(--bar);
+  border-left: 1px solid var(--line);
+  box-shadow: -6px 0 24px rgba(0, 0, 0, .35);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform .25s, visibility 0s .25s;
+}
+#qside.open {
+  transform: none;
+  visibility: visible;
+  transition: transform .25s;
+}
+/* Pinned queue: on wide screens the content makes room for the panel instead of being covered. */
+#qside.open {
+  box-shadow: none;
+}
+@media (min-width: 800px) {
+  body.qpin #az,
+  body.qpin #msg,
+  body.qpin #gstat,
+  body.qpin #grid {
+    margin-right: 360px;
+  }
+}
+/* Queue status bar: number of tracks and total time on the left, delete / save / clear on the right;
+   sits flush on top of the page footer */
+.qf {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px 6px 14px;
+  border-top: 1px solid var(--line);
+}
+#qcount {
+  flex: 1;
+  min-width: 0;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  white-space: pre-line;
+  overflow: hidden;
+}
+.qf button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--acc);
+}
+.qf button:hover {
+  filter: brightness(1.2);
+}
+/* Shuffle / repeat switched on (state from /Status) */
+.qf button[aria-pressed=true] {
+  background: var(--acc);
+  color: var(--accink);
+  /* background only around the symbol (28 px), the button keeps its size */
+  padding: 5px;
+  background-clip: content-box;
+  border-radius: 10px;
+}
+.qf button[hidden] {
+  display: none;
+}
+.qf button:disabled {
+  opacity: .35;
+  cursor: default;
+  filter: none;
+}
+.qf svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+#qlist {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+#qlist:empty::before {
+  content: "The queue is empty.";
+  display: block;
+  padding: 14px;
+  color: var(--dim);
+}
+#qlist li {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+}
+#qlist li.cur {
+  background: var(--bg);
+  box-shadow: inset 3px 0 0 var(--acc);
+}
+#qlist .it {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  border: 0;
+  background: none;
+  border-radius: 0;
+  padding: 8px 6px 8px 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+#qlist .it:hover {
+  background: var(--bg);
+}
+.qn {
+  color: var(--dim);
+  min-width: 2.2em;
+  text-align: right;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+li.cur .qn {
+  color: var(--acc);
+}
+.qt {
+  min-width: 0;
+}
+.qt b,
+.qt span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qt span {
+  color: var(--dim);
+  font-size: 13px;
+}
+.qd {
+  flex: none;
+  align-self: center;
+  margin-left: auto;
+  min-width: 3.6em;
+  text-align: right;
+  color: var(--dim);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+#qlist .rm {
+  flex: none;
+  border: 0;
+  background: none;
+  border-radius: 0;
+  padding: 0 12px;
+  color: var(--dim);
+}
+#qlist .rm svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+#qlist .rm:hover {
+  color: var(--ink);
+}
+/* With a mouse: the duration sits at the right edge; on hover (or keyboard focus) the remove button
+   takes its place. Touch screens without hover show the remove button next to the duration. */
+@media (hover: hover) {
+  #qlist li {
+    position: relative;
+  }
+  #qlist .it {
+    padding-right: 14px;
+  }
+  #qlist .rm {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0 14px;
+    opacity: 0;
+  }
+  #qlist li:hover .rm,
+  #qlist .rm:focus-visible {
+    opacity: 1;
+  }
+  #qlist li:hover .qd,
+  #qlist li:has(.rm:focus-visible) .qd {
+    visibility: hidden;
+  }
+}
+#gear svg {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+#gear:hover {
+  filter: brightness(1.2);
+}
+#gear:active {
+  transform: scale(.92);
+}
+/* ---------- Settings panel (slides in from the left) ---------- */
+#scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+  background: rgba(0, 0, 0, .55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s;
+}
+#scrim.on {
+  opacity: 1;
+  pointer-events: auto;
+}
+#side {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  width: min(320px, 86vw);
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  box-shadow: 6px 0 24px rgba(0, 0, 0, .35);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition: transform .25s, visibility 0s .25s;
+}
+#side.open {
+  transform: none;
+  visibility: visible;
+  transition: transform .25s;
+}
+/* Compact connection line */
+#cline {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+#cline[hidden],
+#cform[hidden] {
+  display: none;
+}
+#cname {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#cip {
+  color: var(--dim);
+  font-size: 13px;
+  flex: 1;
+  white-space: nowrap;
+}
+#cchg {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--acc);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+#cform {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#side h2 {
+  font:
+    600 20px/1.2 Georgia,
+    "Iowan Old Style",
+    serif;
+  margin: 0;
+}
+#side label {
+  color: var(--dim);
+}
+#iphelp {
+  margin: 0;
+  color: var(--dim);
+  font-size: 13px;
+}
+#side input {
+  width: 100%;
+}
+#side {
+  overflow-y: auto;
+}
+#side > * {
+  flex-shrink: 0;
+}
+#info {
+  margin-top: 6px;
+  border-top: 1px solid var(--line);
+}
+#info:empty {
+  display: none;
+}
+#info h3,
+#settings h3 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--dim);
+  margin: 16px 0 8px;
+}
+#settings {
+  margin-top: 6px;
+  border-top: 1px solid var(--line);
+}
+#settings .srow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+}
+#settings .srow > span {
+  flex: 1;
+}
+#srcl {
+  display: grid;
+}
+#themes,
+#sizes {
+  display: flex;
+  gap: 6px;
+}
+#themes button,
+#sizes button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 34px;
+  padding: 0;
+}
+#themes button[aria-pressed=true],
+#sizes button[aria-pressed=true] {
+  background: var(--acc);
+  color: var(--accink);
+  border-color: var(--acc);
+  font-weight: 600;
+}
+/* On/off switch */
+.sw {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border-radius: 13px;
+  flex: none;
+}
+.sw::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--dim);
+  transition: transform .15s, background .15s;
+}
+.sw[aria-checked=true] {
+  background: var(--acc);
+  border-color: var(--acc);
+}
+.sw[aria-checked=true]::after {
+  transform: translateX(18px);
+  background: var(--accink);
+}
+#about {
+  margin-top: auto;
+  flex: none;
+  border-top: 1px solid var(--line);
+}
+#aboutb {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  color: var(--dim);
+  font-size: 13px;
+}
+#info .kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 14px;
+  margin: 0;
+}
+#info .kv dt {
+  color: var(--dim);
+}
+#info .kv dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+#sclose {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--dim);
+}
+#sclose:hover {
+  color: var(--ink);
+}
+#sclose svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+#sclose {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+}
+@media (prefers-reduced-motion: reduce) {
+  #side,
+  #scrim,
+  #qside {
+    transition: none;
+  }
+}
+#q {
+  flex: 1;
+  min-width: 160px;
+}
+button {
+  cursor: pointer;
+}
+/* ---------- Footer: transport, now playing, volume ---------- */
+#ctl {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--bar);
+  border-top: 1px solid var(--line);
+}
+#prog {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 14px;
+  z-index: 1;
+}
+#prog.seek {
+  cursor: pointer;
+}
+#prog .pt {
+  height: 3px;
+  background: var(--line);
+  transition: height .12s;
+}
+#prog.seek:hover .pt,
+#prog:focus-visible .pt {
+  height: 6px;
+}
+#prog .pf {
+  height: 100%;
+  width: var(--w,0%);
+  background: var(--acc);
+}
+#prog:focus-visible {
+  outline: none;
+}
+#ctl .tp,
+#ctl .vl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#ctl .vl {
+  justify-self: end;
+}
+.cv {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  background: var(--panel);
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+}
+.cv img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cv img[hidden] {
+  display: none;
+}
+.cv[role=button] {
+  cursor: pointer;
+}
+/* ---------- Full-screen now playing ---------- */
+/* Covers everything above the footer with a blurred layer: cover left half, title / artist / album right half. */
+#full {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--fh,56px);
+  z-index: 16;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 4vw;
+  padding: 5vh 5vw;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(1.2);
+  backdrop-filter: blur(28px) saturate(1.2);
+  cursor: pointer;
+}
+#full[hidden] {
+  display: none;
+}
+/* With a mouse the full-screen view covers the whole screen; the footer slides in only while the
+   pointer is near the bottom edge (body.full / body.fullbar, set in showFull and the mousemove handler).
+   Touch devices keep the footer visible. */
+@media (hover: hover) {
+  body.full #full {
+    bottom: 0;
+  }
+  body.full #ctl {
+    z-index: 17;
+    transform: translateY(100%);
+    transition: transform .2s ease;
+  }
+  body.full.fullbar #ctl {
+    transform: none;
+  }
+  body.full #full .fcov {
+    width: min(100%, 90vh);
+  }
+}
+#full .fcov {
+  justify-self: end;
+  width: min(100%, calc(100vh - var(--fh,56px) - 10vh));
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--panel);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .45);
+}
+#full .fcov img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+#full .fcov img:not([src]) {
+  visibility: hidden;
+}
+#full .ftx {
+  min-width: 0;
+}
+#full h2 {
+  margin: 0 0 14px;
+  font: 600 clamp(26px, 4vw, 56px)/1.12 Georgia, serif;
+  overflow-wrap: anywhere;
+}
+#full p {
+  margin: 0 0 8px;
+  font-size: clamp(17px, 2vw, 28px);
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+#full #ft2 {
+  color: var(--ink);
+}
+@media (max-aspect-ratio: 1/1) {
+  #full {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    align-content: center;
+    text-align: center;
+  }
+  #full .fcov {
+    justify-self: center;
+    width: min(100%, 52vh);
+  }
+}
+.np {
+  min-width: 0;
+}
+.nt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 600;
+}
+#nt1 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.na {
+  color: var(--dim);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.q[hidden] {
+  display: none !important;
+}
+/* Gold (HD) and bronze (MQA) variants of the silver quality tag */
+.q.q-hd {
+  color: #6b4a06;
+  text-shadow: 0 1px 0 rgba(255, 244, 200, .85), 0 -1px 0 rgba(90, 60, 0, .3);
+  background:
+    linear-gradient(
+      160deg,
+      #fff3c4 0%,
+      #f0cf6a 36%,
+      #c99a2e 52%,
+      #ecc860 78%,
+      #fbe7a4 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 225, .9),
+    inset 0 -1px 0 rgba(110, 72, 0, .35),
+    0 1px 2px rgba(0, 0, 0, .45);
+}
+.q.q-mqa {
+  color: #4e2a12;
+  text-shadow: 0 1px 0 rgba(255, 222, 190, .7), 0 -1px 0 rgba(60, 25, 5, .35);
+  background:
+    linear-gradient(
+      160deg,
+      #f3c9a0 0%,
+      #cf8c55 36%,
+      #9c5a2c 52%,
+      #c9834c 78%,
+      #e8b68a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 228, 200, .75),
+    inset 0 -1px 0 rgba(70, 30, 5, .4),
+    0 1px 2px rgba(0, 0, 0, .45);
+}
+.q.q-mp3 {
+  color: #5a1d0c;
+  text-shadow: 0 1px 0 rgba(255, 214, 190, .75), 0 -1px 0 rgba(80, 20, 5, .35);
+  background:
+    linear-gradient(
+      160deg,
+      #ffc8a8 0%,
+      #ea8a5c 36%,
+      #b4502c 52%,
+      #df7a4c 78%,
+      #f9b48e 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 225, 205, .8),
+    inset 0 -1px 0 rgba(90, 25, 5, .4),
+    0 1px 2px rgba(0, 0, 0, .45);
+}
+/* Source (USB / library) in the album popup: outline icon and name */
+#ds {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 12px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+#ds:empty {
+  display: none;
+}
+#dlg #ds svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.q {
+  flex: none;
+  font:
+    800 11px/1 -apple-system,
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+  letter-spacing: .08em;
+  padding: 3px 7px;
+  border-radius: 5px;
+  border: 0;
+  color: #555a63;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .8), 0 -1px 0 rgba(0, 0, 0, .22);
+  background:
+    linear-gradient(
+      160deg,
+      #f2f3f5 0%,
+      #cfd2d8 38%,
+      #a7abb3 52%,
+      #d6d9de 78%,
+      #eceef1 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .85),
+    inset 0 -1px 0 rgba(0, 0, 0, .28),
+    0 1px 2px rgba(0, 0, 0, .45);
+}
+#ctl button:disabled {
+  opacity: .4;
+  cursor: default;
+}
+#vs {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 140px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+}
+#vs::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background:
+    linear-gradient(
+      to right,
+      var(--acc) var(--p,0%),
+      var(--line) var(--p,0%));
+}
+#vs::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: var(--acc);
+  border: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+}
+#vs::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+}
+#vs::-moz-range-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--acc);
+}
+#vs::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--acc);
+  border: 0;
+}
+#vs:disabled {
+  opacity: .4;
+  cursor: default;
+}
+@media (max-width: 600px) {
+  body {
+    padding-bottom: 152px;
+  }
+  #ctl {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    gap: 8px 10px;
+  }
+  .cv {
+    width: 48px;
+    height: 48px;
+  }
+  #ctl .vl {
+    grid-column: 1/-1;
+    justify-self: stretch;
+  }
+  #vs {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+  :root {
+    --bh:164px;
+  }
+}
+#ctl button {
+  width: 38px;
+  height: 38px;
+  min-width: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--acc);
+  color: var(--accink);
+  border: 0;
+  font-size: 21px;
+  line-height: 38px;
+  text-align: center;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .45);
+}
+#ctl button:active {
+  transform: scale(.92);
+}
+#ctl button {
+  display: grid;
+  place-items: center;
+}
+/* Previous / next and volume buttons: just the symbol, no round background */
+#bk,
+#sk,
+#vd,
+#vu {
+  background: none !important;
+  box-shadow: none !important;
+  color: var(--acc) !important;
+}
+#ctl #bk,
+#ctl #sk {
+  font-size: 30px;
+}
+#ctl #vd svg,
+#ctl #vu svg {
+  width: 30px;
+  height: 30px;
+}
+#bk:hover,
+#sk:hover,
+#vd:hover,
+#vu:hover {
+  filter: brightness(1.2);
+}
+#ctl svg {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+#ctl #pp svg {
+  width: 20px;
+  height: 20px;
+}
+button.pri {
+  background: var(--acc);
+  color: var(--accink);
+  border-color: var(--acc);
+  font-weight: 600;
+}
+button:focus-visible,
+input:focus-visible,
+.card:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+/* ---------- Genre chips ---------- */
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px;
+}
+nav button {
+  padding: 5px 12px;
+  flex: none;
+  white-space: nowrap;
+}
+nav button[aria-pressed=true] {
+  background: var(--acc);
+  color: var(--accink);
+  border-color: var(--acc);
+}
+nav button.sp {
+  font-weight: 700;
+  border-color: var(--acc);
+  color: var(--acc);
+}
+nav button svg {
+  display: block;
+  margin: 3px 0;
+}
+nav button.sp[aria-pressed=true] svg {
+  fill: currentColor;
+}
+nav button.sp[aria-pressed=true] {
+  color: var(--accink);
+}
+/* Playlist chips: placed after the genre chips in the same row */
+body.noqc .qc,
+body.nopl .plc,
+body.nopl .plg {
+  display: none;
+}
+nav button.plc {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+}
+nav button.plc span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+nav button.plc svg {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  flex: none;
+  color: var(--acc);
+}
+nav.nog button:not(.sp):not(.plc),
+nav.nog .gap:not(.plg) {
+  display: none;
+}
+/* Separator between chip groups: thin line in the icon colour */
+nav .gap {
+  flex: 0 0 1px;
+  align-self: stretch;
+  background: var(--acc);
+  margin: 0 4px;
+}
+/* ---------- Status line and album grid ---------- */
+#msg {
+  padding: 6px 14px;
+  color: var(--dim);
+}
+#msg.err {
+  color: #ff8f8f;
+}
+#grid {
+  display: grid;
+  /* Cover size S / M / L from the settings (sets --tile) */
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile, 150px), 1fr));
+  gap: 16px;
+  padding: 6px 14px 40px;
+}
+.card {
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.card.static {
+  cursor: default;
+}
+.cov {
+  aspect-ratio: 1;
+  background: var(--panel);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
+}
+.cov.rnd {
+  display: grid;
+  place-items: center;
+  color: var(--acc);
+}
+.cov.rnd svg {
+  width: 58%;
+  height: 58%;
+}
+.cov img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.card b {
+  display: block;
+  margin-top: 8px;
+  font: 600 14px/1.25 Georgia, serif;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.card.ar {
+  margin-top: 1px;
+}
+.card.ar:hover span {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.lnk {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--dim);
+  text-underline-offset: 3px;
+}
+.lnk:hover {
+  color: var(--acc);
+  text-decoration-color: var(--acc);
+}
+.card span {
+  color: var(--dim);
+  font-size: 13px;
+}
+.item {
+  min-width: 0;
+}
+.cw {
+  position: relative;
+}
+.card {
+  display: block;
+  width: 100%;
+}
+/* ---------- Play / add-to-queue buttons on the cover (shown on hover) ---------- */
+.play {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--acc);
+  color: var(--accink);
+  border: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+}
+.play svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+.play.addq {
+  right: 44px;
+}
+.play.favc {
+  right: 80px;
+}
+.play.favc[hidden] {
+  display: none;
+}
+.play.favc svg {
+  width: 16px;
+  height: 16px;
+}
+.play.favc[aria-pressed=true] svg {
+  fill: currentColor;
+}
+.play.addq svg {
+  width: 17px;
+  height: 17px;
+}
+@media (hover: hover) {
+  .cw .play {
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  .cw:hover .play,
+  .cw:focus-within .play {
+    opacity: 1;
+  }
+}
+.play:active {
+  transform: scale(.92);
+}
+.info .meta {
+  margin-bottom: 14px;
+}
+.info .meta p {
+  margin: 0 0 2px;
+}
+.info .meta p:empty {
+  display: none;
+}
+.info #da {
+  color: var(--ink);
+  font-weight: 600;
+}
+/* Quality tag(s) first, then the technical data (from /library/v1/Songs) */
+#dtech {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 6px !important;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+/* Artist of a track, only when it differs from the album artist (e.g. compilations) */
+#tracks li .ta {
+  display: block;
+  font-size: 12px;
+  color: var(--dim);
+}
+#gstat {
+  padding: 0 14px;
+  color: var(--dim);
+  font-size: 13px;
+}
+#gstat:empty {
+  display: none;
+}
+#gstat button {
+  padding: 2px 8px;
+  margin-left: 8px;
+  font-size: 12px;
+}
+/* ---------- Album popup ---------- */
+dialog {
+  width: min(760px, 94vw);
+  max-height: 90vh;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--ink);
+}
+dialog::backdrop {
+  background: rgba(0, 0, 0, .6);
+}
+/* Two equal columns: cover with the album details below it on the left, the track list on the right.
+   --dh: maximum height of the popup, --dw: its width. The cover fills its column unless the popup
+   height is the limit (room is kept for the details below it); a longer track list scrolls. */
+#dlg {
+  --dh: min(760px, 92vh);
+  --dw: min(1120px, 94vw);
+  width: var(--dw);
+  max-width: none;
+  max-height: none;
+  overflow: hidden;
+}
+#dlg .dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  max-height: var(--dh);
+  padding: 24px;
+  box-sizing: border-box;
+}
+#dlg .dleft {
+  min-width: 0;
+  max-height: calc(var(--dh) - 48px);
+  overflow-y: auto;
+}
+#dlg .dleft > .cov {
+  width: min(100%, calc(var(--dh) - 48px - 190px));
+  margin: 0 auto 18px;
+}
+#dlg .info .meta {
+  margin-bottom: 0;
+}
+#dlg .dright {
+  min-width: 0;
+}
+/* "9 tracks · 42:17": header of the track list, next to the close button */
+#dsum {
+  margin: 0;
+  padding: 6px 48px 10px 4px;
+  border-bottom: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 19px;
+}
+#dsum:empty {
+  visibility: hidden;
+}
+/* The track list scrolls on its own; its height is fixed by the popup height minus the header line
+   above it (no flex sizing: Safari collapses a flex child with an indefinite height to 0). */
+#dlg #tracks {
+  max-height: calc(var(--dh) - 48px - 36px);
+  overflow-y: auto;
+  padding: 0;
+}
+/* Narrow or portrait screens: cover, details and tracks one below the other, the whole popup scrolls */
+@media (max-width: 760px), (max-aspect-ratio: 1/1) {
+  #dlg {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  #dlg .dl {
+    grid-template-columns: 1fr;
+    max-height: none;
+    gap: 18px;
+    padding: 18px;
+  }
+  #dlg .dleft,
+  #dlg .dright,
+  #dlg #tracks {
+    max-height: none;
+    overflow: visible;
+  }
+  #dlg .dleft > .cov {
+    width: min(100%, 460px);
+  }
+  #dsum {
+    padding-right: 4px;
+  }
+}
+.info h2 {
+  font: 600 26px/1.15 Georgia, serif;
+  margin: 0 0 4px;
+}
+.info p {
+  margin: 0 0 14px;
+  color: var(--dim);
+}
+#tracks {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px 16px;
+}
+#tracks li button {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  justify-content: space-between;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  padding: 9px 4px;
+}
+#tracks li button:hover {
+  background: var(--panel);
+}
+#tracks li i {
+  font-style: normal;
+  color: var(--dim);
+  flex: none;
+}
+/* Close button (X) of all popups */
+#close,
+#apiclose,
+#infoclose {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+#dlg button[hidden] {
+  display: none;
+}
+/* ---------- API response popup ---------- */
+#apidlg,
+#infodlg {
+  width: min(560px, 92vw);
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+}
+#apidlg::backdrop,
+#infodlg::backdrop {
+  background: rgba(0, 0, 0, .55);
+}
+#apidlg h2,
+#infodlg h2 {
+  margin: 0 40px 12px 0;
+  font: 600 18px/1.25 Georgia, serif;
+}
+#apidlg .kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+#apidlg dt {
+  color: var(--dim);
+}
+#apidlg dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+#apib {
+  margin: 0;
+  max-height: 50vh;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font: 12px/1.45 ui-monospace, Menlo, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#infodlg {
+  width: min(400px, 92vw);
+}
+#infodlg .abt {
+  text-align: center;
+  padding: 8px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+#infodlg .abt h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+#infodlg .abt p {
+  margin: 2px 0;
+  color: var(--dim);
+  font-size: 13px;
+}
+#infodlg .abt .legal {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+#infodlg #info {
+  border-top: 0;
+}
+#infodlg #info h3 {
+  text-align: center;
+}
+#libset {
+  border-top: 1px solid var(--line);
+}
+#libset:empty {
+  display: none;
+}
+#libset h3 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--dim);
+  margin: 16px 0 8px;
+}
+#libset .kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 14px;
+  margin: 0;
+}
+#libset .kv dt {
+  color: var(--dim);
+}
+#libset .kv dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+/* ---------- Toast ---------- */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bh,112px) + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  background: var(--acc);
+  color: var(--accink);
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+#toast.on {
+  opacity: 1;
+}
+</style>
+</head>
+<body>
+<!-- Header: settings button, title, search, queue button -->
+<header>
+  <button id="gear" aria-label="Menu" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <h1 id="ttl">BluAlbum</h1>
+  <input id="q" type="search" placeholder="Search (Enter)" aria-label="Search">
+  <button id="qbtn" aria-label="Queue" aria-expanded="false" aria-controls="qside"></button>
+</header>
+<!-- Genre chips (filled by openSources) -->
+<nav id="az" aria-label="Genre filter"></nav>
+<div id="msg">Open the menu, enter your player's IP address and tap Connect.</div>
+<div id="gstat"></div>
+<main id="grid"></main>
+<!-- Album popup -->
+<dialog id="dlg">
+  <button id="close" aria-label="Close">✕</button>
+  <div class="dl">
+    <div class="dleft">
+      <div class="cov"><img id="dimg" alt=""></div>
+      <div class="info"><h2 id="dt"></h2><div class="meta"><p id="da"></p><p id="dy"></p><p id="dg"></p><p id="dtech"></p><p id="ds"></p></div></div>
+    </div>
+    <div class="dright">
+      <p id="dsum"></p>
+      <ol id="tracks"></ol>
+    </div>
+  </div>
+</dialog>
+<!-- About popup (opened from the footer line of the settings panel): app name, version, copyright, library stats -->
+<dialog id="infodlg">
+  <form method="dialog"><button id="infoclose" aria-label="Close">✕</button></form>
+  <div class="abt">
+    <h2>BluAlbum</h2>
+    <p>Album player for BluOS devices</p>
+    <p>Version <span id="ver2"></span></p>
+    <p>Copyright &copy; 2026 Ingmar Gebert</p>
+    <p class="legal">BluAlbum is an independent project and not affiliated with or endorsed by Lenbrook / Bluesound. BluOS is a trademark of Lenbrook Industries.</p>
+  </div>
+  <section id="info" aria-live="polite"></section>
+</dialog>
+<!-- API response popup (shown when a player command did not succeed) -->
+<dialog id="apidlg">
+  <form method="dialog"><button id="apiclose" aria-label="Close">✕</button></form>
+  <h2 id="apit"></h2>
+  <dl class="kv"><dt>Request</dt><dd id="apiu"></dd><dt>Status</dt><dd id="apis"></dd></dl>
+  <pre id="apib"></pre>
+</dialog>
+<!-- Full-screen now playing (opened by clicking the cover in the footer) -->
+<div id="full" hidden>
+  <div class="fcov"><img id="fimg" alt=""></div>
+  <div class="ftx"><h2 id="ft1"></h2><p id="ft2"></p><p id="ft3"></p></div>
+</div>
+<!-- Footer: progress strip, transport, now playing, volume -->
+<footer id="ctl" role="group" aria-label="Player controls">
+  <div id="prog" role="slider" tabindex="0" aria-label="Playback position" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-disabled="true"><div class="pt"><div class="pf"></div></div></div>
+  <div class="tp">
+    <button id="bk" aria-label="Previous">⏮︎</button>
+    <button id="pp" aria-label="Play/Pause"></button>
+    <button id="sk" aria-label="Next">⏭︎</button>
+  </div>
+  <div class="cv" id="cvb" role="button" tabindex="0" aria-label="Show full-screen player" title="Full-screen player"><img id="cov" alt="" hidden></div>
+  <div class="np" aria-live="polite">
+    <div class="nt"><span id="nt1"></span><span id="nq" class="q" hidden></span></div>
+    <div class="na" id="nt2"></div>
+  </div>
+  <div class="vl">
+    <button id="vd" aria-label="Volume down" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <input id="vs" type="range" min="0" max="100" step="1" value="0" aria-label="Volume" disabled>
+    <button id="vu" aria-label="Volume up" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  </div>
+</footer>
+<!-- Queue panel -->
+<aside id="qside" aria-label="Queue">
+  <ol id="qlist"></ol>
+  <div class="qf">
+    <span id="qcount"></span>
+    <button id="qshuf" aria-label="Shuffle" title="Shuffle" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
+    <button id="qrep" aria-label="Repeat: off" title="Repeat: off" aria-pressed="false"></button>
+    <button id="qdel" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+    <button id="qsave" aria-label="Save queue as playlist" title="Save queue as playlist"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8 4v4h7V4M7.5 20v-6h9v6"/></svg></button>
+    <button id="qclear" aria-label="Clear queue" title="Clear queue"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14M3 8.75h14M3 13.5h6M3 18.25h5" stroke-width="2.4"/><path d="M12.5 11.5l8.5 8.5M21 11.5L12.5 20" stroke-width="2.4"/></svg></button>
+  </div>
+</aside>
+<div id="scrim"></div>
+<!-- Settings panel -->
+<aside id="side" aria-label="Connection">
+  <button id="sclose" aria-label="Close settings"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+  <h2>Connection</h2>
+  <!-- Compact line once connected: room name, IP, "Change" shows the form again -->
+  <div id="cline" hidden><span id="cname"></span><span id="cip"></span><button type="button" id="cchg">Change</button></div>
+  <div id="cform">
+    <label for="ip">Player IP address</label>
+    <input id="ip" value="" placeholder="e.g. 192.168.1.50" inputmode="decimal" aria-describedby="iphelp">
+    <p id="iphelp">The IP address of your player can be found from Help &gt; Diagnostics of your BluOS Controller app.</p>
+    <button id="go" class="pri">Connect</button>
+  </div>
+  <!-- Settings: source switches (filled by renderSources), chip switches, design -->
+  <section id="settings">
+    <h3>Settings</h3>
+    <div id="srcl" role="group" aria-label="Music sources"></div>
+    <div class="srow"><span>Genre chips</span><button type="button" id="gsw" class="sw" role="switch" aria-checked="true" aria-label="Show genre chips"></button></div>
+    <div class="srow"><span>Quality chips</span><button type="button" id="qsw" class="sw" role="switch" aria-checked="true" aria-label="Show quality chips"></button></div>
+    <div class="srow"><span>Playlist chips</span><button type="button" id="psw" class="sw" role="switch" aria-checked="true" aria-label="Show playlist chips"></button></div>
+    <div class="srow"><span>Cover size</span>
+      <div id="sizes" role="group" aria-label="Cover size">
+        <button type="button" data-size="s" title="Small" aria-label="Small covers">S</button>
+        <button type="button" data-size="m" title="Medium" aria-label="Medium covers">M</button>
+        <button type="button" data-size="l" title="Large" aria-label="Large covers">L</button>
+      </div>
+    </div>
+    <div class="srow"><span>Design</span>
+      <div id="themes" role="group" aria-label="Design">
+      <button type="button" data-theme="system" title="System" aria-label="System"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
+      <button type="button" data-theme="light" title="Day" aria-label="Day"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button type="button" data-theme="dark" title="Night" aria-label="Night"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+      </div>
+    </div>
+  </section>
+  <section id="libset" aria-live="polite"></section>
+  <section id="about"><button type="button" id="aboutb" aria-haspopup="dialog" title="About this app"><span>About</span><span id="ver"></span></button></section>
+</aside>
+<div id="toast"></div>
+<script>
+/*
+ * BluAlbum – album player for BluOS devices
+ * Independent project, not affiliated with or endorsed by Lenbrook / Bluesound.
+ * BluOS is a trademark of Lenbrook Industries.
+ *
+ * Single-file browser app that browses the music library (USB drive / library) of a BluOS player
+ * and controls playback. It talks to the player directly via the BluOS Custom Integration API
+ * (HTTP GET on port 11000, XML answers). No server and no build step are needed.
+ *
+ * Modules (in this order):
+ *   1. Configuration                   Fixed values: texts, A-Z sections, quality filters, cover sizes, icons.
+ *   2. Helpers                         DOM shorthand, safe localStorage, XML attributes, formatting, status line and toast.
+ *   3. State                           All mutable state of the app, declared in one place.
+ *   4. Player API                      Requests to the player (HTTP GET on port 11000, XML answers).
+ *   5. Connection & sources            Connecting to the player, music sources (USB / library) and their switches.
+ *   6. Albums from /Browse             Album lists, genres and the album-to-genre map from the player's browse menus.
+ *   7. Albums from /library/v1/Albums  New, favourites and quality lists from the library endpoint.
+ *   8. Views                           What the chips show: genre, All, New, Favourites, quality, artist.
+ *   9. Album grid                      Lazy rendering of the album tiles and the random album tile.
+ *  10. Favourites                      Favourite state and toggling for the heart on the cover.
+ *  11. Popups                          Album popup and the popup for unsuccessful player answers.
+ *  12. Playlists                       Saved playlists of the player as chips.
+ *  13. Queue panel                     Play queue: list, pinning, shuffle, repeat, save / delete playlist, clear.
+ *  14. Player footer & full screen     Now playing, progress, transport, volume, status polling, full-screen view.
+ *  15. Search                          The player's own search.
+ *  16. Settings panel                  Panel, settings switches, library stats and settings, about.
+ *  17. Event wiring & start            Event handlers and start-up code (runs once, in this order).
+ */
+
+/* ---------- Configuration ---------- */
+// Fixed values: texts, A-Z sections, quality filters, cover sizes, icons.
+
+// App name and version (semantic versioning MAJOR.MINOR.PATCH). The only place where the version is set.
+const APP = { name: "BluAlbum", version: "0.7.6" };
+// Service names of the player: the music library and the saved playlists.
+const SVC_LIBRARY = "LocalMusic", SVC_PLAYLISTS = "BluOS";
+// Shown when fetch() fails with a TypeError: usually the browser lacks Local Network permission.
+const LAN_MSG = "Please make sure your browser has permission to access the Local Area Network (LAN).";
+// Filters like quality only work per A-Z section and there is no index of the sections,
+// so all 27 sections (# and A-Z) are requested, 6 at a time, and joined in A-Z order.
+const SECTIONS = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
+// Quality chips: filter values of the library ("Filter by quality" in /Services).
+const QUALITIES = [["hr", "HD", "High resolution albums"], ["cd", "CD", "CD quality albums"], ["mqa", "MQA", "MQA albums"]];
+// Minimum tile width of the album grid; the grid fills the row with as many tiles as fit.
+const TILE = { s: "110px", m: "150px", l: "220px" };
+// File formats of /library/v1/Songs (atype) and which of them are lossy (no bit depth shown).
+const FORMATS = { flc: "FLAC", mp3: "MP3", alac: "ALAC", aac: "AAC", m4a: "AAC", wav: "WAV", aif: "AIFF", aiff: "AIFF", ogg: "OGG", opus: "Opus", wma: "WMA", dsf: "DSD", dff: "DSD", ape: "APE", wv: "WavPack" };
+const LOSSY = ["MP3", "AAC", "OGG", "Opus", "WMA"];
+// Display names for On/Off values from /Settings.
+const ONOFF = { ON: "On", OFF: "Off" };
+// Play / pause. The triangle sits slightly right of the middle so that it looks centred in a round button.
+const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5v13l10.5-6.5z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg>';
+// Repeat states of the player (<repeat> in /Status, /Repeat?state=): icon and label.
+const ICON_REPEAT_PATH = '<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>';
+const REPEAT = {
+  2: { label: "off", icon: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICON_REPEAT_PATH + "</svg>" },
+  0: { label: "queue", icon: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICON_REPEAT_PATH + "</svg>" },
+  1: { label: "track", icon: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICON_REPEAT_PATH + '<path d="M11 10.5l1.5-1V15" stroke-width="1.6"/></svg>' }
+};
+// Playlist icon (queue button and saved playlist chips): list with a music note.
+const ICON_PLAYLIST = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h12M3 8.75h12M3 13.5h8.5M3 18.25h5" stroke-width="2.4"/><ellipse cx="15.6" cy="18.3" rx="3.9" ry="3.2" transform="rotate(-22 15.6 18.3)" fill="currentColor" stroke="none"/><path d="M18.6 17.5V5.2" stroke-width="2.2"/><path d="M17.5 4.6 21.9 2.7c.5-.2 1 .1 1 .7v3.7c0 .5-.3.8-.8.9-1.4.3-2.6.9-3.4 1.7L17.5 9z" fill="currentColor" stroke="none"/></svg>';
+// Source icons (USB stick / library = folder with music notes).
+const ICON_USB = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.5h6v6H9z"/><path d="M10.8 4.5h.01M13.2 4.5h.01" stroke-width="2"/><rect x="6.5" y="8.5" width="11" height="13" rx="2"/></svg>';
+const ICON_LIB = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9.5a2 2 0 0 0-2-2h-7l-2-2.5H5a2 2 0 0 0-2 2z"/><circle cx="9.3" cy="16.3" r="1.5" fill="currentColor" stroke="none"/><circle cx="14.8" cy="15.3" r="1.5" fill="currentColor" stroke="none"/><path d="M10.7 16.3v-5l5.5-1v5"/></svg>';
+// Favourites are managed only by the player: state and actions come from the album's context menu
+// (favourite-add / favourite-delete). Albums without these actions (e.g. on USB) have no heart.
+const HEART = '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>';
+
+/* ---------- Helpers ---------- */
+// DOM shorthand, safe localStorage, XML attributes, formatting, status line and toast.
+
+// Shorthand for querySelector.
+const $ = (s) => document.querySelector(s);
+// localStorage wrapper that never throws (private mode, blocked storage, file:// quirks).
+const store = {
+  get: (k) => {
+    try {
+      return localStorage.getItem(k);
+    } catch (e) {
+      return null;
+    }
+  },
+  set: (k, v) => {
+    try {
+      localStorage.setItem(k, v);
+    } catch (e) {
+    }
+  }
+};
+// Reads an XML attribute; returns "" instead of null.
+const attr = (e, n) => e.getAttribute(n) || "";
+// All <item> elements of a Browse response (top level or inside a <category>).
+const items = (d) => [...d.documentElement.querySelectorAll(":scope > item, :scope > category > item")];
+// Seconds -> "m:ss" or "h:mm:ss".
+const fmtTime = (n) => {
+  n = Math.round(n);
+  const h = Math.floor(n / 3600), m = Math.floor(n % 3600 / 60), sec = n % 60;
+  return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(sec).padStart(2, "0");
+};
+// "1 album" / "5 albums".
+const nAlb = (n) => n + (n === 1 ? " album" : " albums");
+const errMsg = (prefix, e) => e instanceof TypeError && /fetch|load failed|network/i.test(e.message) ? LAN_MSG : prefix + e.message;
+// Status line below the genre chips.
+const msg = (t, err) => {
+  const m = $("#msg");
+  m.textContent = t;
+  m.className = err ? "err" : "";
+};
+// Short popup message above the footer.
+function toast(t) {
+  const e = $("#toast");
+  e.textContent = t;
+  e.className = "on";
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => e.className = "", 1800);
+}
+// Key that identifies an album in gmap and in the favourites list.
+const gkey = (t, a) => (t + "|" + a).toLowerCase();
+
+/* ---------- State ---------- */
+// All mutable state of the app, declared in one place.
+
+// Player and current view.
+// base: player URL ("" = not connected), cache: albums per view (genre name, "__all", "__q:cd" ...),
+// shown: albums currently rendered, activeKey: id of the selected view (drops outdated async results),
+// activeBtn: selected chip, gmap: album -> genres (for the popup), gAlb: genre -> albums.
+let base = "", cache = {}, shown = [], activeKey = "", gmap = {}, gAlb = {}, activeBtn = null;
+// sources: music sources found on the player (USB drive, library).
+// srcs: the enabled sources after opening, each {key, svc, name, searchKey, genresKey, albumsKey, genres, menu}.
+// epoch increases on every connect / source change so late async results can be ignored (see ctx()).
+let sources = [], srcs = [], epoch = 0;
+// Album grid: lazy rendering observer and a token that cancels an older render.
+let lazyObs = null, lazyTok = 0;
+// Saved playlists. playlistsKey: browse key ("" if the player has none), plSeq: request counter,
+// plChips: chip elements (re-added after the genre chips are rebuilt), plCount: number for the stats (null = unknown),
+// playlists: [{name, url}], plLoaded: the playlist loaded last (chip click or name reported with the queue).
+let playlistsKey = "", plSeq = 0, plChips = [], plCount = null, playlists = [], plLoaded = "";
+// Playback position: secs at time t (ms), so the current position can be interpolated between status updates.
+let pos = { secs: 0, total: 0, t: 0, playing: false, canSeek: false };
+// Volume slider: drag state and rate limiting (at most one request per 150 ms while dragging).
+let dragging = false, vWant = 0, vTimer = 0, vLast = 0;
+// Long polling of /Status. pollId invalidates running loops, pollCtl aborts the pending request.
+let pollId = 0, pollCtl = null;
+// Queue panel: open (pinned), playlist id (pid), current song index, request counter,
+// qName: saved playlist the queue was loaded from ("" if none).
+let qOpen = false, qPid = "", qSong = "", qSeq = 0, qName = "";
+// Album popup: only the newest opened album may fill the popup.
+let dlgSeq = 0;
+// Search: only the newest search may update the grid; timer for search-as-you-type.
+let searchSeq = 0, searchTimer = 0;
+// Room name of the player (settings panel, browser tab title).
+let playerName = "";
+// Settings panel: library settings rows [label, value] and library statistics;
+// about popup: player software versions [label, value] (shown below the room name).
+let libRows = [], libStats = {}, playerRows = [];
+
+// Forgets everything that belongs to the previous player (called on connect).
+function resetPlayerState() {
+  sources = [];
+  resetLibrary();
+  libRows = [];
+  libStats = {};
+  playerRows = [];
+  qPid = qSong = qName = "";
+  playlistsKey = plLoaded = "";
+  plChips = [];
+  playlists = [];
+  plCount = null;
+}
+// Forgets everything loaded from the current source selection (called on connect and source change).
+function resetLibrary() {
+  cache = {};
+  gmap = {};
+  gAlb = {};
+  srcs = [];
+  activeBtn = null;
+  activeKey = "";
+  shown = [];
+}
+// Identifies the current player + source selection; compare before writing async results.
+const ctx = () => base + "|" + epoch;
+
+/* ---------- Player API ---------- */
+// Requests to the player (HTTP GET on port 11000, XML answers).
+
+// All requests go through api() or apiRaw().
+// api(): parsed XML answer; throws on network errors (TypeError, see errMsg), HTTP errors and player errors (<e>).
+async function api(path, init) {
+  const r = await fetch(base + path, init);
+  if (!r.ok) throw new Error("Player responded with " + r.status);
+  const d = new DOMParser().parseFromString(await r.text(), "text/xml");
+  if (d.documentElement.tagName === "e") throw new Error(d.querySelector("message")?.textContent || "Player error");
+  return d;
+}
+// apiRaw(): {ok, status, body} without throwing; used where the raw answer is shown to the user.
+async function apiRaw(path) {
+  try {
+    const r = await fetch(base + path);
+    return { ok: r.ok, status: r.status + " " + r.statusText, body: await r.text() };
+  } catch (e) {
+    return { ok: false, status: "Request failed", body: String(e && e.message || e) };
+  }
+}
+// Calls /Browse and returns the parsed XML. key = browse key, q = search term.
+// withContextMenuItems=1 makes the player include per-album actions (add to queue, favourites ...).
+const browse = (key, q) => api("/Browse?withContextMenuItems=1" + (key ? "&key=" + encodeURIComponent(key) : "") + (q ? "&q=" + encodeURIComponent(q) : ""));
+// Player command with a toast on failure; returns the parsed XML or null.
+const xml = async (path) => {
+  if (!base) {
+    toast("Connect first");
+    return null;
+  }
+  try {
+    return await api(path);
+  } catch (e) {
+    toast("Failed");
+    return null;
+  }
+};
+// Sends a player command (play, add to queue ...) and shows `label` as feedback.
+async function cmd(url, label) {
+  if (!(await apiRaw(url)).ok) return toast("Failed");
+  toast(label);
+  setTimeout(sync, 900);
+}
+
+/* ---------- Connection & sources ---------- */
+// Connecting to the player, music sources (USB / library) and their switches.
+
+// Disabled sources are stored per player (all available sources are enabled by default).
+const offKey = () => "srcoff:" + base;
+const disabledSources = () => {
+  try {
+    return new Set(JSON.parse(store.get(offKey()) || "[]"));
+  } catch (e) {
+    return new Set();
+  }
+};
+const sourceOn = (sr) => !disabledSources().has(sr.key);
+// Name of the source (as the player names it, e.g. "USB" / "Bibliothek") from a browse key or a service name.
+// Album keys start with the service, e.g. "4AB9_C242:MG/LocalMusic-Album?...".
+const sourceName = (keyOrSvc) => {
+  const svc = (keyOrSvc || "").split(":")[0];
+  return sources.find((x) => x.key.split(":")[0] === svc)?.name || "";
+};
+// Icon for a source (by service name or browse key): USB plug or books.
+const sourceIcon = (keyOrSvc) => {
+  const svc = (keyOrSvc || "").split(":")[0];
+  return /USBIcon/.test(sources.find((x) => x.key.split(":")[0] === svc)?.icon || "") ? ICON_USB : ICON_LIB;
+};
+// Joins album lists of several sources; with more than one source the result is re-sorted A-Z by title.
+const joinSources = (lists) => lists.length > 1 ? lists.flat().sort((x, y) => x.t.localeCompare(y.t)) : lists.flat();
+// One on/off switch per available source (USB / Library) in the settings panel.
+function renderSources() {
+  const l = $("#srcl");
+  l.innerHTML = "";
+  sources.forEach((sr) => {
+    const row = document.createElement("div");
+    row.className = "srow";
+    const dup = sources.filter((x) => x.name === sr.name).length > 1;
+    const t = document.createElement("span");
+    t.textContent = sr.name + (dup ? " (" + sr.key.replace(/:$/, "") + ")" : "");
+    const sw = document.createElement("button");
+    sw.type = "button";
+    sw.className = "sw";
+    sw.setAttribute("role", "switch");
+    sw.setAttribute("aria-checked", sourceOn(sr));
+    sw.setAttribute("aria-label", "Use " + t.textContent);
+    sw.onclick = () => {
+      const off = disabledSources();
+      off.has(sr.key) ? off.delete(sr.key) : off.add(sr.key);
+      store.set(offKey(), JSON.stringify([...off]));
+      renderSources();
+      openSources();
+    };
+    row.append(t, sw);
+    l.append(row);
+  });
+}
+// Settings panel top: compact "room · IP · Change" line when connected, otherwise the IP form.
+function showConnected(on) {
+  $("#cline").hidden = !on;
+  $("#cform").hidden = on;
+  if (on) {
+    $("#cname").textContent = playerName || "Connected";
+    $("#cip").textContent = base.replace(/^http:\/\//, "").replace(/:11000$/, "");
+  }
+}
+// Connects to the IP from the settings panel: finds the music sources and opens the enabled ones.
+async function connect() {
+  const ip = $("#ip").value.trim().replace(/^https?:\/\//i, "").replace(/[:/].*$/, "");
+  if (!ip) {
+    msg("Please enter the IP address of your player.", true);
+    panel(true, true);
+    return;
+  }
+  $("#ip").value = ip;
+  store.set("ip", ip);
+  base = "http://" + ip + ":11000";
+  epoch++;
+  resetPlayerState();
+  $("#gstat").textContent = "";
+  renderLib();
+  setTitle("");
+  stopPoll();
+  renderSources();
+  $("#qlist").innerHTML = "";
+  $("#qcount").textContent = "";
+  $("#az").innerHTML = "";
+  $("#grid").innerHTML = "";
+  $("#q").value = "";
+  panel(false);
+  msg("Connecting \u2026");
+  let reached = false;
+  $("#iphelp").hidden = false;
+  try {
+    const topItems = items(await browse());
+    reached = true;
+    $("#iphelp").hidden = true;
+    showConnected(true);
+    sources = topItems.filter((i) => attr(i, "type") === "link" && (/USBIcon|LibraryIcon/.test(attr(i, "image")) || /^(USB|Library|Bibliothek)$/i.test(attr(i, "text")))).map((i) => ({ key: attr(i, "browseKey"), name: attr(i, "text"), icon: attr(i, "image") }));
+    // Saved playlists ("Playlists" / "Wiedergabelisten", icon ci_myplaylists) for the playlist chips
+    const plItem = topItems.find((i) => /myplaylists/i.test(attr(i, "image")) || /^(playlists|wiedergabelisten)$/i.test(attr(i, "text")));
+    playlistsKey = plItem ? attr(plItem, "browseKey") : "";
+    loadPlaylists();
+    if (!sources.length) throw new Error("No USB or library source found. Is the drive connected?");
+    sync();
+    loadInfo();
+    pollStatus();
+    renderSources();
+    await openSources();
+  } catch (e) {
+    msg(errMsg("Connection failed: ", e), true);
+    if (!reached) {
+      $("#iphelp").hidden = false;
+      showConnected(false);
+    }
+    panel(true, true);
+  }
+}
+// Opens all enabled sources: reads their menus, builds the chips (genres of all sources combined)
+// and selects the default view.
+async function openSources() {
+  epoch++;
+  const mine = ctx();
+  libStats = {};
+  renderLib();
+  resetLibrary();
+  $("#gstat").textContent = "";
+  $("#az").innerHTML = "";
+  $("#grid").innerHTML = "";
+  $("#q").value = "";
+  const on = sources.filter(sourceOn);
+  if (!on.length) {
+    renderPlChips();
+    msg("No music source enabled. Switch one on in the settings panel.", true);
+    return;
+  }
+  msg("Loading " + on.map((x) => x.name).join(" + ") + " \u2026");
+  try {
+    const opened = await Promise.all(on.map(async (src) => {
+      const md = await browse(src.key), menu = items(md);
+      const gi = menu.find((i) => /GG\/Genres/.test(attr(i, "browseKey")) || attr(i, "text") === "Genres");
+      const alb = menu.find((i) => /bySection:Album/.test(attr(i, "browseKey"))) || menu.find((i) => /^(Alben|Albums)$/.test(attr(i, "text")));
+      const genresKey = gi ? attr(gi, "browseKey") : "";
+      const genres = genresKey ? items(await browse(genresKey)).filter((x) => attr(x, "type") === "genre") : [];
+      return {
+        key: src.key,
+        svc: src.key.split(":")[0],
+        name: src.name,
+        menu,
+        searchKey: md.documentElement.getAttribute("searchKey") || "",
+        genresKey,
+        albumsKey: alb ? attr(alb, "browseKey") : "",
+        genres
+      };
+    }));
+    if (mine !== ctx()) return;
+    srcs = opened;
+    // Genre chips: union of the genre names of all sources
+    const names = [...new Set(srcs.flatMap((x) => x.genres.map((g) => attr(g, "text"))))].sort((x, y) => x.localeCompare(y));
+    if (!names.length) throw new Error("No genres found. Has the library finished indexing?");
+    loadStats(names.length);
+    const nav = $("#az"), hasAlbums = srcs.some((x) => x.albumsKey);
+    if (hasAlbums) {
+      const ba = document.createElement("button");
+      ba.setAttribute("aria-pressed", "false");
+      ba.textContent = "All";
+      ba.className = "sp";
+      ba.onclick = () => loadAllAlbums(ba);
+      nav.append(ba);
+      const bf = document.createElement("button");
+      bf.setAttribute("aria-pressed", "false");
+      bf.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+      bf.title = "Favourites";
+      bf.setAttribute("aria-label", "Favourites");
+      bf.className = "sp";
+      bf.onclick = () => loadFavourites(bf);
+      nav.append(bf);
+      const bn = document.createElement("button");
+      bn.setAttribute("aria-pressed", "false");
+      bn.textContent = "New";
+      bn.title = "Recently added albums";
+      bn.className = "sp";
+      bn.onclick = () => loadNew(bn);
+      nav.append(bn);
+      QUALITIES.forEach(([q, name, title]) => {
+        const b = document.createElement("button");
+        b.setAttribute("aria-pressed", "false");
+        b.textContent = name;
+        b.title = title;
+        b.className = "sp qc";
+        b.onclick = () => loadQuality(b, q, name);
+        nav.append(b);
+      });
+      const gp = document.createElement("span");
+      gp.className = "gap";
+      nav.append(gp);
+    }
+    names.forEach((name) => {
+      const b = document.createElement("button");
+      b.setAttribute("aria-pressed", "false");
+      b.textContent = name;
+      b.onclick = () => loadGenre(name, b);
+      nav.append(b);
+    });
+    msg("Select a genre.");
+    loadGenres();
+    // Keep the playlist chips at the end of the row (they may have arrived while this function was waiting).
+    renderPlChips();
+    // Default view: Favourites, or the first genre. Never pick by position: a playlist chip would start playback.
+    nav.querySelector(hasAlbums ? "button[aria-label=Favourites]" : "button:not(.plc)")?.click();
+  } catch (e) {
+    if (mine !== ctx()) return;
+    msg(errMsg("Could not open the music source: ", e), true);
+    panel(true);
+  }
+}
+
+/* ---------- Albums from /Browse ---------- */
+// Album lists, genres and the album-to-genre map from the player's browse menus.
+
+// Converts an XML album <item> into a plain object.
+// t: title, a: artist, n: track count, img: cover URL, key: browse key of the tracks,
+// cm: context menu key, play: play URL, menu: actions from the context menu.
+function toAlbum(i) {
+  const menu = {};
+  i.querySelectorAll("contextMenu > item").forEach((m) => menu[attr(m, "type")] = attr(m, "actionURL"));
+  return {
+    t: attr(i, "text"),
+    a: attr(i, "text2"),
+    n: attr(i, "tracks"),
+    img: attr(i, "image"),
+    key: attr(i, "browseKey"),
+    cm: attr(i, "contextMenuKey"),
+    play: attr(i, "playURL"),
+    menu
+  };
+}
+// Loads all albums of a list, following nextKey paging.
+async function fetchAlbums(key) {
+  const all = [], seen = new Set();
+  let k = key;
+  while (k && !seen.has(k)) {
+    seen.add(k);
+    const d = await browse(k);
+    all.push(...items(d).filter((i) => attr(i, "type") === "album").map(toAlbum));
+    const nx = d.querySelector("[nextKey]");
+    k = nx ? attr(nx, "nextKey") : "";
+  }
+  return all;
+}
+// Loads all albums of one genre. Tries the unsectioned list first (one request),
+// falls back to loading the A-Z sections when that returns too few albums.
+async function genreAlbums(g) {
+  const ab = items(await browse(attr(g, "browseKey"))).find((i) => /bySection:Album/.test(attr(i, "browseKey")));
+  if (!ab) return [];
+  const secs = items(await browse(attr(ab, "browseKey"))).filter((i) => attr(i, "type") === "section");
+  if (!secs.length) return [];
+  const total = secs.reduce((n, x) => n + (+attr(x, "text2") || 0), 0);
+  let albums = [];
+  const first = attr(secs[0], "browseKey"), flat = first.replace(/&section=[^&]*$/, "");
+  if (flat !== first) {
+    try {
+      albums = await fetchAlbums(flat);
+    } catch (e) {
+    }
+  }
+  if (albums.length < total) {
+    albums = [];
+    for (const x of secs) if (attr(x, "text2") !== "0") albums.push(...await fetchAlbums(attr(x, "browseKey")));
+  }
+  return albums;
+}
+// All albums of a genre name across the enabled sources.
+const genreAlbumsAll = async (name) => joinSources(await Promise.all(srcs.map((x) => {
+  const g = x.genres.find((y) => attr(y, "text") === name);
+  return g ? genreAlbums(g) : [];
+})));
+// Loads a genre and records the genre in gmap for each of its albums.
+async function doGenre(name) {
+  const albums = await genreAlbumsAll(name);
+  gAlb[name] = albums;
+  albums.forEach((a) => {
+    const k = gkey(a.t, a.a), l = gmap[k] || (gmap[k] = []);
+    if (!l.includes(name)) l.push(name);
+  });
+}
+// Crawls all genres (3 requests in parallel) to learn which genres each album has.
+// The result is cached in localStorage; "Reload" forces a new crawl.
+async function loadGenres(force) {
+  if (!srcs.length) return;
+  const ck = "genres:" + base + "|" + srcs.map((x) => x.key).join("+"), st = $("#gstat"), mine = ctx();
+  if (!force) {
+    try {
+      const c = JSON.parse(store.get(ck) || "null");
+      if (c) {
+        gmap = c;
+        return;
+      }
+    } catch (e) {
+    }
+  }
+  gmap = {};
+  try {
+    const gs = [...new Set(srcs.flatMap((x) => x.genres.map((g) => attr(g, "text"))))];
+    let done = 0;
+    const total = gs.length;
+    const show = () => {
+      if (mine === ctx()) st.textContent = "Loading genres \u2026 " + done + "/" + total;
+    };
+    show();
+    const worker = async () => {
+      while (gs.length > 0 && mine === ctx()) {
+        const g = gs.shift();
+        try {
+          await doGenre(g);
+        } catch (e) {
+        }
+        done++;
+        show();
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    if (mine !== ctx()) return;
+    store.set(ck, JSON.stringify(gmap));
+    st.textContent = "Genres loaded (" + Object.keys(gmap).length + " albums).";
+    const b = document.createElement("button");
+    b.textContent = "Reload";
+    b.onclick = () => loadGenres(true);
+    st.append(b);
+  } catch (e) {
+    st.textContent = "Could not load genres.";
+  }
+}
+
+/* ---------- Albums from /library/v1/Albums ---------- */
+// New, favourites and quality lists from the library endpoint.
+
+// /library/v1/Albums returns only album + artist (+ isFavourite). Everything else the app needs
+// (cover, play URL, track list, context menu) follows fixed patterns of the player's Browse results.
+function libAlbum(el, svc) {
+  // Title is <alb> in plain lists and <title> in sectioned lists
+  const t = (el.querySelector("alb") || el.querySelector("title"))?.textContent || "", ar = el.querySelector("art")?.textContent || "";
+  // Form encoding as the player uses it: spaces as "+", also ! ' ( ) * percent-encoded
+  const enc = (v) => encodeURIComponent(v).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g, "+");
+  const q = "album=" + enc(t) + "&artist=" + enc(ar), fav = el.getAttribute("isFavourite") === "1";
+  return {
+    t,
+    a: ar,
+    n: el.getAttribute("tracks") || "",
+    img: "/Artwork?service=" + svc + "&" + q,
+    key: svc + ":MG/LocalMusic-Album?" + q,
+    cm: svc + ":CM/LocalMusic-Album?" + q + (fav ? "&isFavourite=1" : ""),
+    play: "/Add?playnow=1&service=" + svc + "&" + q,
+    menu: Object.assign(
+      { "addAll-last": "/Add?" + q + "&playnow=-1&service=" + svc + "&where=last" },
+      // Favourites exist only for the library; the player offers none for USB albums
+      svc === SVC_LIBRARY ? { [fav ? "favourite-delete" : "favourite-add"]: (fav ? "/DeleteFavourite?" : "/AddFavourite?") + q + "&service=" + svc } : {}
+    )
+  };
+}
+// Loads albums of one service from /library/v1/Albums with the given filter (e.g. "recent=1"),
+// following <nextlink> paging.
+async function libAlbums(svc, filter, max) {
+  const out = [], seen = new Set();
+  let path = "/library/v1/Albums?service=" + encodeURIComponent(svc) + "&" + filter;
+  while (path && !seen.has(path) && out.length < max) {
+    seen.add(path);
+    const d = await api(path);
+    out.push(...[...d.querySelectorAll("albums > album")].map((el) => libAlbum(el, svc)));
+    path = d.querySelector("albums > nextlink")?.textContent.trim() || "";
+  }
+  return out.slice(0, max);
+}
+async function libSectionAlbums(svc, filter) {
+  const parts = new Array(SECTIONS.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < SECTIONS.length) {
+      const i = next++;
+      const path = "/library/v1/Albums?service=" + encodeURIComponent(svc) + "&" + filter + "&limit=500&section=" + encodeURIComponent(SECTIONS[i]);
+      const d = await api(path);
+      parts[i] = [...d.querySelectorAll("section > album")].map((el) => libAlbum(el, svc));
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
+  return parts.flat();
+}
+
+/* ---------- Views ---------- */
+// What the chips show: genre, All, New, Favourites, quality, artist.
+
+// Marks `btn` as the selected chip and makes `key` the active view.
+// Bumping searchSeq cancels a search that is still running.
+function selectView(key, btn) {
+  document.querySelectorAll("#az button").forEach((b) => b.setAttribute("aria-pressed", b === btn));
+  activeKey = key;
+  activeBtn = btn;
+  $("#q").value = "";
+  searchSeq++;
+}
+// Shows the albums of one genre.
+async function loadGenre(name, btn) {
+  selectView(name, btn);
+  try {
+    if (!cache[name]) {
+      msg("Loading albums \u2026");
+      cache[name] = gAlb[name] || await genreAlbumsAll(name);
+    }
+    if (name !== activeKey) return;
+    shown = cache[name];
+    render(shown);
+    msg(nAlb(shown.length));
+  } catch (e) {
+    msg(errMsg("Loading failed: ", e), true);
+  }
+}
+// Loads every album of the source into cache.__all (3 sections in parallel).
+// Stops and returns false when the user switched to another view (activeKey !== tag) or source.
+async function ensureAll(tag, label) {
+  if (cache.__all) return true;
+  const mine = ctx();
+  msg(label + " \u2026");
+  // Sections of all sources (each source's albums come A-Z, the sources are joined and re-sorted)
+  const lists = await Promise.all(srcs.filter((x) => x.albumsKey).map(async (x) => items(await browse(x.albumsKey)).filter((y) => attr(y, "type") === "section" && attr(y, "text2") !== "0")));
+  const secs = lists.flat(), parts = [], q = secs.map((x, i) => i);
+  let n = 0;
+  const worker = async () => {
+    while (q.length && mine === ctx() && activeKey === tag) {
+      const i = q.shift();
+      parts[i] = await fetchAlbums(attr(secs[i], "browseKey"));
+      n++;
+      if (activeKey === tag) msg(label + " \u2026 " + n + "/" + secs.length);
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  if (mine !== ctx() || activeKey !== tag) return false;
+  cache.__all = srcs.length > 1 ? [].concat(...parts).sort((x, y) => x.t.localeCompare(y.t)) : [].concat(...parts);
+  return true;
+}
+// "All" chip.
+async function loadAllAlbums(btn) {
+  selectView("__all", btn);
+  try {
+    if (!await ensureAll("__all", "Loading all albums")) return;
+    if (activeKey !== "__all") return;
+    shown = cache.__all;
+    render(shown);
+    msg(nAlb(shown.length));
+  } catch (e) {
+    msg(errMsg("Loading failed: ", e), true);
+  }
+}
+// Shared loader for the "New", "Favourites" and quality chips. sectioned = use libSectionAlbums.
+async function loadLibView(key, btn, filter, max, label, done, empty, sectioned) {
+  selectView(key, btn);
+  $("#grid").innerHTML = "";
+  shown = [];
+  const mine = ctx();
+  msg("Loading " + label + " \u2026");
+  try {
+    // Sectioned results are kept for the session (27 requests); New / Favourites are always fresh.
+    // Every enabled source is asked; New keeps each source's newest-first order (sources one after another),
+    // the other lists are joined A-Z.
+    const per = (x) => sectioned ? libSectionAlbums(x.svc, filter) : libAlbums(x.svc, filter, max);
+    const lists = sectioned && cache[key] ? null : await Promise.all(srcs.map(per));
+    const list = sectioned ? cache[key] || (cache[key] = joinSources(lists)) : key === "__new" ? lists.flat() : joinSources(lists);
+    if (activeKey !== key || mine !== ctx()) return;
+    shown = list;
+    render(shown);
+    msg(shown.length ? nAlb(shown.length) + " " + done : empty);
+  } catch (e) {
+    if (activeKey === key) msg(errMsg("Loading failed: ", e), true);
+  }
+}
+// "New" chip: the 200 most recently added albums, newest first.
+const loadNew = (btn) => loadLibView("__new", btn, "recent=1", 200, "new albums", "recently added, newest first", "No recently added albums.");
+// "Favourites" chip: the player's favourite albums.
+const loadFavourites = (btn) => loadLibView("__fav", btn, "category=FAVOURITES", 5000, "favourites", "in favourites", "No favourite albums yet.");
+const loadQuality = (btn, q, name) => loadLibView("__q:" + q, btn, "quality=" + q, 0, name + " albums", "in " + name + " quality", "No " + name + " albums.", true);
+// Clicking an artist name: shows all albums of that artist (exact name match, case-insensitive).
+async function showArtist(name) {
+  if ($("#dlg").open) $("#dlg").close();
+  selectView("artist:" + name, null);
+  scrollTo(0, 0);
+  if (!srcs.some((x) => x.albumsKey)) {
+    msg("This source has no album list to look up artists.", true);
+    return;
+  }
+  try {
+    if (!await ensureAll(activeKey, "Loading albums by " + name)) return;
+    if (activeKey !== "artist:" + name) return;
+    const low = name.toLowerCase();
+    shown = cache.__all.filter((a) => a.a.toLowerCase() === low);
+    render(shown);
+    msg(nAlb(shown.length) + " by " + name);
+  } catch (e) {
+    msg(errMsg("Loading failed: ", e), true);
+  }
+}
+
+/* ---------- Album grid ---------- */
+// Lazy rendering of the album tiles and the random album tile.
+
+function render(list, noRandom) {
+  const g = $("#grid");
+  g.innerHTML = "";
+  if (lazyObs) {
+    lazyObs.disconnect();
+    lazyObs = null;
+  }
+  const tok = ++lazyTok, STEP = 60;
+  let at = 0;
+  const sentinel = document.createElement("div");
+  sentinel.style.cssText = "grid-column:1/-1;height:1px";
+  const more = () => {
+    if (tok !== lazyTok) return;
+    list.slice(at, at + STEP).forEach(addItem);
+    at += STEP;
+    if (at >= list.length) {
+      if (lazyObs) {
+        lazyObs.disconnect();
+        lazyObs = null;
+      }
+      sentinel.remove();
+    } else {
+      g.append(sentinel);
+      if (lazyObs) {
+        lazyObs.unobserve(sentinel);
+        lazyObs.observe(sentinel);
+      }
+    }
+  };
+  // "Random album" tile first, but not for search results.
+  if (!noRandom && list.length) g.append(randomTile(list));
+  if ("IntersectionObserver" in window) {
+    lazyObs = new IntersectionObserver((e) => {
+      if (e.some((x) => x.isIntersecting)) more();
+    }, { rootMargin: "800px 0px" });
+    more();
+  } else list.forEach(addItem);
+  // One grid tile: cover (opens details) with play / add-to-queue buttons, title, artist link.
+  function addItem(a) {
+    const item = document.createElement("div");
+    item.className = "item";
+    const cw = document.createElement("div");
+    cw.className = "cw";
+    const cb = document.createElement("button");
+    cb.className = "card";
+    cb.setAttribute("aria-label", a.t + " \u2013 Details");
+    const cov = document.createElement("div");
+    cov.className = "cov";
+    const im = document.createElement("img");
+    im.loading = "lazy";
+    im.alt = "";
+    im.src = base + a.img + "&followRedirects=1";
+    im.onerror = () => im.remove();
+    cov.append(im);
+    cb.append(cov);
+    cb.onclick = () => openAlbum(a);
+    const pl = document.createElement("button");
+    pl.className = "play";
+    pl.innerHTML = ICON_PLAY;
+    pl.setAttribute("aria-label", "Play " + a.t);
+    pl.onclick = () => cmd(a.play, "Playing: " + a.t);
+    cw.append(cb, pl);
+    if (a.menu["addAll-last"]) {
+      const aq = document.createElement("button");
+      aq.className = "play addq";
+      aq.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
+      aq.setAttribute("aria-label", "Add " + a.t + " to end of queue");
+      aq.title = "Add to end of queue";
+      aq.onclick = () => cmd(a.menu["addAll-last"], "Added to queue: " + a.t);
+      cw.append(aq);
+    }
+    // Favourite heart (only for albums whose player menu offers favourites)
+    const fh = document.createElement("button");
+    fh.className = "play favc";
+    fh.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + HEART + "</svg>";
+    fh.onclick = () => toggleFav(a);
+    coverHearts.set(a, fh);
+    paintHeart(fh, a);
+    cw.append(fh);
+    const tb = document.createElement("button");
+    tb.className = "card";
+    const t = document.createElement("b");
+    t.textContent = a.t;
+    tb.append(t);
+    tb.onclick = () => openAlbum(a);
+    const ab = document.createElement("button");
+    ab.className = "card ar";
+    const s = document.createElement("span");
+    s.textContent = a.a;
+    ab.setAttribute("aria-label", "Albums by " + a.a);
+    ab.append(s);
+    ab.onclick = () => showArtist(a.a);
+    item.append(cw, tb, ab);
+    if (sentinel.parentNode === g) g.insertBefore(item, sentinel);
+    else g.append(item);
+  }
+}
+// Picks a random album from `list` (the albums of the selected chip / view).
+const randomAlbum = (list) => list[Math.floor(Math.random() * list.length)];
+// First tile of the grid. Click / play button: plays a random album of the current view,
+// add button: appends one to the queue. No popup; a toast tells which album was picked.
+function randomTile(list) {
+  const item = document.createElement("div");
+  item.className = "item";
+  const cw = document.createElement("div");
+  cw.className = "cw";
+  const cb = document.createElement("div");
+  cb.className = "card static";
+  const cov = document.createElement("div");
+  cov.className = "cov rnd";
+  // Dice icon as cover art (isometric 3D cube, three shaded faces)
+  cov.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" stroke-width="1" stroke-linejoin="round">'
+    + '<path d="M12 2.5 20 7 12 11.5 4 7z" fill="currentColor" fill-opacity=".35"/>'
+    + '<path d="M4 7 12 11.5V21.5L4 17z" fill="currentColor" fill-opacity=".62"/>'
+    + '<path d="M20 7 12 11.5V21.5L20 17z" fill="currentColor" fill-opacity=".9"/>'
+    + '<g stroke="none" fill="var(--panel)"><ellipse cx="12" cy="7" rx="1.5" ry=".85"/>'
+    + '<circle cx="6.4" cy="11.6" r="1"/><circle cx="9.6" cy="17" r="1"/>'
+    + '<circle cx="14" cy="13" r="1"/><circle cx="16" cy="14.3" r="1"/><circle cx="18" cy="15.6" r="1"/></g></svg>';
+  cb.append(cov);
+  const play = () => {
+    const a = randomAlbum(list);
+    cmd(a.play, "Playing: " + a.t + " \u2013 " + a.a);
+  };
+  const pl = document.createElement("button");
+  pl.className = "play";
+  pl.innerHTML = ICON_PLAY;
+  pl.setAttribute("aria-label", "Play a random album");
+  pl.onclick = play;
+  const aq = document.createElement("button");
+  aq.className = "play addq";
+  aq.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
+  aq.setAttribute("aria-label", "Add a random album to end of queue");
+  aq.title = "Add a random album to end of queue";
+  aq.onclick = () => {
+    const a = randomAlbum(list);
+    if (a.menu["addAll-last"]) cmd(a.menu["addAll-last"], "Added to queue: " + a.t + " \u2013 " + a.a);
+    else toast("Could not add " + a.t);
+  };
+  cw.append(cb, pl, aq);
+  const tb = document.createElement("div");
+  tb.className = "card static";
+  const t = document.createElement("b");
+  t.textContent = "Random album";
+  tb.append(t);
+  const sb = document.createElement("div");
+  sb.className = "card static";
+  const sp = document.createElement("span");
+  sp.textContent = "from " + nAlb(list.length);
+  sb.append(sp);
+  item.append(cw, tb, sb);
+  return item;
+}
+
+/* ---------- Favourites ---------- */
+// Favourite state and toggling for the heart on the cover.
+
+// {on, url}: current state and the URL for the next toggle.
+const favOf = (a) => a.menu["favourite-delete"] ? { on: true, url: a.menu["favourite-delete"] } : a.menu["favourite-add"] ? { on: false, url: a.menu["favourite-add"] } : { on: false, url: "" };
+// Heart buttons on covers per album object, repainted after every change.
+const coverHearts = new WeakMap();
+const paintHeart = (b, a) => {
+  const f = favOf(a), t = f.on ? "Remove from favourites" : "Add to favourites";
+  b.hidden = !f.url;
+  b.setAttribute("aria-pressed", f.on);
+  b.title = t;
+  b.setAttribute("aria-label", t + ": " + a.t);
+};
+const repaintCoverHeart = (a) => {
+  const b = coverHearts.get(a);
+  if (b) paintHeart(b, a);
+};
+// Fetches the album's context menu again (current state + URL for the opposite action).
+async function refreshFav(a) {
+  if (!a.cm) return false;
+  try {
+    const m = {};
+    items(await browse(a.cm)).forEach((x) => {
+      if (attr(x, "actionURL")) m[attr(x, "type")] = attr(x, "actionURL");
+    });
+    if (!Object.keys(m).length) return false;
+    delete a.menu["favourite-add"];
+    delete a.menu["favourite-delete"];
+    Object.assign(a.menu, m);
+    repaintCoverHeart(a);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+// Toggles the favourite on the player. The player encodes the state in the context menu key
+// (...&isFavourite=1), so the key is switched before the menu is read again. Returns false on failure.
+async function toggleFav(a) {
+  const f = favOf(a);
+  if (!f.url || !await xml(f.url)) return false;
+  toast(f.on ? "Removed from favourites" : "Added to favourites");
+  const k = a.cm.replace(/[&?]isFavourite=1/, "");
+  a.cm = f.on ? k : k + "&isFavourite=1";
+  delete a.menu["favourite-add"];
+  delete a.menu["favourite-delete"];
+  // Until the menu is read again, the opposite action follows from the one just used
+  a.menu[f.on ? "favourite-add" : "favourite-delete"] = f.on ? f.url.replace("/DeleteFavourite", "/AddFavourite") : f.url.replace("/AddFavourite", "/DeleteFavourite");
+  repaintCoverHeart(a);
+  await refreshFav(a);
+  return true;
+}
+
+/* ---------- Popups ---------- */
+// Album popup and the popup for unsuccessful player answers.
+
+// Opens the album popup: details and the track list.
+// Play, add to queue and the favourite heart are on the cover in the grid, not in the popup.
+async function openAlbum(a) {
+  $("#dimg").src = base + a.img + "&followRedirects=1";
+  $("#dt").textContent = a.t;
+  const da = $("#da");
+  da.textContent = "";
+  const al = document.createElement("button");
+  al.className = "lnk";
+  al.textContent = a.a;
+  al.title = "Show albums by " + a.a;
+  al.onclick = () => showArtist(a.a);
+  da.append(al);
+  // Number of tracks and total playing time above the track list (like in the queue panel)
+  const sum = (n, secs) => n ? n + (+n === 1 ? " track" : " tracks") + (secs ? " \u00B7 " + fmtTime(secs) : "") : "";
+  $("#dsum").textContent = sum(a.n, 0);
+  albumDetails([]);
+  $("#dg").textContent = (gmap[gkey(a.t, a.a)] || []).join(", ");
+  // Source (USB / library) with the same icon as in the player, set apart from the album metadata
+  const sn = sourceName(a.key), ds = $("#ds");
+  ds.innerHTML = sn ? sourceIcon(a.key) : "";
+  if (sn) ds.append(document.createTextNode(sn));
+  const ol = $("#tracks");
+  ol.innerHTML = "<li style='padding:10px;color:var(--dim)'>Loading tracks \u2026</li>";
+  if (!$("#dlg").open) {
+    $("#dlg").showModal();
+    // showModal() focuses the first button (the close button) and would draw the focus ring on it.
+    $("#close").blur();
+  }
+  // Tracks with play links from /Browse; details per song (year, quality, format, artist) from
+  // /library/v1/Songs of the same album (service and album/artist query taken from the album key).
+  const seq = ++dlgSeq, svc = a.key.split(":")[0], q = a.key.split("?")[1] || "";
+  try {
+    const [bd, sd] = await Promise.all([
+      browse(a.key),
+      api("/library/v1/Songs?service=" + svc + "&" + q).catch(() => null)
+    ]);
+    if (seq !== dlgSeq) return;
+    const tr = items(bd).filter((i) => attr(i, "type") === "track");
+    const songs = sd ? [...sd.querySelectorAll("song")] : [];
+    ol.innerHTML = "";
+    albumDetails(songs);
+    // Song details per track, matched by title (the track list shows "N. Title")
+    const txt = (e, t) => e.querySelector(t)?.textContent || "";
+    const byTitle = new Map(songs.map((x) => [txt(x, "title"), x]));
+    $("#dsum").textContent = sum(tr.length, tr.reduce((t, i) => t + (+attr(i, "duration") || 0), 0));
+    tr.forEach((i) => {
+      const li = document.createElement("li"), b = document.createElement("button");
+      const n = document.createElement("span");
+      n.textContent = attr(i, "text");
+      const sg = byTitle.get(attr(i, "text").replace(/^\d+\.\s*/, ""));
+      const ar = sg ? txt(sg, "art") : "";
+      if (ar && ar !== a.a) {
+        const ta = document.createElement("small");
+        ta.className = "ta";
+        ta.textContent = ar;
+        n.append(ta);
+      }
+      const d = document.createElement("i"), s = +attr(i, "duration");
+      d.textContent = s ? fmtTime(s) : "";
+      b.append(n, d);
+      b.onclick = () => cmd(attr(i, "autoplayURL") || attr(i, "playURL"), "Track started");
+      li.append(b);
+      ol.append(li);
+    });
+  } catch (e) {
+    ol.innerHTML = "";
+    toast("Could not load tracks");
+  }
+}
+// Year, quality tag and technical data of the album from its songs (/library/v1/Songs):
+// e.g. "1977" and "[CD] FLAC · 16 bit / 44.1 kHz · Stereo · Ø 850 kbit/s". Differing values are
+// shown as a range or joined with "/" (mixed albums).
+function albumDetails(songs) {
+  const dy = $("#dy"), dt = $("#dtech");
+  dy.textContent = dt.textContent = "";
+  if (!songs.length) return;
+  const uniq = (f) => [...new Set(songs.map(f).filter((v) => v !== "" && v !== null))];
+  const at = (n) => (x) => x.getAttribute(n) || "";
+  const range = (vals, f) => {
+    const n = vals.map(Number).filter((v) => v > 0).sort((p, q) => p - q);
+    return !n.length ? "" : n[0] === n[n.length - 1] ? f(n[0]) : f(n[0]) + "\u2013" + f(n[n.length - 1]);
+  };
+  const years = uniq((x) => x.querySelector("date")?.textContent.trim() || "");
+  if (years.length) dy.textContent = range(years, String);
+  // Quality: cd / hd / hr / mqa; MP3 files report their bitrate as quality
+  const fmts = uniq(at("atype")).map((f) => FORMATS[f] || f.toUpperCase());
+  const labels = uniq((x) => at("atype")(x) === "mp3" ? "MP3" : qLabel(x.querySelector("quality")?.textContent || ""));
+  labels.forEach((l) => {
+    const t = document.createElement("span");
+    t.className = "q" + ({ HD: " q-hd", MQA: " q-mqa", MP3: " q-mp3" }[l] || "");
+    t.textContent = l;
+    dt.append(t);
+  });
+  const lossy = fmts.every((f) => LOSSY.includes(f));
+  const bits = lossy ? "" : range(uniq(at("samplebits")), (v) => v + "");
+  const rate = range(uniq(at("samplerate")), (v) => +(v / 1000).toFixed(1) + "");
+  const ch = uniq(at("channels")).map((c) => ({ 1: "Mono", 2: "Stereo" }[c] || c + " ch")).join(" / ");
+  const br = songs.map((x) => +at("bitrate")(x)).filter((v) => v > 0);
+  const avg = br.length ? "\u00D8 " + Math.round(br.reduce((p, q) => p + q, 0) / br.length / 1000) + " kbit/s" : "";
+  const res = [bits && bits + " bit", rate && rate + " kHz"].filter(Boolean).join(" / ");
+  const info = document.createElement("span");
+  info.textContent = [fmts.join(" / "), res, ch, avg].filter(Boolean).join(" \u00B7 ");
+  dt.append(info);
+}
+// Shows a request, its HTTP status and the raw response body (used when a command did not succeed).
+function showApiResponse(title, url, status, body) {
+  $("#apit").textContent = title;
+  $("#apiu").textContent = url.replace(base, "");
+  $("#apis").textContent = status || "";
+  $("#apib").textContent = body && body.trim() ? body.trim() : "(empty response)";
+  $("#apidlg").showModal();
+  $("#apiclose").blur();
+}
+
+/* ---------- Playlists ---------- */
+// Saved playlists of the player as chips.
+
+// Loads the saved playlists (following nextKey paging) and builds one chip per playlist.
+async function loadPlaylists() {
+  const seq = ++plSeq, mine = base;
+  if (!playlistsKey) {
+    plChips = [];
+    renderPlChips();
+    return;
+  }
+  try {
+    const list = [];
+    let key = playlistsKey;
+    for (let i = 0; key && i < 20; i++) {
+      const d = await browse(key);
+      // Play URL: playURL, or else a "play" action from the item's context menu.
+      items(d).forEach((it) => {
+        const pm = [...it.querySelectorAll("contextMenu > item")].find((m) => /^play/i.test(attr(m, "type")));
+        const url = attr(it, "playURL") || (pm ? attr(pm, "actionURL") : "");
+        if (url) list.push({ name: attr(it, "text"), url });
+      });
+      key = attr(d.documentElement, "nextKey");
+    }
+    if (seq !== plSeq || mine !== base) return;
+    plCount = list.length;
+    playlists = list;
+    updateQDel();
+    renderLib();
+    plChips = list.map((it) => {
+      const b = document.createElement("button");
+      b.className = "plc";
+      b.innerHTML = ICON_PLAYLIST;
+      const t = document.createElement("span");
+      t.textContent = it.name;
+      b.append(t);
+      b.title = "Play playlist \u201C" + it.name + "\u201D";
+      b.onclick = () => {
+        plLoaded = it.name;
+        // Reload the queue afterwards: an empty playlist may not change the playlist id the status reports
+        cmd(it.url, "Playing playlist: " + it.name).then(() => qOpen && setTimeout(loadQueue, 600));
+      };
+      return b;
+    });
+    renderPlChips();
+  } catch (e) {
+    if (seq === plSeq) {
+      plChips = [];
+      renderPlChips();
+    }
+  }
+}
+// (Re-)adds the playlist chips, behind a separator, at the end of the chip row.
+function renderPlChips() {
+  const nav = $("#az");
+  nav.querySelectorAll(".plc, .plg").forEach((e) => e.remove());
+  if (!plChips.length) return;
+  const gp = document.createElement("span");
+  gp.className = "gap plg";
+  nav.append(gp, ...plChips);
+}
+
+/* ---------- Queue panel ---------- */
+// Play queue: list, pinning, shuffle, repeat, save / delete playlist, clear.
+
+// Repeat button: icon and label for the <repeat> value of /Status (2 = off, 0 = queue, 1 = track).
+function showRepeat(v) {
+  const r = REPEAT[v] || REPEAT[2], b = $("#qrep");
+  if (b.dataset.v === String(v)) return;
+  b.dataset.v = v;
+  b.innerHTML = r.icon;
+  b.setAttribute("aria-pressed", v !== "2" && v !== "");
+  b.setAttribute("aria-label", "Repeat: " + r.label);
+  b.title = "Repeat: " + r.label;
+}
+// Highlights the currently playing queue entry.
+function markCur(scroll) {
+  document.querySelectorAll("#qlist li").forEach((li) => {
+    const cur = li.dataset.id === String(qSong), was = li.classList.contains("cur");
+    li.classList.toggle("cur", cur);
+    if (cur && scroll && !was) li.scrollIntoView({ block: "nearest" });
+  });
+}
+// Loads the play queue (/Playlist, 200 entries per request, at most 2000) and renders it.
+async function loadQueue() {
+  const seq = ++qSeq, ol = $("#qlist");
+  if (!base) {
+    ol.innerHTML = "";
+    return;
+  }
+  try {
+    const songs = [], STEP = 200;
+    let total = 0, start = 0, name = "";
+    do {
+      const d = await api("/Playlist?start=" + start + "&end=" + (start + STEP - 1));
+      total = +d.documentElement.getAttribute("length") || 0;
+      name = d.documentElement.getAttribute("name") || "";
+      songs.push(...d.documentElement.querySelectorAll(":scope > song"));
+      start += STEP;
+    } while (start < total && start < 2e3);
+    if (seq !== qSeq) return;
+    ol.innerHTML = "";
+    songs.forEach((sg) => {
+      const id = attr(sg, "id"), li = document.createElement("li");
+      li.dataset.id = id;
+      const it = document.createElement("button");
+      it.className = "it";
+      const n = document.createElement("span");
+      n.className = "qn";
+      n.textContent = +id + 1;
+      const t = document.createElement("div");
+      t.className = "qt";
+      const b = document.createElement("b"), sp = document.createElement("span");
+      const q = (tag) => {
+        const e = sg.querySelector(tag);
+        return e ? e.textContent.trim() : "";
+      };
+      b.textContent = q("title");
+      sp.textContent = [q("art"), q("alb")].filter(Boolean).join(" \u2013 ");
+      t.append(b, sp);
+      it.append(n, t);
+      // Track length (<time> is in seconds; not every source provides it)
+      const secs = +q("time");
+      if (secs > 0) {
+        const d = document.createElement("span");
+        d.className = "qd";
+        d.textContent = fmtTime(secs);
+        it.append(d);
+      }
+      it.onclick = async () => {
+        await xml("/Play?id=" + id);
+        setTimeout(sync, 500);
+      };
+      const rm = document.createElement("button");
+      rm.className = "rm";
+      rm.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>';
+      rm.setAttribute("aria-label", "Remove from queue");
+      rm.onclick = async () => {
+        await xml("/Delete?id=" + id);
+        loadQueue();
+      };
+      li.append(it, rm);
+      ol.append(li);
+    });
+    const totalSecs = songs.reduce((n, sg) => n + (+(sg.querySelector("time") || {}).textContent || 0), 0);
+    $("#qsave").disabled = $("#qclear").disabled = $("#qshuf").disabled = $("#qrep").disabled = !total;
+    // Saved playlist for the delete button, empty queue or not: the name the player reports for the queue,
+    // otherwise the playlist chip clicked last (a broken playlist may load as an empty queue without a name).
+    if (name) plLoaded = name;
+    qName = plLoaded;
+    updateQDel();
+    // Two lines: number of tracks, total playing time
+    $("#qcount").textContent = total ? total + (total === 1 ? " track" : " tracks") + (totalSecs ? "\n" + fmtTime(totalSecs) : "") : "";
+    markCur(true);
+  } catch (e) {
+    if (seq === qSeq) {
+      ol.innerHTML = "";
+      $("#qcount").textContent = "Could not load queue";
+    }
+  }
+}
+// Publishes header / footer heights as CSS variables so the side panels fit between them.
+function setBars() {
+  const r = document.documentElement.style;
+  r.setProperty("--hh", $("header").offsetHeight + "px");
+  r.setProperty("--fh", $("#ctl").offsetHeight + "px");
+}
+// Pins / unpins the queue panel. A pinned panel stays open (also after a reload) and,
+// on wide screens, the album grid moves aside so nothing is covered.
+function qpanel(open) {
+  qOpen = open;
+  store.set("qpin", open ? "1" : "0");
+  $("#qside").classList.toggle("open", open);
+  document.body.classList.toggle("qpin", open);
+  $("#qbtn").setAttribute("aria-expanded", open);
+  $("#qbtn").setAttribute("aria-label", open ? "Unpin queue" : "Pin queue");
+  $("#qbtn").title = open ? "Unpin queue" : "Pin queue";
+  if (open) {
+    setBars();
+    loadQueue();
+  }
+}
+// The saved playlist the current queue was loaded from (matched by name), or undefined.
+const queuePlaylist = () => qName ? playlists.find((x) => x.name === qName) : void 0;
+// Shows the "delete playlist" button only when the queue came from a saved playlist on the player.
+function updateQDel() {
+  const pl = queuePlaylist(), b = $("#qdel");
+  b.hidden = !pl;
+  if (pl) {
+    b.title = "Delete playlist \u201C" + pl.name + "\u201D from the player";
+    b.setAttribute("aria-label", b.title);
+  }
+}
+
+/* ---------- Player footer & full screen ---------- */
+// Now playing, progress, transport, volume, status polling, full-screen view.
+
+const fmtT = (s) => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+const curPos = () => pos.secs + (pos.playing ? (Date.now() - pos.t) / 1e3 : 0);
+const canSeek = () => pos.canSeek && pos.total > 0;
+// Updates the thin progress strip on top of the footer (4x per second).
+function tickProg() {
+  const p = $("#prog"), c = Math.min(pos.total || 0, curPos());
+  p.style.setProperty("--w", (pos.total > 0 ? Math.max(0, Math.min(1, c / pos.total)) * 100 : 0).toFixed(2) + "%");
+  p.classList.toggle("seek", canSeek());
+  p.setAttribute("aria-disabled", !canSeek());
+  p.setAttribute("aria-valuemax", Math.round(pos.total));
+  p.setAttribute("aria-valuenow", Math.round(c));
+}
+// Seeks within the current track (only when the player reports canSeek).
+async function seekTo(sec) {
+  if (!canSeek()) return;
+  sec = Math.max(0, Math.min(pos.total - 1, Math.round(sec)));
+  pos.secs = sec;
+  pos.t = Date.now();
+  tickProg();
+  const d = await xml("/Play?seek=" + sec), s = d && d.querySelector("state");
+  if (s) setState(s.textContent);
+}
+// Play/pause button and position clock from a player state ("play", "stream", "pause", "stop").
+const setState = (s) => {
+  const paused = s === "pause" || s === "stop";
+  pos.secs = curPos();
+  pos.t = Date.now();
+  pos.playing = !paused;
+  $("#pp").innerHTML = paused ? ICON_PLAY : ICON_PAUSE;
+};
+const paintVol = (v) => $("#vs").style.setProperty("--p", v + "%");
+// Applies a volume response; a volume of -1 means fixed volume, so the controls are disabled.
+const setVol = (d) => {
+  const v = d && d.querySelector("volume"), sl = $("#vs");
+  if (!v) return;
+  const t = v.textContent.trim();
+  const fix = t === "-1";
+  sl.disabled = $("#vd").disabled = $("#vu").disabled = fix;
+  if (fix || dragging) return;
+  sl.value = t;
+  paintVol(+t);
+};
+// Stops polling and clears the now-playing area.
+function stopPoll() {
+  pollId++;
+  pos = { secs: 0, total: 0, t: 0, playing: false, canSeek: false };
+  tickProg();
+  try {
+    if (pollCtl) pollCtl.abort();
+  } catch (e) {
+  }
+  $("#nt1").textContent = "";
+  $("#nt2").textContent = "";
+  $("#nq").hidden = true;
+  $("#cov").hidden = true;
+  $("#cov").dataset.src = "";
+  $("#cov").removeAttribute("src");
+}
+// Quality tag shown next to the title; the values are taken from the player.
+function qLabel(q) {
+  if (q === "cd") return "CD";
+  if (q === "hd" || q === "hr") return "HD";
+  if (/^mqa/i.test(q)) return "MQA";
+  if (/^dolby/i.test(q)) return "Dolby";
+  return "";
+}
+// Renders a /Status response: now playing, cover, quality, position, volume, current queue entry.
+function showNow(d) {
+  const root = d.documentElement;
+  const g = (n) => {
+    const e = root.querySelector(":scope > " + n);
+    return e ? e.textContent.trim() : "";
+  };
+  const state = g("state");
+  if (state) setState(state);
+  setVol(d);
+  pos.total = +g("totlen") || 0;
+  pos.secs = +g("secs") || 0;
+  pos.t = Date.now();
+  pos.canSeek = g("canSeek") === "1";
+  tickProg();
+  const pid = g("pid"), song = g("song");
+  if (song !== "") qSong = song;
+  if (pid && pid !== qPid) {
+    qPid = pid;
+    if (qOpen) loadQueue();
+  } else markCur(false);
+  // Shuffle (0 / 1) and repeat state of the queue
+  $("#qshuf").setAttribute("aria-pressed", g("shuffle") === "1");
+  showRepeat(g("repeat"));
+  const t1 = g("title1") || g("name");
+  $("#nt1").textContent = t1 || (state ? "Nothing playing" : "");
+  $("#nt2").textContent = t1 ? [g("title2"), g("title3")].filter(Boolean).join(" \u2013 ") : "";
+  const im = t1 ? g("image") : "", cv = $("#cov");
+  const src = !im ? "" : im.startsWith("/") ? base + im + (im.startsWith("/Artwork") ? (im.includes("?") ? "&" : "?") + "followRedirects=1" : "") : im;
+  if (cv.dataset.src !== src) {
+    cv.dataset.src = src;
+    if (src) {
+      cv.src = src;
+      cv.hidden = false;
+    } else {
+      cv.hidden = true;
+      cv.removeAttribute("src");
+    }
+  }
+  // Full-screen view: title1-3 are the three now-playing lines the API asks UIs to use
+  $("#ft1").textContent = t1;
+  $("#ft2").textContent = t1 ? g("title2") : "";
+  $("#ft3").textContent = t1 ? g("title3") : "";
+  const fi = $("#fimg");
+  if ((fi.getAttribute("src") || "") !== src) src ? fi.src = src : fi.removeAttribute("src");
+  if (!t1) showFull(false);
+  // MP3 has a bitrate as quality (e.g. 184000); it is recognised by the stream format ("MP3 184 kb/s").
+  const ql = !t1 ? "" : /^MP3\b/i.test(g("streamFormat")) ? "MP3" : qLabel(g("quality")), q = $("#nq");
+  q.hidden = !ql;
+  q.textContent = ql;
+  q.title = g("streamFormat");
+  // Metal finish per quality: silver (default), gold for HD, bronze for MQA, copper for MP3
+  q.classList.toggle("q-hd", ql === "HD");
+  q.classList.toggle("q-mqa", ql === "MQA");
+  q.classList.toggle("q-mp3", ql === "MP3");
+}
+// Long-poll loop: /Status?timeout=100&etag=... returns as soon as something changes.
+// Waits at least 1 s between requests and 5 s after an error.
+async function pollStatus() {
+  const id = ++pollId;
+  let etag = "";
+  while (id === pollId) {
+    const t0 = Date.now();
+    try {
+      pollCtl = new AbortController();
+      const d = await api("/Status?timeout=100" + (etag ? "&etag=" + encodeURIComponent(etag) : ""), { signal: pollCtl.signal });
+      if (id !== pollId) return;
+      etag = d.documentElement.getAttribute("etag") || "";
+      showNow(d);
+    } catch (e) {
+      if (id !== pollId) return;
+      await new Promise((res) => setTimeout(res, 5e3));
+    }
+    const dt = Date.now() - t0;
+    if (dt < 1e3) await new Promise((res) => setTimeout(res, 1e3 - dt));
+  }
+}
+// One-off refresh of play state and volume (after a command).
+async function sync() {
+  if (!base) return;
+  try {
+    const st = await xml("/Status");
+    const s = st && st.querySelector("state");
+    if (s) setState(s.textContent);
+    setVol(await xml("/Volume"));
+  } catch (e) {
+  }
+}
+// Opens / closes the full-screen view (only while something is playing).
+function showFull(open) {
+  if (open && !$("#ft1").textContent) return;
+  if (open) setBars();
+  $("#full").hidden = !open;
+  document.body.classList.toggle("full", open);
+  document.body.classList.remove("fullbar");
+  $("#cvb").setAttribute("aria-label", open ? "Close full-screen player" : "Show full-screen player");
+}
+
+/* ---------- Search ---------- */
+// The player's own search.
+
+// Collects albums from a search result list that is split into sections.
+async function searchAlbums(key) {
+  const secs = items(await browse(key)).filter((i) => attr(i, "type") === "section" && attr(i, "text2") !== "0");
+  if (!secs.length) return fetchAlbums(key);
+  const out = [];
+  for (const x of secs) out.push(...await fetchAlbums(attr(x, "browseKey")));
+  return out;
+}
+// Uses the player's own search (Enter or after 500 ms). An empty field restores the selected view.
+async function search() {
+  const v = $("#q").value.trim(), seq = ++searchSeq;
+  const btns = document.querySelectorAll("#az button");
+  if (!v) {
+    btns.forEach((b) => b.setAttribute("aria-pressed", b === activeBtn));
+    render(shown);
+    msg(shown.length ? nAlb(shown.length) : "Select a genre.");
+    return;
+  }
+  const sk = srcs.filter((x) => x.searchKey);
+  if (!sk.length) {
+    msg("Connect first \u2013 or the player offers no search.", true);
+    return;
+  }
+  btns.forEach((b) => b.setAttribute("aria-pressed", "false"));
+  msg("Searching \u2026");
+  try {
+    // Search every enabled source and join the results
+    const albums = joinSources(await Promise.all(sk.map(async (x) => {
+      const its = items(await browse(x.searchKey, v));
+      const direct = its.filter((i) => attr(i, "type") === "album").map(toAlbum);
+      if (direct.length) return direct;
+      const link = its.find((i) => /Album/i.test(attr(i, "browseKey")) || /^(Alben?|Albums?)$/i.test(attr(i, "text")));
+      return link ? searchAlbums(attr(link, "browseKey")) : [];
+    })));
+    if (seq !== searchSeq) return;
+    render(albums, true);
+    msg(nAlb(albums.length) + " for \u201C" + v + "\u201D");
+  } catch (e) {
+    if (seq === searchSeq) msg(errMsg("Search failed: ", e), true);
+  }
+}
+
+/* ---------- Settings panel ---------- */
+// Panel, settings switches, library stats and settings, about.
+
+// Opens / closes the settings panel (focus = focus the IP field).
+function panel(open, focus) {
+  $("#side").classList.toggle("open", open);
+  $("#scrim").classList.toggle("on", open);
+  $("#gear").setAttribute("aria-expanded", open);
+  if (open && focus && !$("#cform").hidden) setTimeout(() => $("#ip").focus(), 260);
+}
+function setTitle(n) {
+  playerName = n || "";
+  if (!$("#cline").hidden) $("#cname").textContent = playerName || "Connected";
+  document.title = playerName || APP.name;
+  if ($("#info")) renderLib();
+}
+// Renders the player info and library statistics (about popup) and the library settings (settings panel).
+function renderLib() {
+  $("#info").innerHTML = "";
+  $("#libset").innerHTML = "";
+  const fmt = (v) => v === null || v === void 0 ? "\u2026" : typeof v === "number" ? v.toLocaleString("en") : v;
+  const stats = ["Albums", "Artists", "Songs", "Genres", "Composers"].filter((k) => k in libStats).map((k) => [k, fmt(libStats[k])]);
+  if (plCount !== null) stats.push(["Playlists", fmt(plCount)]);
+  const section = (box, title, rows) => {
+    if (!rows.length) return;
+    const h = document.createElement("h3");
+    h.textContent = title;
+    const dl = document.createElement("dl");
+    dl.className = "kv";
+    rows.forEach(([k, v]) => {
+      const dt = document.createElement("dt"), dd = document.createElement("dd");
+      dt.textContent = k;
+      dd.textContent = v;
+      dl.append(dt, dd);
+    });
+    box.append(h, dl);
+  };
+  section($("#info"), "Player", [["Room", playerName], ...playerRows].filter((x) => x[1]));
+  section($("#info"), "Music Library Stats", stats);
+  section($("#libset"), "Music Library Settings", libRows);
+}
+// Number of entries behind a browse key (sums the section counts when the list is sectioned).
+async function countItems(key) {
+  const its = items(await browse(key));
+  const secs = its.filter((i) => attr(i, "type") === "section");
+  if (secs.length) return secs.reduce((n, x) => n + (+attr(x, "text2") || 0), 0);
+  return its.filter((i) => attr(i, "type") !== "link").length;
+}
+// Fills the library statistics (albums, artists, songs, composers summed over the enabled sources;
+// genres = number of different genre names); values appear as they arrive.
+async function loadStats(genreCount) {
+  const mine = ctx();
+  libStats = { Albums: null, Artists: null, Songs: null, Genres: genreCount, Composers: null };
+  renderLib();
+  await Promise.all([["Albums", "Album"], ["Artists", "Artist"], ["Songs", "Song"], ["Composers", "Composer"]].map(async ([label, k]) => {
+    let sum = 0, any = false;
+    await Promise.all(srcs.map(async (x) => {
+      const it = x.menu.find((i) => new RegExp("bySection:" + k).test(attr(i, "browseKey")));
+      if (!it) return;
+      try {
+        const n = await countItems(attr(it, "browseKey"));
+        sum += n;
+        any = true;
+      } catch (e) {
+      }
+    }));
+    if (mine !== ctx()) return;
+    libStats[label] = any ? sum : "\u2013";
+    renderLib();
+  }));
+}
+// Reads /Settings (room name, network shares, artwork optimisation, server mode)
+// and the player software versions (/GitVersion = BluOS, /Version = API).
+async function loadInfo() {
+  const mine = base;
+  loadVersions();
+  try {
+    const d = await api("/Settings");
+    if (mine !== base) return;
+    const st = (id) => d.querySelector('setting[id="' + id + '"]');
+    const val = (id) => {
+      const e = st(id);
+      return e ? attr(e, "value") : "";
+    };
+    const pm = d.querySelector('menuGroup[id="player"]');
+    setTitle(val("zonename") || (pm ? attr(pm, "displayName") : ""));
+    const onoff = (id) => {
+      const v = val(id);
+      return ONOFF[v] || v;
+    };
+    const sh = st("sharecfg");
+    libRows = [
+      ["Network shares", sh ? /^\s*$|no shares|keine/i.test(attr(sh, "description")) ? "None" : attr(sh, "description") : ""],
+      ["Optimize artwork", onoff("resizeall")],
+      ["Server mode", onoff("server")]
+    ].filter((x) => x[1]);
+    renderLib();
+  } catch (e) {
+    if (mine === base) {
+      libRows = [];
+      renderLib();
+    }
+  }
+}
+// Player rows of the about popup: BluOS version (/GitVersion) and API version (/Version).
+async function loadVersions() {
+  const mine = base;
+  const ver = async (path) => {
+    try {
+      return (await api(path)).querySelector("version")?.textContent.trim() || "";
+    } catch (e) {
+      return "";
+    }
+  };
+  const [os, apiv] = await Promise.all([ver("/GitVersion"), ver("/Version")]);
+  if (mine !== base) return;
+  playerRows = [["BluOS version", os], ["API version", apiv]].filter((x) => x[1]);
+  renderLib();
+}
+// Applies and stores the design. "system" removes data-theme so prefers-color-scheme decides.
+function applyTheme(t) {
+  if (t !== "light" && t !== "dark") t = "system";
+  if (t === "system") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", t);
+  return t;
+}
+function applySize(z) {
+  if (!TILE[z]) z = "m";
+  document.documentElement.style.setProperty("--tile", TILE[z]);
+  return z;
+}
+// On/off switch in the settings panel (button[role=switch]): stored as "1" / "0", default on.
+function bindSwitch(sel, key, apply) {
+  const b = $(sel);
+  const set = (on) => {
+    store.set(key, on ? "1" : "0");
+    b.setAttribute("aria-checked", on);
+    apply(on);
+  };
+  b.onclick = () => set(b.getAttribute("aria-checked") !== "true");
+  set(store.get(key) !== "0");
+}
+// Segmented control (buttons with data-<name>): apply(value) applies it and returns the valid value.
+function bindSegment(sel, name, key, apply) {
+  const btns = document.querySelectorAll(sel + " button");
+  const set = (v) => {
+    v = apply(v);
+    store.set(key, v);
+    btns.forEach((b) => b.setAttribute("aria-pressed", b.dataset[name] === v));
+  };
+  btns.forEach((b) => {
+    b.onclick = () => set(b.dataset[name]);
+  });
+  set(store.get(key));
+}
+
+/* ---------- Event wiring & start ---------- */
+// Event handlers and start-up code (runs once, in this order).
+
+$("#cchg").onclick = () => {
+  showConnected(false);
+  $("#ip").focus();
+  $("#ip").select();
+};
+// Version in the settings footer and the about popup
+$("#ver").textContent = $("#ver2").textContent = "v" + APP.version;
+// Footer line opens the about popup.
+$("#aboutb").onclick = () => {
+  $("#infodlg").showModal();
+  $("#infoclose").blur();
+};
+setInterval(tickProg, 250);
+$("#prog").addEventListener("click", (e) => {
+  const r = $("#prog").getBoundingClientRect();
+  seekTo((e.clientX - r.left) / r.width * pos.total);
+});
+$("#prog").addEventListener("pointermove", (e) => {
+  const r = $("#prog").getBoundingClientRect();
+  $("#prog").title = pos.total > 0 ? fmtT(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * pos.total) + " / " + fmtT(pos.total) : "";
+});
+$("#prog").addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+    e.preventDefault();
+    seekTo(curPos() + (e.key === "ArrowRight" ? 5 : -5));
+  }
+});
+$("#cov").onerror = () => {
+  $("#cov").hidden = true;
+};
+// Transport buttons.
+$("#pp").onclick = async () => {
+  const d = await xml("/Pause?toggle=1");
+  const s = d && d.querySelector("state");
+  if (s) setState(s.textContent);
+};
+$("#bk").onclick = async () => {
+  await xml("/Back");
+  setTimeout(sync, 500);
+};
+$("#sk").onclick = async () => {
+  await xml("/Skip");
+  setTimeout(sync, 500);
+};
+// Volume slider and +/- buttons.
+{
+  const sl = $("#vs");
+  const flush = () => {
+    vTimer = 0;
+    vLast = Date.now();
+    xml("/Volume?level=" + vWant);
+  };
+  sl.addEventListener("pointerdown", () => {
+    dragging = true;
+  });
+  addEventListener("pointerup", () => {
+    dragging = false;
+  });
+  addEventListener("pointercancel", () => {
+    dragging = false;
+  });
+  sl.addEventListener("input", () => {
+    vWant = +sl.value;
+    paintVol(vWant);
+    if (!vTimer) vTimer = setTimeout(flush, Math.max(0, 150 - (Date.now() - vLast)));
+  });
+  $("#vd").onclick = async () => setVol(await xml("/Volume?db=-2"));
+  $("#vu").onclick = async () => setVol(await xml("/Volume?db=2"));
+  sl.addEventListener("change", async () => {
+    clearTimeout(vTimer);
+    vTimer = 0;
+    vLast = Date.now();
+    dragging = false;
+    setVol(await xml("/Volume?level=" + sl.value));
+  });
+}
+addEventListener("resize", () => {
+  if (qOpen || !$("#full").hidden) setBars();
+});
+$("#qbtn").innerHTML = ICON_PLAYLIST;
+showRepeat("2");
+$("#pp").innerHTML = ICON_PLAY;
+$("#qbtn").onclick = () => qpanel(!qOpen);
+// Saves the current queue as a playlist on the player (/Save?name=...).
+// Success = <saved><entries>N</entries></saved> with N > 0; anything else is shown raw in a popup.
+$("#qsave").onclick = async () => {
+  if (!base) return toast("Connect first");
+  const d = new Date(), pad = (n) => String(n).padStart(2, "0");
+  const def = "Queue " + d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  const name = (prompt("Save the queue as playlist:", def) || "").trim();
+  if (!name) return;
+  const path = "/Save?name=" + encodeURIComponent(name), r = await apiRaw(path);
+  const e = r.ok && new DOMParser().parseFromString(r.body, "text/xml").querySelector("saved > entries"), n = e ? +e.textContent : 0;
+  if (n > 0) {
+    toast("Saved playlist \u201C" + name + "\u201D (" + n + (n === 1 ? " track)" : " tracks)"));
+    loadPlaylists();
+    return;
+  }
+  showApiResponse("Saving the playlist did not succeed", base + path, r.status, r.body);
+};
+// Deletes the saved playlist on the player: /Delete?service=BluOS&name=... (as described in /Services);
+// the queue itself stays.
+$("#qdel").onclick = async () => {
+  const pl = queuePlaylist();
+  if (!pl || !confirm("Delete the playlist \u201C" + pl.name + "\u201D from the player?\nThe current queue is not changed.")) return;
+  const url = "/Delete?service=" + SVC_PLAYLISTS + "&name=" + encodeURIComponent(pl.name);
+  const r = await apiRaw(url);
+  if (r.ok && !/<error/i.test(r.body)) {
+    toast("Deleted playlist \u201C" + pl.name + "\u201D");
+    qName = plLoaded = "";
+    updateQDel();
+    loadPlaylists();
+    return;
+  }
+  showApiResponse("Deleting the playlist did not succeed", base + url, r.status, r.body);
+};
+// Switches shuffle on / off: /Shuffle?state=1|0. The player reorders the queue (and restores the
+// original order when switched off); the button state follows the <shuffle> value of /Status.
+$("#qshuf").onclick = async () => {
+  const on = $("#qshuf").getAttribute("aria-pressed") !== "true";
+  if (!(await xml("/Shuffle?state=" + (on ? 1 : 0)))) return;
+  toast(on ? "Shuffle on" : "Shuffle off");
+  loadQueue();
+};
+// Repeat: off -> queue -> track -> off, /Repeat?state=0|1|2; the button follows <repeat> of /Status.
+$("#qrep").onclick = async () => {
+  const next = { 2: 0, 0: 1, 1: 2 }[$("#qrep").dataset.v] ?? 0;
+  if (await xml("/Repeat?state=" + next)) toast("Repeat: " + REPEAT[next].label);
+};
+// Clears the whole queue after confirmation.
+$("#qclear").onclick = async () => {
+  if (!confirm("Clear the whole queue?")) return;
+  await xml("/Clear");
+  loadQueue();
+};
+$("#gear").onclick = () => panel(!$("#side").classList.contains("open"), true);
+$("#scrim").onclick = $("#sclose").onclick = () => panel(false);
+document.addEventListener("keydown", (e) => {
+  // Esc in an open popup only closes the popup (the browser does that), not the panel behind it
+  if (e.key === "Escape" && !document.querySelector("dialog[open]")) {
+    panel(false);
+    showFull(false);
+  }
+});
+$("#go").onclick = connect;
+$("#ip").onkeydown = (e) => {
+  if (e.key === "Enter") connect();
+};
+$("#close").onclick = () => $("#dlg").close();
+$("#dlg").onclick = (e) => {
+  if (e.target === $("#dlg")) $("#dlg").close();
+};
+$("#q").oninput = () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(search, 500);
+};
+$("#q").onkeydown = (e) => {
+  if (e.key === "Enter") {
+    clearTimeout(searchTimer);
+    search();
+  }
+};
+// Settings panel: design, cover size and the chip switches (restored from localStorage)
+bindSegment("#themes", "theme", "theme", applyTheme);
+bindSegment("#sizes", "size", "tile", applySize);
+bindSwitch("#gsw", "genrechips", (on) => $("#az").classList.toggle("nog", !on));
+bindSwitch("#qsw", "qchips", (on) => document.body.classList.toggle("noqc", !on));
+bindSwitch("#psw", "plchips", (on) => document.body.classList.toggle("nopl", !on));
+// Remove values stored by older versions: local favourites (now on the player only) and the former
+// single-source choice (now one switch per source).
+try {
+  Object.keys(localStorage).filter((k) => /^(fav|src):/.test(k)).forEach((k) => localStorage.removeItem(k));
+} catch (e) {
+}
+$("#cvb").onclick = () => showFull($("#full").hidden);
+$("#cvb").onkeydown = (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    showFull($("#full").hidden);
+  }
+};
+// Footer in full-screen view: slides in when the pointer touches the bottom edge (last 4 px)
+// and stays while the pointer is over the footer.
+document.addEventListener("mousemove", (e) => {
+  if (!document.body.classList.contains("full")) return;
+  const near = e.clientY >= innerHeight - 4 || !!e.target.closest?.("#ctl");
+  document.body.classList.toggle("fullbar", near);
+});
+document.documentElement.addEventListener("mouseleave", () => document.body.classList.remove("fullbar"));
+// A click anywhere on the full-screen view closes it.
+$("#full").onclick = () => showFull(false);
+// Restore the pinned queue panel.
+if (store.get("qpin") === "1") qpanel(true);
+// Restore the last IP and open the settings panel so the user can connect.
+const saved = store.get("ip");
+if (saved) $("#ip").value = saved;
+panel(true);
+</script>
+</body>
+</html>

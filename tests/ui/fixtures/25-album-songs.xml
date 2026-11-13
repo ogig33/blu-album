@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<songs album="1" artist="Peter Gabriel" id="262167" service="LocalMusic">
+	<song samplerate="44100" samplebits="16" channels="2" bitrate="821635" atype="flc">
+		<songID>78ed48dc0154344fb2be50e925ba0e74</songID>
+		<art>Peter Gabriel</art>
+		<alb>1</alb>
+		<title>Moribund The Burgermeister</title>
+		<track>1</track>
+		<date>1977</date>
+		<time>260</time>
+		<quality>cd</quality>
+		<fn>/var/mnt/music/By Artist/G/Peter Gabriel/1977_1/01-Moribund The Burgermeister.flac</fn>
+	</song>
+	<song samplerate="44100" samplebits="16" channels="2" bitrate="955695" atype="flc">
+		<songID>27df3dfa13847811a4fe0dd885e3393c</songID>
+		<art>Peter Gabriel</art>
+		<alb>1</alb>
+		<title>Solsbury Hill</title>
+		<track>2</track>
+		<date>1977</date>
+		<time>262</time>
+		<quality>cd</quality>
+		<fn>/var/mnt/music/By Artist/G/Peter Gabriel/1977_1/02-Solsbury Hill.flac</fn>
+	</song>
+	<song samplerate="44100" samplebits="16" channels="2" bitrate="939119" atype="flc">
+		<songID>b6d04ee46c3c07743d17a5d972e545fe</songID>
+		<art>Peter Gabriel</art>
+		<alb>1</alb>
+		<title>Modern Love</title>
+		<track>3</track>
+		<date>1977</date>
+		<time>218</time>
+		<quality>cd</quality>
+		<fn>/var/mnt/music/By Artist/G/Peter Gabriel/1977_1/03-Modern Love.flac</fn>
+	</song>
+	<song samplerate="44100" samplebits="16" channels="2" bitrate="825192" atype="flc">
+		<songID>e56176c387506cb6177c7c83fa59e6e8</songID>
+		<art>Peter Gabriel</art>
+		<alb>1</alb>
+		<title>Excuse Me</title>
+		<track>4</track>
+		<date>1977</date>
+		<time>200</time>
+		<quality>cd</quality>
+		<fn>/var/mnt/music/By Artist/G/Peter Gabriel/1977_1/04-Excuse Me.flac</fn>
+	</song>
+	<song samplerate="44100" samplebits="16" channels="2" bitrate="856732" atype="flc">
+		<songID>85fb22908db4abbf72ab98ed3e5e315f</songID>
+		<art>Peter Gabriel</art>
+		<alb>1</alb>
+		<title>Humdrum</title>
+		<track>5</track>
+		<date>1977</date>
+		<time>205</time>
+		<quality>cd</quality>
+		<fn>/var/mnt/music/By Artist/G/Peter Gabriel/1977_1/05-Humdrum.flac</fn>
+	</song>
+	<song samplerate="44100" samplebits="16" channels="2" bitrate="864797" atype="flc">
+		<songID>893dc805efafc6340051e5dac0ff469e</songID>
+		<art>Peter Gabriel</art>
+		<alb>1</alb>
+		<title>Slow Burn</title>
+		<track>6</track>
+		<date>1977</date>
+		<time>276</time>
+		<quality>cd</quality>
+		<fn>/var/mnt/music/By Artist/G/Peter Gabriel/1977_1/06-Slow Burn.flac</fn>
+	</song>
+	<song samplerate="44100" samplebits="16" channels="2" bitrate="752863" atype="flc">
+		<songID>0892987597e8e0cba0a5d1724ba2dfd6</songID>
+		<art>Peter Gabriel</art>
+		<alb>1</alb>
+		<title>Waiting For The Big One</title>
+		<track>7</track>
+		<date>1977</date>
+		<time>436</time>
+		<quality>cd</quality>
+		<fn>/var/mnt/music/By Artist/G/Peter Gabriel/1977_1/07-Waiting For The Big One.flac</fn>
+	</song>
+	<song samplerate="44100" samplebits="16" channels="2" bitrate="874527" atype="flc">
+		<songID>e2069b004741a96267bf0cc4835dcf35</songID>
+		<art>Peter Gabriel</art>
+		<alb>1</alb>
+		<title>Down The Dolce Vita</title>
+		<track>8</track>
+		<date>1977</date>
+		<time>306</time>
+		<quality>cd</quality>
+		<fn>/var/mnt/music/By Artist/G/Peter Gabriel/1977_1/08-Down The Dolce Vita.flac</fn>
+	</song>
+	<song samplerate="44100" samplebits="16" channels="2" bitrate="834380" atype="flc">
+		<songID>e69131cf2d290d80ae2372e6fe21d5ba</songID>
+		<art>Peter Gabriel</art>
+		<alb>1</alb>
+		<title>Here Comes The Flood</title>
+		<track>9</track>
+		<date>1977</date>
+		<time>339</time>
+		<quality>cd</quality>
+		<fn>/var/mnt/music/By Artist/G/Peter Gabriel/1977_1/09-Here Comes The Flood.flac</fn>
+	</song>
+</songs>

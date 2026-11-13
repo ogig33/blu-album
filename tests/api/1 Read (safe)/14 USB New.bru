@@ -1,0 +1,70 @@
+meta {
+  name: 14 USB New
+  type: http
+  seq: 14
+}
+
+get {
+  url: http://{{host}}:11000/library/v1/Albums
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const svc = bru.getVar("usbSvc");
+  if (!svc) {
+    // Source not available
+    bru.runner.skipRequest();
+    return;
+  }
+  req.setUrl("http://" + bru.getEnvVar("host") + ":11000/library/v1/Albums?service=" + encodeURIComponent(svc) + "&recent=1");
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("14-usb-new.xml");
+
+  // first album, for "26 USB album songs"
+  const a = (body.match(/<album\b[\s\S]*?<\/album>/) || [""])[0];
+  const tx = (t) => dec((a.match(new RegExp("<" + t + ">([^<]*)</" + t + ">")) || [])[1] || "");
+  bru.setVar("usbNewAlb", tx("alb"));
+  bru.setVar("usbNewArt", tx("art"));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+
+  test("<albums> with <album> elements containing <alb> and <art>", () => {
+    expect(tags("albums").length).to.equal(1);
+    const n = (body.match(/<album\b/g) || []).length;
+    expect(n).to.be.above(0);
+    expect((body.match(/<alb>/g) || []).length).to.equal(n);
+    expect((body.match(/<art>/g) || []).length).to.equal(n);
+  });
+}

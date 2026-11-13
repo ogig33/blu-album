@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<browse serviceIcon="/images/LibraryIcon.png" serviceName="Library" searchKey="LocalMusic:Search" type="genres">
+  <item browseKey="LocalMusic:MG/Genres?genre=Alternative+Rock" text="Alternative Rock" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Audiobook" text="Audiobook" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Blues" text="Blues" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Blues+Rock" text="Blues Rock" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Christmas" text="Christmas" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Classical" text="Classical" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Contemporary+Rock" text="Contemporary Rock" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Country" text="Country" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Country+Rock" text="Country Rock" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Dance" text="Dance" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Deutsch" text="Deutsch" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Electronic" text="Electronic" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Folk" text="Folk" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Hard+Rock" text="Hard Rock" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Heavy+Metal" text="Heavy Metal" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Indie+Rock" text="Indie Rock" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Industrial" text="Industrial" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=International" text="International" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Jazz" text="Jazz" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Latin" text="Latin" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Meditative" text="Meditative" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Musica+Italiana" text="Musica Italiana" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=New+Age" text="New Age" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=New+Wave" text="New Wave" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Progressive+Rock" text="Progressive Rock" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=R%26B" text="R&amp;B" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Rap" text="Rap" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Reggae" text="Reggae" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Rock" text="Rock" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Rock+%26+Roll" text="Rock &amp; Roll" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Score" text="Score" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Soundtrack" text="Soundtrack" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Synth+Pop" text="Synth Pop" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Vocal" text="Vocal" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=jazz" text="jazz" type="genre"></item>
+</browse>
