@@ -1,8 +1,9 @@
 // UI tests for BluAlbum.
-// Runs the app in headless Chromium against a mock player that answers with recorded fixtures.
-// Usage: node run.js [path/to/blualbum.html] [--only <text>]
+// Runs the app in headless browsers against a mock player that answers with recorded fixtures.
+// Usage: node run.js [path/to/blualbum.html] [--only <text>] [--browser chrome|safari|edge]
+// Without --browser all three browsers run one after another.
 const path = require("path");
-const { chromium } = require("playwright");
+const { chromium, webkit } = require("playwright");
 const { createPlayer, USB } = require("./mock-player");
 const fs = require("fs");
 // Expected now-playing values come from the recorded status
@@ -10,7 +11,18 @@ const STATUS = fs.readFileSync(path.join(__dirname, "fixtures", fs.readdirSync(p
 const st = (tag) => ((STATUS.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")) || [])[1] || "").replace(/&amp;/g, "&");
 
 const APP = "file://" + path.resolve(process.argv[2] && !process.argv[2].startsWith("--") ? process.argv[2] : path.join(__dirname, "..", "..", "blualbum.html"));
-const ONLY = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : "";
+const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : "");
+const ONLY = arg("--only");
+// Browsers: Chrome and Edge are the installed apps (Playwright channels), Safari is Playwright's
+// WebKit build (the engine of Safari; real Safari cannot be automated by Playwright).
+const BROWSERS = {
+  chrome: { label: "Chrome", launch: () => chromium.launch({ channel: "chrome" }) },
+  safari: { label: "Safari (WebKit)", launch: () => webkit.launch() },
+  edge: { label: "Edge", launch: () => chromium.launch({ channel: "msedge" }) },
+};
+const PICK = arg("--browser") ? arg("--browser").split(",") : Object.keys(BROWSERS);
+const unknown = PICK.filter((b) => !BROWSERS[b]);
+if (unknown.length) { console.error(`Unknown browser: ${unknown.join(", ")} (use ${Object.keys(BROWSERS).join(", ")})`); process.exit(2); }
 const IP = "192.0.2.50"; // address of the mock player (documentation range, never a real device)
 
 // ---------- tiny test harness ----------
@@ -389,8 +401,16 @@ test("no JavaScript errors in a full session", async (t) => {
 });
 
 // ---------- runner ----------
-(async () => {
-  const browser = await chromium.launch();
+async function runIn(key) {
+  const { label } = BROWSERS[key];
+  console.log(`\n${label}`);
+  let browser;
+  try {
+    browser = await BROWSERS[key].launch();
+  } catch (e) {
+    console.log(`  ✗ could not start ${label}: ${e.message.split("\n")[0]}`);
+    return { label, pass: 0, fail: 1 };
+  }
   let pass = 0, fail = 0;
   for (const tc of tests.filter((x) => !ONLY || x.name.includes(ONLY))) {
     const t0 = Date.now();
@@ -409,6 +429,13 @@ test("no JavaScript errors in a full session", async (t) => {
     }
   }
   await browser.close();
-  console.log(`\n${pass} passed, ${fail} failed`);
-  process.exit(fail ? 1 : 0);
+  return { label, pass, fail };
+}
+
+(async () => {
+  const results = [];
+  for (const key of PICK) results.push(await runIn(key));
+  console.log("");
+  for (const r of results) console.log(`${r.label}: ${r.pass} passed, ${r.fail} failed`);
+  process.exit(results.some((r) => r.fail) ? 1 : 0);
 })();

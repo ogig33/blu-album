@@ -55,8 +55,9 @@ step and no dependencies. The script is split into modules, listed at its top.
 Tests:
 - [`tests/api`](tests/api) – [Bruno](https://www.usebruno.com/) collection with contract tests
   for every player request the app uses (read-only and write tests) and exploration requests.
-- [`tests/ui`](tests/ui) – Playwright tests of the user interface against a mock player that
-  answers with recorded (and sanitized) player responses. No player needed.
+- [`tests/ui`](tests/ui) – Playwright tests of the user interface in Chrome, Safari (WebKit)
+  and Edge against a mock player that answers with recorded (and sanitized) player responses.
+  No player needed.
 - [`tests/tools/sanitize-fixtures.js`](tests/tools/sanitize-fixtures.js) – copies recorded
   answers to the UI tests and removes personal details.
 

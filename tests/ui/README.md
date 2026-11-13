@@ -1,7 +1,7 @@
 # BluAlbum – UI tests
 
-Automated tests of the app's user interface. The app runs in a headless Chromium
-browser against a **mock player** that answers every request with recorded answers
+Automated tests of the app's user interface. The app runs headless in **Chrome, Safari
+(WebKit) and Edge** against a **mock player** that answers every request with recorded answers
 of a real player (`fixtures/`). No player and no network are needed.
 
 ## Files
@@ -11,14 +11,17 @@ of a real player (`fixtures/`). No player and no network are needed.
   with personal details removed
 
 ## Run
-Requires Node.js 18+.
+Requires Node.js 18+, Google Chrome and Microsoft Edge installed. Safari is tested with
+Playwright's WebKit build (the engine of Safari), because Playwright cannot automate the
+Safari app itself.
 
 ```
 cd tests/ui
 npm install
-npx playwright install chromium
-npm test                      # tests ../../blualbum.html
-node run.js --only queue      # only tests whose name contains "queue"
+npx playwright install webkit
+npm test                            # tests ../../blualbum.html in Chrome, Safari (WebKit), Edge
+node run.js --browser safari        # one browser: chrome, safari or edge (comma list allowed)
+node run.js --only queue            # only tests whose name contains "queue"
 ```
 
 ## Update the fixtures

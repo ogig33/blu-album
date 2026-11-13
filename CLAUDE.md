@@ -105,7 +105,8 @@ Pitfalls:
 - `tests/tools/sanitize-fixtures.js` – copies fixtures to `tests/ui/fixtures` without IPs,
   room name, share / mount paths and USB ids.
 - `tests/ui` – Playwright tests (`npm test` in `tests/ui`) of the app against `mock-player.js`,
-  which answers from the fixtures and records all commands.
+  which answers from the fixtures and records all commands. Runs in Chrome and Edge (installed
+  apps, Playwright channels) and Safari (Playwright WebKit); `--browser chrome|safari|edge`.
 - Workflow for a change: verify unknown API behaviour in Bruno → adapt or add the UI test (and
   the mock) → change the code → all UI tests green → bump the version → CHANGELOG.
 
