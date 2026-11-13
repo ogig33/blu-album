@@ -424,6 +424,22 @@ test("about: update check only on click, newer / same version / failure", async 
   eq(await check(), "Update check failed (HTTP 403).", "failed request");
 });
 
+test("covers: image URLs only on the player or http(s), /Artwork with followRedirects", async (t) => {
+  const r = await t.page.evaluate(() => [
+    imgUrl("/Artwork?service=LocalMusic&album=A%20B&artist=C"),
+    imgUrl("/images/LibraryIcon.png"),
+    imgUrl("https://cdn.example.com/cover.jpg"),
+    imgUrl("//evil.example.com/x.png"),
+    imgUrl("javascript:alert(1)"),
+    imgUrl("data:image/svg+xml,<svg/>"),
+    imgUrl(""),
+  ]);
+  const b = `http://${IP}:11000`;
+  eq(r, [b + "/Artwork?service=LocalMusic&album=A%20B&artist=C&followRedirects=1", b + "/images/LibraryIcon.png", "https://cdn.example.com/cover.jpg", "", "", "", ""], "image URLs");
+  const src = await t.page.$eval("#grid .item:not(:first-child) .cov img", (i) => i.getAttribute("src"));
+  ok(src.startsWith(b + "/Artwork?") && src.endsWith("&followRedirects=1"), "grid cover from /Artwork: " + src);
+});
+
 test("no JavaScript errors in a full session", async (t) => {
   for (const c of ["All", "New", "CD", "Alternative Rock"]) {
     await t.chip(c);

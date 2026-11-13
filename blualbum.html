@@ -1816,6 +1816,21 @@ function toast(t) {
 }
 // Key that identifies an album in gmap and in the favourites list.
 const gkey = (t, a) => (t + "|" + a).toLowerCase();
+// Image URL from a player answer: a path on the player (cover art from /Artwork gets
+// followRedirects=1) or an absolute http(s) URL (now playing). Anything else, e.g. a path that
+// would leave the player or another scheme, gives "" (no image).
+function imgUrl(p) {
+  if (!p) return "";
+  let u;
+  try {
+    u = new URL(p, base + "/");
+  } catch (e) {
+    return "";
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+  if (p.startsWith("/") && u.origin !== new URL(base).origin) return "";
+  return u.pathname === "/Artwork" ? u.href + (u.search ? "&" : "?") + "followRedirects=1" : u.href;
+}
 
 /* ---------- State ---------- */
 // All mutable state of the app, declared in one place.
@@ -2474,9 +2489,12 @@ function render(list, noRandom) {
     const im = document.createElement("img");
     im.loading = "lazy";
     im.alt = "";
-    im.src = base + a.img + "&followRedirects=1";
-    im.onerror = () => im.remove();
-    cov.append(im);
+    const isrc = imgUrl(a.img);
+    if (isrc) {
+      im.src = isrc;
+      im.onerror = () => im.remove();
+      cov.append(im);
+    }
     cb.append(cov);
     cb.onclick = () => openAlbum(a);
     const pl = document.createElement("button");
@@ -2635,7 +2653,9 @@ async function toggleFav(a) {
 // Opens the album popup: details and the track list.
 // Play, add to queue and the favourite heart are on the cover in the grid, not in the popup.
 async function openAlbum(a) {
-  $("#dimg").src = base + a.img + "&followRedirects=1";
+  const dsrc = imgUrl(a.img);
+  if (dsrc) $("#dimg").src = dsrc;
+  else $("#dimg").removeAttribute("src");
   $("#dt").textContent = a.t;
   const da = $("#da");
   da.textContent = "";
@@ -3038,7 +3058,7 @@ function showNow(d) {
   $("#nt1").textContent = t1 || (state ? "Nothing playing" : "");
   $("#nt2").textContent = t1 ? [g("title2"), g("title3")].filter(Boolean).join(" \u2013 ") : "";
   const im = t1 ? g("image") : "", cv = $("#cov");
-  const src = !im ? "" : im.startsWith("/") ? base + im + (im.startsWith("/Artwork") ? (im.includes("?") ? "&" : "?") + "followRedirects=1" : "") : im;
+  const src = imgUrl(im);
   if (cv.dataset.src !== src) {
     cv.dataset.src = src;
     if (src) {
