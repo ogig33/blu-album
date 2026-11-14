@@ -26,7 +26,7 @@ How BluAlbum uses the API (clicks, requests, measurements): [`blu-album-api-usag
 
 ## 1. Basics
 
-- **Requests:** HTTP GET, `http://<player>:<port>/<Request>?<parameters>`; parameters are URL-encoded name/value pairs (UTF-8). Answers are UTF-8 XML. Exceptions: `/reboot` (POST, port 80); the BluOS app sends `/setting` and `/audiomodes` as POST.
+- **Requests:** HTTP GET, `http://<player>:<port>/<Request>?<parameters>`; parameters are URL-encoded name/value pairs (UTF-8). Answers are UTF-8 XML. Exceptions: `/reboot` (POST, port 80), `/upload_playlists_api` (POST, port 80). The BluOS app sends settings (`/setting`, `/audiomodes`, `/alsa_setting`, also through `/proxyToSlave`) as POST with a JSON body `{"<name>":"<value>"}`; the same settings also work as GET with `?<name>=<value>` (verified).
 - **Ports:**
 
   | Port | Use |
@@ -87,7 +87,7 @@ status @etag
   volume (0–100, -1 fixed), db, mute, muteVolume, muteDb
   quality                       cd | hd | dolbyAudio | mqa | mqaAuthored | bitrate number (lossy)
   streamFormat                  e.g. "MP3 320 kb/s", "FLAC 44.1kHz/16bit"
-  service, serviceName, serviceType, serviceIcon, image, currentImage, stationImage, infourl, fn
+  service, serviceName, serviceType, serviceIcon, image, currentImage, stationImage, infourl, lyricsid, fn
   streamUrl                     present: not playing from the queue (no song / shuffle / repeat / skip)
   actions > action @name @url @icon @text @notification @state   (see /Action)
   sleep                         minutes left on the sleep timer
@@ -103,6 +103,7 @@ status @etag
 - `play` and `stream` mean the same.
 - `quality` is `hd` here but `hr` in the library filter (verified). MP3 files report their bitrate as `quality`; recognise MP3 by `streamFormat`.
 - Verified: during playback the player holds each long-poll request for the full 100 s and answers at once on a change (title, position jump, volume, shuffle, repeat, `pid`).
+- Radio streams may lack `title3` (verified with Radio Paradise: only `title1`, `title2`); `infourl` and `lyricsid` feed [`/Info`](#info).
 
 ### `/SyncStatus`
 
@@ -433,7 +434,7 @@ addToPlaylist @service="BluOS"
 ### `/AddToPlaylistOptions`
 
 ```
-/AddToPlaylistOptions?service=<svc>&album=<album>&artist=<artist>&songid=<id>
+/AddToPlaylistOptions?service=<svc>&album=<album>&artist=<artist>&songid=<id>&saveQueue=1
 ```
 
 | Parameter | Meaning |
@@ -441,6 +442,7 @@ addToPlaylist @service="BluOS"
 | `service` | source of the item |
 | `album` + `artist` | album to add |
 | `songid` | song to add |
+| `saveQueue` | `1` = options for saving the queue as a playlist (result type `SaveQueueOptions`, seen in `/ui/Queue`; read by Bruno V24) |
 
 **Response format**
 
@@ -456,6 +458,7 @@ addToPlaylistOptions @service
 
 - Verified (library album): the answer describes the follow-up request – [`/AddToPlaylist`](#addtoplaylist) with the given parameters – and lists the saved playlists to choose from; `create="1"` = a new playlist may be created.
 - Read only; nothing is added.
+- With `saveQueue=1` (verified) the answer is `saveQueueOptions` with `urlPath` = `/Save`, the current queue `name`, an `overwrite` entry (`service=BluOS`, `name=…`), an `explanation` (e.g. songs from the library can only be saved in a BluOS playlist) and the playlists per service (`create`, `disable`).
 
 ### `/Clear`
 
@@ -1237,6 +1240,7 @@ The answer of the forwarded request, e.g. the `SyncStatus` of the member.
 
 - Seen as `url` of fixed group members in `/Settings` (audio settings of a surround speaker).
 - Verified with `url=%2FSyncStatus`: answers the member's `/SyncStatus` (with `managedZoneSlave="true"`, `pairSlaveOnly`, `master`, `slaveVol`).
+- Changes settings of a group member: the app sends `POST /proxyToSlave?slave=<ip>%3A<port>&url=%2Fsetting` with the JSON body of the setting, e.g. `{"ledbrightness":"dim"}` (seen in a capture of the app).
 
 ### `/RemoveSlave`
 
@@ -1315,7 +1319,7 @@ slaveVolume @min="-30" @max="30" @step="1" @isBalance="false" = "1"     (new tri
 ### `/Alarms`
 
 ```
-/Alarms?tz=<time zone>&id=<id>&enable=<0|1>&days=<flags>&hour=<HH>&minute=<MM>&end=<HHMM>&fadein=<0|1>&volume=<0–100>&source=<name>&url=<play request>&image=<image url>&shuffle=<true|false>&canShuffle=<true|false>&useBackup=<true|false>
+/Alarms?tz=<time zone>&id=<id>&enable=<0|1>&days=<flags>&hour=<HH>&minute=<MM>&end=<HHMM>&fadein=<0|1>&volume=<0–100>&source=<name>&url=<play request>&image=<image url>&shuffle=<true|false>&canShuffle=<true|false>&useBackup=<true|false>&delete=1
 ```
 
 | Parameter | Meaning |
@@ -1323,6 +1327,7 @@ slaveVolume @min="-30" @max="30" @step="1" @isBalance="false" = "1"     (new tri
 | `tz` | time zone of the client, e.g. `Europe/Berlin`; the app sends it with every request |
 | `id` | alarm to change; without `id` (and with the alarm parameters) a new alarm is created |
 | `enable` | `1` = on, `0` = off; `/Alarms?id=1&enable=0` switches an alarm off |
+| `delete` | `1` together with `id`: deletes the alarm (`/Alarms?delete=1&id=2`) |
 | `days` | seven flags from Sunday to Saturday, e.g. `0001000` = Wednesday |
 | `hour`, `minute` | start time |
 | `end` | end time `HHMM` |
@@ -1343,7 +1348,7 @@ alarms @supportsEndTime="true"
 **Notes**
 
 - Reading (`/Alarms`, `/Alarms?tz=…`) verified; without alarms the list is empty.
-- Switching an alarm off (`id` + `enable`) and creating one (all alarm parameters, no `id`) seen in a capture of the BluOS app (Wireshark); deleting not seen yet. The sources to choose from come from [`/RadioBrowse?service=Alarms`](#radiobrowse).
+- Switching an alarm off (`id` + `enable`) and creating one (all alarm parameters, no `id`) and deleting (`delete=1&id=…`) seen in a capture of the BluOS app (Wireshark). The sources to choose from come from [`/RadioBrowse?service=Alarms`](#radiobrowse).
 - Alarm attributes (sample: `hour="8" minute="0" days="0000001" duration="60" end="0900"`):
 
   | Attribute | Meaning |
@@ -1387,6 +1392,7 @@ No answer body (HTTP 200, empty).
 
 - Names, ranges and dependencies are from the player's own `/Settings?id=audio` answer (verified read); the form `/alsa_setting?<name>=<value>` comes from community projects. Verified with `eq-balance` (0 ↔ 0.5, read back from `/Settings?id=audio`, restored).
 - Which settings exist depends on the player (DSP, centre, subwoofer).
+- The BluOS app sends it as **POST** with a JSON body, e.g. `{"preset":"MOVIE"}` (seen in a capture of the app); GET with `?<name>=<value>` works as well (verified). Seen: `preset` (`MUSIC`, `MOVIE`, `TV`).
 
 ### `/audiomodes`
 
@@ -1413,6 +1419,7 @@ No answer body (HTTP 200, empty).
 **Notes**
 
 - Only `bluetoothAutoplay` is official (no answer body). `subwoofer`, `ears`, `volumeLimits`, `replayGainMode` with their values are from the player's own answers to `/Settings?id=audio` and `/Settings?id=capture` (verified read); `mqaDisable`, `fixedVolume`, `channelMode`, `enableClockTrim` only from community projects. Verified with `replayGainMode` (`album` ↔ `track`, read back from `/Settings?id=audio`, restored).
+- The BluOS app sends it as **POST** with a JSON body, e.g. `{"replayGainMode":"none"}` (seen in a capture of the app); GET with `?<name>=<value>` works as well (verified). Seen: `replayGainMode` (`none`, `track`, `album`, `smart`), `subwoofer` (`withsub`, `default`).
 
 ### `/audioPreset`
 
@@ -1464,7 +1471,12 @@ No known parameters.
 
 **Response format**
 
-JSON: an array with one object per saved playlist (structure not looked at in detail).
+```
+[ { "name": "<playlist>", "ctime": <unix time>, "shuffle": false, "repeat": 1,
+    "files": [ "<32 hex digits>", … ] }, … ]
+```
+
+`files` are ids of the tracks (hashes), not paths.
 
 **Notes**
 
@@ -1646,6 +1658,7 @@ No answer body (HTTP 200, empty).
   | `capture-input<n>-groupCompress` | boolean | compressed audio to grouped players | `capture-input<n>` |
   | `capture-input<n>-isMqaSource` | boolean | MQA pass-through (optical inputs) | `capture-input<n>` |
   | `capture-input<n>-hide` | boolean | hide the source | `capture-input<n>` |
+- The BluOS app sends it as **POST** with a JSON body, e.g. `{"capture-input0-hide":"OFF"}` (seen in a capture of the app); GET with `?<name>=<value>` works as well (verified). Names seen in the capture: `capture-input<n>-hide`, `centre`, `amplifierStandby`, `proximity_enable`.
 
 ### `/Settings`
 
@@ -1790,14 +1803,16 @@ An HTTP redirect to a web page (not XML).
 ### `/upload_playlists_api`
 
 ```
-http://<player>:80/upload_playlists_api
+POST http://<player>:80/upload_playlists_api   (multipart/form-data, field file)
 ```
 
-No known parameters.
+| Parameter | Meaning |
+|---|---|
+| `file` | form field (`filename="blob"`, `application/octet-stream`) with the JSON of [`/download_playlists_api`](#download_playlists_api) |
 
 **Notes**
 
-- Setting "Restore Playlists" (class `upload`) in `/Settings?id=managePlaylists`: presumably uploads a JSON backup from [`/download_playlists_api`](#download_playlists_api) (method and form field not known). Not tried – it replaces the saved playlists.
+- Setting "Restore Playlists" (class `upload`) in `/Settings?id=managePlaylists`: restores the saved playlists from a backup. Seen in a capture of the BluOS app (Wireshark); not called by the tests – it replaces the saved playlists.
 
 ### `/Version`
 
@@ -1832,19 +1847,58 @@ http://<player>:80/wificfg?noheader=1
 
 ## 13. App UI
 
-Screens and menus of the BluOS app (BluOS 4): the app asks the player for ready-made screen content under `/ui/…`. Useful to find out which player requests a screen uses; for an own app the endpoints of the other sections are the stable ones.
+Screens and menus of the BluOS app (BluOS 4): the app asks the player for ready-made screen content under `/ui/…`. Every button and list entry carries the request it sends, so these answers show which player requests a screen uses. For an own app the endpoints of the other sections are the stable ones.
+
+Common answer structure (verified):
+
+```
+screen @id @screenTitle @version @refreshOnPlayerChange [@service @navigationTitle @navigationIcon]
+  refreshOnStatusChange @key @value          (reload when this /Status value changes, e.g. prid, pid, sid)
+  menuAction @type @text > action
+  sortMenu > item @text @selected > action   styleSelector @text @type > action
+  row @id @title @scrollable > item | source | input | service | teaser | button …
+  list > item @title @subTitle @subSubTitle @image @quality @duration @counter
+           action, playAction, contextMenu, nowPlayingMatch @key @value
+action @type @URI [@resultType @title @refreshScreen @haptic @notification @notificationIcon]
+```
+
+Action types: `player-link` (send the player request in `URI`), `browse` (load another `/ui` screen or a context menu), `context-browse`, `webpage` (open a web page, e.g. `/redirectToCp?…`), `setting` (open `/Settings?id=…`), `confirmation` (ask first, then send `URI`), `deep-link` (navigation inside the app, e.g. `/settings`, `/add-preset`, `/edit-queue`, `/reorder-presets`, `/customise-screen`, `/music-service/<svc>` – not player endpoints), `reorder`, `add`.
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
-| `/ui/browseContext` | header of a browse page (e.g. a playlist with play / shuffle buttons) | | |
-| `/ui/BrowseObjects` | list of objects of a browse request (e.g. the saved playlists) | | |
-| `/ui/ContextMenu` | context menu of an object (play, add, edit, delete) | | |
-| `/ui/Home` | home screen of the app | | |
-| `/ui/myPlaylistsRow` | row "My playlists" of the home screen per source | | |
-| `/ui/presets` | preset screen of the app | | |
+| `/ui/action` | change a display option of a screen | | |
+| `/ui/browseContext` | header of a browse page (e.g. a playlist with play / shuffle buttons) | | ✓ |
+| `/ui/BrowseObjects` | list of objects of a browse request (e.g. the saved playlists) | | ✓ |
+| `/ui/clearUsageHistory` | clear the "recent" rows of the home screen | | |
+| `/ui/Configuration` | configuration of the app screens | | ✓ |
+| `/ui/ContextMenu` | context menu of an object (play, add, edit, delete) | | ✓ |
+| `/ui/Favourites` | favourites of a source | | ✓ |
+| `/ui/Home` | home screen of the app | | ✓ |
+| `/ui/myPlaylistsRow` | row "My playlists" of the home screen per source | | ✓ |
+| `/ui/News` | news screen | | |
+| `/ui/nowPlayingCM` | context menu of the playing item | | |
+| `/ui/presets` | preset screen of the app | | ✓ |
 | `/ui/prf` | runs a player request for the app | | |
-| `/ui/Queue` | queue screen of the app | | |
-| `/ui/Sources` | list of sources (navigation drawer) | | |
+| `/ui/Queue` | queue screen of the app | | ✓ |
+| `/ui/queueItemCM` | context menu of a queue entry | | ✓ |
+| `/ui/RecentlyPlayed` | recently played screen | | ✓ |
+| `/ui/resolveSoviURL` | resolve a "Sovi" URL (meaning not known) | | |
+| `/ui/Search` | search screen | | |
+| `/ui/Sources` | list of sources (navigation drawer) | | ✓ |
+
+### `/ui/action`
+
+```
+/ui/action?Cstyle=<style>~<type>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `Cstyle` | display style per object type, e.g. `grid~Playlist` |
+
+**Notes**
+
+- Seen in `/ui/BrowseObjects` (style selector); not called by the tests (it changes the display).
 
 ### `/ui/browseContext`
 
@@ -1859,9 +1913,19 @@ Screens and menus of the BluOS app (BluOS 4): the app asks the player for ready-
 | `title` | title of the page |
 | `url` | URL-encoded browse request, e.g. `/Playlists?service=BluOS&playlist=TTT&playlistid=` |
 
+**Response format**
+
+```
+screen @id="screen-BluOS-Playlist" @service
+  contextMenu (/ui/ContextMenu?context=Playlist&…)
+  header @title @image > button "Play all" (/Load?service=BluOS&name=…&shuffle=0), button "Shuffle" (/Add?playlist=…&shuffle=1)
+  list > item ×n @title @subTitle @quality @duration > action (/Add?playnow=1&file=…), contextMenu (context=Song), nowPlayingMatch @key="fn"
+    nextLink = "/ui/BrowseObjects?…&listContinuation=10&…"
+```
+
 **Notes**
 
-- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+- Verified with a saved playlist: header with the playlist's play requests, then the tracks (10 per page, `nextLink` → `/ui/BrowseObjects?…&listContinuation=10…`). With a playlist name that does not exist the answer is `<error service="BluOS"><message>not found</message></error>`.
 
 ### `/ui/BrowseObjects`
 
@@ -1877,26 +1941,104 @@ Screens and menus of the BluOS app (BluOS 4): the app asks the player for ready-
 | `browseIndex` | page / index, e.g. `0` |
 | `url` | URL-encoded browse request, e.g. `/Playlists?service=BluOS&myPlaylists=1` |
 
-**Notes**
-
-- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
-
-### `/ui/ContextMenu`
+**Response format**
 
 ```
-/ui/ContextMenu?context=<context>&sourceContext=<context>&service=<svc>&type=<type>&id=<id>&name=<name>&title=<title>&playlist=<name>&url=<url>&image=<image>&volume=<0–100>
+screen @id @screenTitle @service @navigationTitle @navigationIcon
+  sortMenu > item (sort=recent | alpha), styleSelector (/ui/action?Cstyle=…)
+  list > item ×n @title @image > action @type="context-browse" (/Playlists?service=BluOS&playlist=…), contextMenu
+```
+
+**Notes**
+
+- Verified with the saved BluOS playlists. Other `url` values seen in `/ui/Home` and `/ui/Sources`: `/Albums?recent=1` (library, USB), `/RadioBrowse` (TuneIn, Radio Paradise, Airable).
+
+### `/ui/clearUsageHistory`
+
+```
+/ui/clearUsageHistory?stations=1&queued=1
 ```
 
 | Parameter | Meaning |
 |---|---|
-| `context`, `sourceContext` | object type of the menu, e.g. `Playlist` |
-| `type` | e.g. `preset` |
-| `service` | source of the object |
-| `id`, `name`, `title`, `playlist`, `url`, `image`, `volume` | the object's own attributes, e.g. of a preset or a playlist |
+| `stations` | `1` = recent stations (row on the home screen) |
+| `queued` | `1` = recently played ("Clear" in `/ui/RecentlyPlayed`) |
 
 **Notes**
 
-- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+- Seen in `/ui/Home`; not called by the tests (it deletes the history).
+
+### `/ui/Configuration`
+
+```
+/ui/Configuration
+```
+
+No known parameters.
+
+**Response format**
+
+```
+configuration
+  item ×n @id @URI [@resultType @listeningModesURL]
+    home → /ui/Home, recentlyPlayed → /ui/RecentlyPlayed, news → /ui/News, favourites → /ui/Favourites,
+    sources → /ui/Sources, search → /ui/Search, nowPlayingContextMenu → /ui/nowPlayingCM,
+    queueItemContextMenu → /ui/queueItemCM, resolveSoviURL → /ui/resolveSoviURL, queue → /ui/Queue,
+    presets → /ui/presets (listeningModesURL="/audioPreset")
+```
+
+**Notes**
+
+- Verified. Lists the app's entry screens; the app asks it first when it connects. `/ui/News`, `/ui/Search`, `/ui/nowPlayingCM` and `/ui/resolveSoviURL` are only known from this list.
+
+### `/ui/ContextMenu`
+
+```
+/ui/ContextMenu?context=<context>&sourceContext=<context>&service=<svc>&type=<type>&id=<id>&name=<name>&title=<title>&playlist=<name>&album=<album>&artist=<artist>&isFavourite=1&url=<url>&image=<image>&volume=<0–100>&noFavCMItems=1
+```
+
+| Parameter | Meaning |
+|---|---|
+| `context`, `sourceContext` | object type of the menu: `Playlist`, `Album`, `Artist`, `Song` (with `filename`) |
+| `type` | e.g. `preset` |
+| `service` | source of the object |
+| `id`, `name`, `title`, `playlist`, `album`, `artist`, `isFavourite`, `url`, `image`, `volume` | the object's own attributes, e.g. of a preset, a playlist or an album |
+| `noFavCMItems` | `1` = without favourite entries |
+
+**Response format**
+
+```
+contextMenu @title
+  item ×n @text @icon > action @type="player-link" | "confirmation" @URI @notification
+```
+
+**Notes**
+
+- Verified with a playlist: entries Play now, Shuffle, Add next, Add last, Delete with their requests (`/Add?…`, `/Delete?name=…&service=BluOS`). The menu is built from the parameters alone – the playlist is not checked.
+- More variants seen in `/ui/Home`: albums (`context=Album&album=…&artist=…[&isFavourite=1]`), `noFavCMItems=1` (no favourite entries).
+
+### `/ui/Favourites`
+
+```
+/ui/Favourites?service=<svc>&singleService=1&title=<title>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `service` | source, e.g. `LocalMusic`, `TuneIn` |
+| `singleService` | `1` = only this source |
+| `title` | screen title |
+
+**Response format**
+
+```
+screen @id="screen-<svc>-Favourites" @screenTitle
+  row ×n @title (Artists, Albums, …) > action (/ui/BrowseObjects?…&url=/library/v1/…?category=FAVOURITES…), list > item ×n
+```
+
+**Notes**
+
+- Verified (library): one row per type (Artists, Albums, …) with the favourites and their browse / context menu requests.
 
 ### `/ui/Home`
 
@@ -1906,9 +2048,16 @@ Screens and menus of the BluOS app (BluOS 4): the app asks the player for ready-
 
 No known parameters.
 
+**Response format**
+
+```
+screen @id="screen-home" @screenTitle="Home"
+  row ×n @id   (teaser, mostUsed, presets, recent-stations, recent, <svc>-myPlaylists)
+```
+
 **Notes**
 
-- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+- Verified: rows for teasers, most used sources, presets, recent stations, recently played and the BluOS playlists; every entry with its play request (e.g. `/Play?url=…`, `/Preset?id=…`, `/Load?…`).
 
 ### `/ui/myPlaylistsRow`
 
@@ -1922,7 +2071,31 @@ No known parameters.
 
 **Notes**
 
-- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+- Verified: empty answer when the source has no playlists (no row on the home screen).
+
+### `/ui/News`
+
+```
+/ui/News
+```
+
+Parameters not known.
+
+**Notes**
+
+- Only known from [`/ui/Configuration`](#uiconfiguration); not called yet.
+
+### `/ui/nowPlayingCM`
+
+```
+/ui/nowPlayingCM
+```
+
+Parameters not known.
+
+**Notes**
+
+- Only known from [`/ui/Configuration`](#uiconfiguration); not called yet.
 
 ### `/ui/presets`
 
@@ -1932,23 +2105,32 @@ No known parameters.
 
 No known parameters.
 
+**Response format**
+
+```
+screen @id="screen-presets" @screenTitle="Presets"
+  menuAction @type="add"
+  list > item ×n @title @image @counter > action (/Preset?id=<id>), contextMenu (/ui/ContextMenu?…&type=preset)
+```
+
 **Notes**
 
-- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+- Verified.
 
 ### `/ui/prf`
 
 ```
-/ui/prf?u=<encoded request>
+/ui/prf?u=<encoded request>&cgsc=1
 ```
 
 | Parameter | Meaning |
 |---|---|
+| `cgsc` | seen as `1` (with `/AddFavourite` in `/ui/queueItemCM`); meaning not known |
 | `u` | URL-encoded player request, e.g. `/Add?playlist=TTT&playnow=1&service=BluOS&shuffle=1` |
 
 **Notes**
 
-- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+- Seen in a capture of the BluOS app; not called by the tests (it runs the request).
 
 ### `/ui/Queue`
 
@@ -1960,9 +2142,83 @@ No known parameters.
 |---|---|
 | `offset` | first entry, e.g. `0` |
 
+**Response format**
+
+```
+queue @offset @total @id (= pid) @modified @name
+  button ×n (Save → /AddToPlaylistOptions?saveQueue=1, Edit, Clear → /Clear)
+  item ×n @title @subTitle @subSubTitle @image @quality @duration
+    action (/Play?id=<n>), contextMenu (/ui/queueItemCM?id=<n>), nowPlayingMatch @key="song"
+```
+
 **Notes**
 
-- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+- Verified.
+
+### `/ui/queueItemCM`
+
+```
+/ui/queueItemCM?id=<n>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `id` | queue position |
+
+**Response format**
+
+```
+contextMenu @title @subTitle @image
+  item ×n @text @icon > action @type @URI
+```
+
+**Notes**
+
+- Verified: entries like Favourite (`/ui/prf?cgsc=1&u=/AddFavourite?fn=…`), Add to playlist (`/AddToPlaylistOptions?service=…&songid=…`).
+
+### `/ui/RecentlyPlayed`
+
+```
+/ui/RecentlyPlayed
+```
+
+No known parameters.
+
+**Response format**
+
+```
+screen @id="screen-recentlyPlayed"
+  menuAction "Clear" (/ui/clearUsageHistory?queued=1)
+  list @id="recent" > item ×n @title @image @icon @objectType (playlist | album | …) > action, contextMenu
+```
+
+**Notes**
+
+- Verified: recently played playlists, albums, stations with `objectType` and their requests; "Clear" sends `/ui/clearUsageHistory?queued=1`.
+
+### `/ui/resolveSoviURL`
+
+```
+/ui/resolveSoviURL
+```
+
+Parameters not known.
+
+**Notes**
+
+- Only known from [`/ui/Configuration`](#uiconfiguration); not called yet.
+
+### `/ui/Search`
+
+```
+/ui/Search
+```
+
+Parameters not known.
+
+**Notes**
+
+- Only known from [`/ui/Configuration`](#uiconfiguration); not called yet.
 
 ### `/ui/Sources`
 
@@ -1972,6 +2228,14 @@ No known parameters.
 
 No known parameters.
 
+**Response format**
+
+```
+screen @id="screen-sources" @screenTitle="Music Sources"
+  row @id="inputs" > input ×n @title @icon > action (/Play?url=…&title=…&image=…), nowPlayingMatch @key="inputId"
+  row … > service ×n                    (library, USB, radio services → /ui/BrowseObjects …)
+```
+
 **Notes**
 
-- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+- Verified. Inputs with their play requests, music sources with their browse screens.

@@ -49,8 +49,13 @@ tests {
     expect(/<state>/.test(body)).to.equal(true);
     expect(/<volume>/.test(body)).to.equal(true);
   });
-  test("when playing: title1-3, service, serviceType, streamFormat", () => {
+  test("when playing: title1-2, service, serviceType, streamFormat, secs", () => {
     if (!/<state>(play|stream)<\/state>/.test(body)) return;
-    ["title1", "title2", "title3", "service", "serviceType", "streamFormat", "totlen", "secs"].forEach((k) => expect(new RegExp("<" + k + ">").test(body), k).to.equal(true));
+    ["title1", "title2", "service", "serviceType", "streamFormat", "secs"].forEach((k) => expect(new RegExp("<" + k + ">").test(body), k).to.equal(true));
+  });
+  // Radio streams (with <streamUrl>) may lack title3 (e.g. Radio Paradise); queue playback has all three and totlen
+  test("when playing from the queue: title3 and totlen", () => {
+    if (!/<state>(play|stream)<\/state>/.test(body) || /<streamUrl>/.test(body)) return;
+    ["title3", "totlen"].forEach((k) => expect(new RegExp("<" + k + ">").test(body), k).to.equal(true));
   });
 }

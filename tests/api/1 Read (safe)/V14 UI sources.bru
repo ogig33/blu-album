@@ -1,0 +1,40 @@
+meta {
+  name: V14 UI sources
+  type: http
+  seq: 53
+}
+
+get {
+  url: http://{{host}}:11000/ui/Sources
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:post-response {
+  // BluOS app screen (/ui/...): read only. The answer goes to the console and fixtures/.
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("verify-ui-sources.xml");
+  console.log(body.slice(0, 4000));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("answer has a root element, no error", () => { expect(/<[A-Za-z]/.test(body)).to.equal(true); expect(/<error/i.test(body)).to.equal(false); });
+}
