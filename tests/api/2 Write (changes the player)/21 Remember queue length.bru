@@ -35,4 +35,9 @@ tests {
   const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? m[1] : ""; };
 
   test("length readable", () => expect(attr(tags("playlist")[0] || "", "length")).to.match(/^\d+$/));
+
+  // Playlist id (/Playlist id = <pid> of /Status): the app reloads the queue only when it changes
+  const pidNow = attr(tags("playlist")[0] || "", "id") || val("pid");
+  test("playlist id readable", () => expect(pidNow).to.match(/^\d+$/));
+  bru.setVar("pid", pidNow);
 }

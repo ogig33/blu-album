@@ -20,8 +20,12 @@ function createPlayer(opts = {}) {
     shuffle: false,
     repeat: "2",
     songArtists: {}, // title -> artist, overrides the artist of single songs (compilation test)
-    playing: opts.playing !== false
+    playing: opts.playing !== false,
+    // Playlist id (<pid> in /Status, id of /Playlist). Like the real player (Bruno 2 Write), it changes
+    // when the queue changes: add, remove, shuffle, clear, load. Loading a broken playlist keeps it.
+    pid: 485
   };
+  const QUEUE_CHANGES = /^\/(Add|Delete\?id=|Shuffle|Clear)/;
   const browse = (key) => {
     if (!key) {
       let top = fx("01");
@@ -38,6 +42,18 @@ function createPlayer(opts = {}) {
     if (/bySection:(Album|Artist|Song|Composer)/.test(key)) return fx("06");
     // Section "#" carries the recorded albums, all other sections are empty
     if (/:S:Album\//.test(key)) return /section=%23/.test(key) ? fx("07") : '<browse type="albums"></browse>';
+    // Artist menu -> link to the artist's albums (library: the recorded albums of that artist, USB: none)
+    const art = (key.match(/(?:[?&]|%3F)artist=([^&]*)/) || [])[1];
+    if (/MG\/LocalMusic-Artist\?/.test(key)) {
+      const svc = key.split(":")[0];
+      return `<browse type="menu"><item browseKey="${svc}:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=${art}&amp;service=${svc}" text="Albums" type="link"></item>` +
+        `<item browseKey="${svc}:Song/%2Flibrary%2Fv1%2FSongs%3Fartist=${art}&amp;service=${svc}" text="Songs" type="link"></item></browse>`;
+    }
+    if (/:Album\/%2Flibrary%2Fv1%2FAlbums%3Fartist=/.test(key)) {
+      if (key.startsWith(USB)) return '<browse type="albums"></browse>';
+      const name = decodeURIComponent(art.replace(/\+/g, " "));
+      return fx("07").replace(/\s*<item [^>]*type="album">[\s\S]*?<\/contextMenu>\s*<\/item>/g, (it) => (it.match(/ text2="([^"]*)"/) || [])[1]?.replace(/&amp;/g, "&") === name ? it : "");
+    }
     if (/MG\/LocalMusic-Album/.test(key)) return fx("08");
     if (/CM\/LocalMusic-Album/.test(key)) {
       // Library albums: favourite state follows the isFavourite flag of the key; USB albums: no favourites
@@ -65,6 +81,7 @@ function createPlayer(opts = {}) {
     const url = new URL(u), p = url.pathname, q = url.searchParams, pq = p + url.search;
     state.requests.push(pq);
     if (COMMANDS.test(pq) && !/^\/Volume$/.test(p)) state.commands.push(decodeURIComponent(pq));
+    if (QUEUE_CHANGES.test(pq)) state.pid++;
     if (p === "/Artwork") return { type: "image/png", body: PNG };
     if (p === "/Browse") return browse(q.get("key"));
     if (p === "/library/v1/Albums") return library(q);
@@ -73,8 +90,8 @@ function createPlayer(opts = {}) {
       for (const [t, ar] of Object.entries(state.songArtists)) x = x.replace(new RegExp("<art>[^<]*</art>(\\s*<alb>[^<]*</alb>\\s*<title>" + t + "</title>)"), "<art>" + ar + "</art>$1");
       return x;
     }
-    if (p === "/Status") return state.playing ? fx("19").replace(/<shuffle>\d<\/shuffle>/, "<shuffle>" + (state.shuffle ? 1 : 0) + "</shuffle>").replace(/<repeat>\d<\/repeat>/, "<repeat>" + state.repeat + "</repeat>") : '<status etag="idle"><state>stop</state><volume>19</volume></status>';
-    if (p === "/Playlist") return state.queueEmpty ? '<playlist length="0" id="999"></playlist>' : fx("20");
+    if (p === "/Status") return state.playing ? fx("19").replace(/<shuffle>\d<\/shuffle>/, "<shuffle>" + (state.shuffle ? 1 : 0) + "</shuffle>").replace(/<repeat>\d<\/repeat>/, "<repeat>" + state.repeat + "</repeat>").replace(/<pid>\d+<\/pid>/, "<pid>" + state.pid + "</pid>") : '<status etag="idle"><state>stop</state><volume>19</volume></status>';
+    if (p === "/Playlist") return state.queueEmpty ? `<playlist length="0" id="${state.pid}"></playlist>` : fx("20").replace(/ id="485">/, ` id="${state.pid}">`);
     if (p === "/Playlists") return fx("17");
     if (p === "/Settings") return fx("21");
     if (p === "/Version") return '<?xml version="1.0" encoding="UTF-8"?>\n<version>v0.5.43</version>';

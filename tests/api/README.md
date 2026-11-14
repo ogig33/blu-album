@@ -28,8 +28,13 @@ CLI (optional): `npm i -g @usebruno/cli`, then in this folder
 - **3 Explore album details (safe)**: only reads. Asks the player for more details
   of the first album from the Read folder (library album, songs, track context menu,
   technical info, track info) and the songs of a USB album (E07, E08; skipped
-  without a USB drive). No checks besides HTTP 200; the answers go to the
-  console and to `fixtures/explore-*.xml`.
+  without a USB drive). E01–E08 check only HTTP 200; the answers go to the
+  console and to `fixtures/explore-*.xml`. E09–E13 check variants the app uses:
+  the album track list without context menus (E09) and the albums of an artist
+  through the artist's browse menu, for the library (E10, E11) and USB (E12, E13).
+- The Write folder also checks that the playlist id (`/Playlist` id = `<pid>` of
+  `/Status`) changes after adding, removing, shuffle on / off, clear and load –
+  the app reloads the queue only on this change.
 
 ## Fixtures
 With `saveFixtures = true` every request stores its answer in `fixtures/` (next to

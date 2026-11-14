@@ -1799,6 +1799,9 @@ function toast(t) {
   clearTimeout(toast.t);
   toast.t = setTimeout(() => e.className = "", 1800);
 }
+// Form encoding of a value inside a player key or URL, as the player writes it: spaces as "+",
+// also ! ' ( ) * percent-encoded (e.g. "album=Brothers+In+Arms").
+const formEnc = (v) => encodeURIComponent(v).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g, "+");
 // Image URL from a player answer: a path on the player (cover art from /Artwork gets
 // followRedirects=1) or an absolute http(s) URL (now playing). Anything else, e.g. a path that
 // would leave the player or another scheme, gives "" (no image).
@@ -1843,8 +1846,9 @@ let pollId = 0, pollCtl = null;
 // Queue panel: open (pinned), playlist id (pid), current song index, request counter,
 // qName: saved playlist the queue was loaded from ("" if none).
 let qOpen = false, qPid = "", qSong = "", qSeq = 0, qName = "";
-// Album popup: only the newest opened album may fill the popup.
-let dlgSeq = 0;
+// Album popup: only the newest opened album may fill the popup. popCache: album key -> [track list
+// (/Browse), songs (/library/v1/Songs)] of albums opened in this session.
+let dlgSeq = 0, popCache = {};
 // Search: only the newest search may update the grid; timer for search-as-you-type.
 let searchSeq = 0, searchTimer = 0;
 // Room name of the player (settings panel, browser tab title).
@@ -1870,6 +1874,7 @@ function resetPlayerState() {
 // Forgets everything loaded from the current source selection (called on connect and source change).
 function resetLibrary() {
   cache = {};
+  popCache = {};
   srcs = [];
   activeBtn = null;
   activeKey = "";
@@ -2201,9 +2206,7 @@ const genreAlbumsAll = async (name) => joinSources(await Promise.all(srcs.map((x
 function libAlbum(el, svc) {
   // Title is <alb> in plain lists and <title> in sectioned lists
   const t = (el.querySelector("alb") || el.querySelector("title"))?.textContent || "", ar = el.querySelector("art")?.textContent || "";
-  // Form encoding as the player uses it: spaces as "+", also ! ' ( ) * percent-encoded
-  const enc = (v) => encodeURIComponent(v).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g, "+");
-  const q = "album=" + enc(t) + "&artist=" + enc(ar), fav = el.getAttribute("isFavourite") === "1";
+  const q = "album=" + formEnc(t) + "&artist=" + formEnc(ar), fav = el.getAttribute("isFavourite") === "1";
   return {
     t,
     a: ar,
@@ -2342,24 +2345,32 @@ const loadNew = (btn) => loadLibView("__new", btn, "recent=1", 200, "new albums"
 // "Favourites" chip: the player's favourite albums.
 const loadFavourites = (btn) => loadLibView("__fav", btn, "category=FAVOURITES", 5000, "favourites", "in favourites", "No favourite albums yet.");
 const loadQuality = (btn, q, name) => loadLibView("__q:" + q, btn, "quality=" + q, 0, name + " albums", "in " + name + " quality", "No " + name + " albums.", true);
-// Clicking an artist name: shows all albums of that artist (exact name match, case-insensitive).
+// Albums of an artist on one source: the artist's browse menu (key <svc>:MG/LocalMusic-Artist?artist=…)
+// links to all albums of the artist, with the player's play URLs and context menus (2 requests).
+async function artistAlbums(x, name) {
+  const menu = items(await browse(x.svc + ":MG/LocalMusic-Artist?artist=" + formEnc(name)));
+  const link = menu.find((i) => attr(i, "type") === "link" && /:Album\//.test(attr(i, "browseKey")));
+  return link ? fetchAlbums(attr(link, "browseKey")) : [];
+}
+// Clicking an artist name: shows all albums of that artist from every enabled source (session cache).
 async function showArtist(name) {
   if ($("#dlg").open) $("#dlg").close();
-  selectView("artist:" + name, null);
+  const key = "artist:" + name, mine = ctx();
+  selectView(key, null);
   scrollTo(0, 0);
-  if (!srcs.some((x) => x.albumsKey)) {
-    msg("This source has no album list to look up artists.", true);
-    return;
-  }
   try {
-    if (!await ensureAll(activeKey, "Loading albums by " + name)) return;
-    if (activeKey !== "artist:" + name) return;
-    const low = name.toLowerCase();
-    shown = cache.__all.filter((a) => a.a.toLowerCase() === low);
+    if (!cache[key]) {
+      msg("Loading albums by " + name + " …");
+      const list = joinSources(await Promise.all(srcs.map((x) => artistAlbums(x, name))));
+      if (mine !== ctx()) return;
+      cache[key] = list;
+    }
+    if (activeKey !== key) return;
+    shown = cache[key];
     render(shown);
     msg(nAlb(shown.length) + " by " + name);
   } catch (e) {
-    msg(errMsg("Loading failed: ", e), true);
+    if (activeKey === key) msg(errMsg("Loading failed: ", e), true);
   }
 }
 
@@ -2610,12 +2621,14 @@ async function openAlbum(a) {
   }
   // Tracks with play links from /Browse; details per song (year, quality, format, artist) from
   // /library/v1/Songs of the same album (service and album/artist query taken from the album key).
-  const seq = ++dlgSeq, svc = a.key.split(":")[0], q = a.key.split("?")[1] || "";
+  // Both answers are kept per album for the session (popCache), so opening it again sends no request.
+  const seq = ++dlgSeq, svc = a.key.split(":")[0], q = a.key.split("?")[1] || "", mine = ctx();
   try {
-    const [bd, sd] = await Promise.all([
+    const [bd, sd] = popCache[a.key] || await Promise.all([
       browse(a.key, "", false),
       api("/library/v1/Songs?service=" + svc + "&" + q).catch(() => null)
     ]);
+    if (sd && mine === ctx()) popCache[a.key] = [bd, sd];
     if (seq !== dlgSeq) return;
     const tr = items(bd).filter((i) => attr(i, "type") === "track");
     const songs = sd ? [...sd.querySelectorAll("song")] : [];
@@ -2733,8 +2746,10 @@ async function loadPlaylists() {
       b.title = "Play playlist \u201C" + it.name + "\u201D";
       b.onclick = () => {
         plLoaded = it.name;
-        // Reload the queue afterwards: an empty playlist may not change the playlist id the status reports
-        cmd(it.url, "Playing playlist: " + it.name).then(() => qOpen && setTimeout(loadQueue, 600));
+        // The new playlist id in /Status reloads the queue. A broken (empty) playlist may not change
+        // the id, so the queue is reloaded after 1.5 s only when that has not happened yet.
+        const seq = qSeq;
+        cmd(it.url, "Playing playlist: " + it.name).then(() => setTimeout(() => qOpen && qSeq === seq && loadQueue(), 1500));
       };
       return b;
     });
@@ -2828,10 +2843,8 @@ async function loadQueue() {
       rm.className = "rm";
       rm.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>';
       rm.setAttribute("aria-label", "Remove from queue");
-      rm.onclick = async () => {
-        await xml("/Delete?id=" + id);
-        loadQueue();
-      };
+      // The changed playlist id in /Status reloads the queue (checked in Bruno, 2 Write #25).
+      rm.onclick = () => xml("/Delete?id=" + id);
       li.append(it, rm);
       ol.append(li);
     });
@@ -3404,23 +3417,21 @@ $("#qdel").onclick = async () => {
   showApiResponse("Deleting the playlist did not succeed", base + url, r.status, r.body);
 };
 // Switches shuffle on / off: /Shuffle?state=1|0. The player reorders the queue (and restores the
-// original order when switched off); the button state follows the <shuffle> value of /Status.
+// original order when switched off); the button state follows the <shuffle> value of /Status,
+// the changed playlist id reloads the queue.
 $("#qshuf").onclick = async () => {
   const on = $("#qshuf").getAttribute("aria-pressed") !== "true";
   if (!(await xml("/Shuffle?state=" + (on ? 1 : 0)))) return;
   toast(on ? "Shuffle on" : "Shuffle off");
-  loadQueue();
 };
 // Repeat: off -> queue -> track -> off, /Repeat?state=0|1|2; the button follows <repeat> of /Status.
 $("#qrep").onclick = async () => {
   const next = { 2: 0, 0: 1, 1: 2 }[$("#qrep").dataset.v] ?? 0;
   if (await xml("/Repeat?state=" + next)) toast("Repeat: " + REPEAT[next].label);
 };
-// Clears the whole queue after confirmation.
-$("#qclear").onclick = async () => {
-  if (!confirm("Clear the whole queue?")) return;
-  await xml("/Clear");
-  loadQueue();
+// Clears the whole queue after confirmation; the changed playlist id reloads the queue.
+$("#qclear").onclick = () => {
+  if (confirm("Clear the whole queue?")) xml("/Clear");
 };
 $("#gear").onclick = () => panel(!$("#side").classList.contains("open"), true);
 $("#scrim").onclick = $("#sclose").onclick = () => panel(false);

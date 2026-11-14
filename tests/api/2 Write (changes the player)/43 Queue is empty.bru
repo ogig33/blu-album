@@ -37,4 +37,9 @@ tests {
   const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? m[1] : ""; };
 
   test("length 0", () => expect(attr(tags("playlist")[0] || "", "length") || "0").to.equal("0"));
+
+  // Playlist id (/Playlist id = <pid> of /Status): the app reloads the queue only when it changes
+  const pidNow = attr(tags("playlist")[0] || "", "id") || val("pid");
+  test("playlist id changed after clearing the queue", () => expect(pidNow).to.not.equal(bru.getVar("pid")));
+  bru.setVar("pid", pidNow);
 }

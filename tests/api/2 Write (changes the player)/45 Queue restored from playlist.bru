@@ -38,4 +38,9 @@ tests {
 
   test("same length as before the tests", () => expect(attr(tags("playlist")[0] || "", "length")).to.equal(bru.getVar("queueBefore")));
   test("queue reports the playlist name", () => expect(attr(tags("playlist")[0] || "", "name")).to.equal("__bluos_album_player_test__"));
+
+  // Playlist id (/Playlist id = <pid> of /Status): the app reloads the queue only when it changes
+  const pidNow = attr(tags("playlist")[0] || "", "id") || val("pid");
+  test("playlist id changed after loading a playlist", () => expect(pidNow).to.not.equal(bru.getVar("pid")));
+  bru.setVar("pid", pidNow);
 }

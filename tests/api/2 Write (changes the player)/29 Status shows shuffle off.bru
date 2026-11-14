@@ -37,4 +37,9 @@ tests {
   const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? m[1] : ""; };
 
   test("<shuffle>0</shuffle>", () => expect(val("shuffle")).to.equal("0"));
+
+  // Playlist id (/Playlist id = <pid> of /Status): the app reloads the queue only when it changes
+  const pidNow = attr(tags("playlist")[0] || "", "id") || val("pid");
+  test("playlist id changed after shuffle off", () => expect(pidNow).to.not.equal(bru.getVar("pid")));
+  bru.setVar("pid", pidNow);
 }

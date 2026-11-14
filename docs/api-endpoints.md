@@ -209,9 +209,13 @@ Decided 2026-11-14: play / queue / favourite URLs come from `/Browse`; only the 
    `/library/v1/Albums?genre=…` would always need all 27 – `/Browse` stays cheaper.
 4. ✅ **Quality chips ask only filled sections**, from the album section list that All and the
    statistics share (USB: 9 of 27 → 18 requests less per quality chip).
-5. **Artist click** (step B): via the `/Browse` artist key `MG/LocalMusic-Artist?artist=…`
-   (keeps the player's URLs) instead of the All list. `/library/v1/Albums?artist=…` would be one
-   request, but without URLs.
+5. ✅ **Artist click**: via the `/Browse` artist key `<svc>:MG/LocalMusic-Artist?artist=…`, whose
+   "Albums" link (`<svc>:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=…&service=<svc>`) returns all
+   albums of the artist with the player's URLs and context menus, no paging (library and USB;
+   Bruno E10–E13). 2 requests per source instead of the All list. `/library/v1/Albums?artist=…`
+   would be one request, but without URLs.
+10. ✅ **Playlist id**: `/Playlist` `id` equals `<pid>` of `/Status` and changes on add, remove,
+   shuffle on / off, clear and load (Bruno, 2 Write) – the app reloads the queue only then.
 6. ✅ **Album popup**: track list with `withContextMenuItems=0` (7.2 instead of 16.8 KB); the
    app does not use the song context menus.
 7. **Genre chips**: names in one request via `/library/v1/Genres` are possible, but loading the

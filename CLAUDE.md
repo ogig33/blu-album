@@ -128,7 +128,6 @@ Pitfalls:
   the mock) → change the code → all UI tests green → CHANGELOG line under `Unreleased`.
 
 ## Backlog / ideas
-- Fewer requests, step B: artist click via `/Browse` key `MG/LocalMusic-Artist?artist=…`
-  (≈ 2 per source instead of the All list); step C: queue reloaded twice after ✕ / shuffle /
-  clear / playlist chip, heart re-reads the context menu, popup cache (see `docs/api-calls.md`)
+- Not done on purpose: the heart re-reads the album context menu after toggling (1 request) –
+  without it the next click would use a self-built URL (rule above).
 - Optional: GitHub Action that runs the UI tests on every push

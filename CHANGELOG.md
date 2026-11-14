@@ -17,6 +17,11 @@ PATCH for fixes and visual changes, MINOR for new features.
     the section list is loaded once and shared with All and the statistics.
   - Genre albums: no more trial request for an unsectioned list.
   - Album popup reads the track list without the unused per-song context menus (about 60 % less data).
+  - Artist click loads the artist's albums through the player's artist menu (2 requests per source)
+    instead of the whole All list (≈ 36 requests).
+  - The queue is loaded once after remove, shuffle and clear (through the new playlist id that the
+    status reports); after a playlist chip only when the playlist id did not change.
+  - Album popup: an album opened again in the same session needs no request.
 
 ## 0.8.0
 - About popup: link to the GitHub repository.

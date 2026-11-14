@@ -193,6 +193,12 @@ test("popup: details and source line, no buttons", async (t) => {
   await t.page.waitForSelector("#tracks li button");
   eq(await t.page.$$eval("#dlg .dl > .cov button, #dlg .info button", (b) => b.map((x) => x.getAttribute("aria-label") || x.title)).then((l) => l.filter((x) => !/^Albums by|^Show albums by/.test(x))), [], "no play / queue / heart buttons in the popup");
   ok(!(await t.page.$("#dg")), "no genre line");
+  const popupReqs = () => t.player.state.requests.filter((x) => /^\/library\/v1\/Songs|^\/Browse.*LocalMusic-Album/.test(decodeURIComponent(x))).length;
+  const n = popupReqs();
+  await t.page.click("#close");
+  await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic"))));
+  await t.page.waitForSelector("#tracks li button");
+  eq(popupReqs(), n, "same album again: from the session cache");
   const tr = t.player.state.requests.filter((x) => /^\/Browse/.test(x) && /MG\/LocalMusic-Album/.test(decodeURIComponent(x)));
   ok(tr.length > 0 && tr.every((x) => /withContextMenuItems=0/.test(x)), "track list without context menus");
 });
@@ -261,14 +267,26 @@ test("cover: hover buttons play / add last / heart", async (t) => {
   ok(t.player.state.commands.some((c) => /where=last/.test(c)), "add last sent");
 });
 
-test("artist: click shows albums of the artist", async (t) => {
-  await t.chip("All");
-  await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
-  const artist = await t.page.textContent("#grid .item:nth-child(2) .card.ar span");
-  await t.page.click("#grid .item:nth-child(2) .card.ar");
-  await t.page.waitForFunction(() => / by /.test(document.querySelector("#msg").textContent));
+test("artist: click shows the albums of the artist via the artist's browse menu, not the All list", async (t) => {
+  // Favourites (default view) show "1" by Peter Gabriel; All is not loaded
+  const tile = await t.page.$$eval("#grid .item", (x) => x.findIndex((e) => e.querySelector(".card.ar span")?.textContent === "Peter Gabriel"));
+  ok(tile > 0, "Peter Gabriel tile in the favourites");
+  const before = t.player.state.requests.length;
+  await t.page.click(`#grid .item:nth-child(${tile + 1}) .card.ar`);
+  await t.page.waitForFunction(() => /^\d+ albums? by /.test(document.querySelector("#msg").textContent));
   const all = await t.page.evaluate(() => shown.map((a) => a.a));
-  ok(all.length > 0 && all.every((a) => a.toLowerCase() === artist.toLowerCase()), "only albums of " + artist);
+  eq(all.length, 4, "the 4 recorded albums of Peter Gabriel");
+  ok(all.every((a) => a === "Peter Gabriel"), "only albums of the artist");
+  const r = t.player.state.requests.slice(before).map((x) => decodeURIComponent(x));
+  eq(r.filter((x) => /bySection:Album|S:Album\//.test(x)), [], "All list not loaded");
+  eq(r.filter((x) => /^\/Browse/.test(x)).length, 4, "artist menu + albums link per source (2 sources)");
+  ok(await t.page.evaluate(() => shown.every((a) => a.play && a.menu["addAll-last"])), "play and queue URLs from the player");
+  await t.chip("New");
+  await t.settle();
+  const n = t.player.state.requests.length;
+  await t.page.evaluate(() => showArtist("Peter Gabriel"));
+  await t.page.waitForFunction(() => /^\d+ albums? by /.test(document.querySelector("#msg").textContent));
+  eq(t.player.state.requests.slice(n).filter((x) => /^\/Browse/.test(x)).length, 0, "second time from the session cache");
 });
 
 test("search: uses the player search, no random tile", async (t) => {
@@ -331,6 +349,23 @@ test("queue: remove button (x) replaces the duration on hover, removes the track
   await t.page.click("#qlist li:nth-child(2) .rm");
   await t.settle();
   ok(t.player.state.commands.includes("/Delete?id=1"), "/Delete?id=1 sent");
+});
+
+test("queue: after remove, shuffle and clear the queue is loaded once (through the new playlist id)", async (t) => {
+  await t.page.click("#qbtn");
+  await t.page.waitForSelector("#qlist li");
+  await t.settle(2500);
+  const loads = () => t.player.state.requests.filter((x) => /^\/Playlist\?/.test(x)).length;
+  for (const [name, act] of [
+    ["remove", async () => { await t.page.hover("#qlist li:nth-child(2)"); await t.page.click("#qlist li:nth-child(2) .rm"); }],
+    ["shuffle", () => t.page.click("#qshuf")],
+    ["clear", () => t.page.click("#qclear")]
+  ]) {
+    const n = loads();
+    await act();
+    await t.settle(3500);
+    eq(loads() - n, 1, "queue loads after " + name);
+  }
 });
 
 test("queue: shuffle on / off via the player, button follows /Status", async (t) => {

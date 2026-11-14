@@ -1,7 +1,7 @@
 # BluAlbum – clicks and API calls
 
 Every user action of the app and the player requests it sends, with endpoint, parameters and
-purpose. State: after "step A" of the request reduction (November 2026, unreleased after 0.8.0),
+purpose. State: after steps A, B and C of the request reduction (November 2026, unreleased after 0.8.0),
 from the code of `blualbum.html` and measurements on the real player.
 
 All player requests are HTTP GET on `http://<player>:11000` with XML answers. Endpoint reference
@@ -13,7 +13,7 @@ Legend: **S** = per music source (library and USB drive are both asked, so ×2 w
 
 Read-only actions; cover images (`/Artwork`) are not counted.
 
-| Action | Before step A | After step A | Note |
+| Action | Before | After steps A–C | Note |
 |---|---:|---:|---|
 | Connect, fresh browser | 585 | **9** | before: 564 for the genre crawl |
 | Connect again | 21 | **9** | |
@@ -23,8 +23,8 @@ Read-only actions; cover images (`/Artwork`) are not counted.
 | Chip CD, second time | 0 | 0 | session cache |
 | Chip All (after CD) | 38 | **36** | section lists already loaded |
 | Genre chip | 38 | **36** | no trial request for an unsectioned list |
-| Artist name (All already loaded) | 0 | 0 | |
-| Album popup | 2 (≈ 21 KB) | 2 (≈ 11 KB) | track list without context menus |
+| Artist name (All not loaded) | ≈ 36 | **4** | artist menu + albums link per source, 152 ms |
+| Album popup | 2 (≈ 21 KB) | 2 (≈ 11 KB), same album again: **0** | track list without context menus, session cache |
 | Search "love" (Enter) | 6 | 6 | |
 | Open queue panel | 1 | 1 | |
 | Open about popup (once per connection / source selection) | 0 | 8 | versions + statistics, moved from connect |
@@ -67,17 +67,17 @@ visible tiles (lazy, from the browser cache when already loaded). They are not c
 | **New** | `/library/v1/Albums?service=<svc>&recent=1` (+ `nextlink`, at most 200 albums) | S+ | none | recently added albums |
 | **HD / CD / MQA** | album sections (shared), then `/library/v1/Albums?service=<svc>&quality=hr\|cd\|mqa&limit=500&section=X` per filled section | filled sections | session | quality filter (works only per section) |
 | **Genre** | `/Browse` genre menu → genre album sections → albums of every filled section | 2 × S + filled sections | session | albums of a genre |
-| **Playlist chip** | play URL of the playlist from `/Browse` (e.g. `/Load?service=BluOS&name=…`); with an open queue `/Playlist?start=0&end=199` after 0.6 s | 1 (+1) | – | play the playlist |
+| **Playlist chip** | play URL of the playlist from `/Browse` (e.g. `/Load?service=BluOS&name=…`); with an open queue the new playlist id reloads the queue, otherwise (broken playlist, id unchanged) `/Playlist?start=0&end=199` after 1.5 s | 1 + 1 | – | play the playlist |
 
 ## 4. Album tile in the grid
 
 | Click | API calls | Count | Purpose |
 |---|---|---|---|
-| Cover or title | `/Browse?withContextMenuItems=0&key=<svc>:MG/LocalMusic-Album?album=…&artist=…` and in parallel `/library/v1/Songs?service=<svc>&album=…&artist=…` | 2 | album popup: track list with play URLs and durations; year, quality, format, bit depth / sample rate, bitrate, artist per track |
+| Cover or title | `/Browse?withContextMenuItems=0&key=<svc>:MG/LocalMusic-Album?album=…&artist=…` and in parallel `/library/v1/Songs?service=<svc>&album=…&artist=…`; none when the album was opened before in this session | 2 or 0 | album popup: track list with play URLs and durations; year, quality, format, bit depth / sample rate, bitrate, artist per track |
 | ▶ Play (hover) | `/Add?playnow=1&service=<svc>&album=…&artist=…` | 1 | play the album now |
 | ＋ (hover) | `/Add?album=…&artist=…&playnow=-1&service=<svc>&where=last` | 1 | add the album to the end of the queue |
 | ♥ (hover, library only) | `/AddFavourite?album=…&artist=…&service=<svc>` or `/DeleteFavourite?…`, then `/Browse?key=<svc>:CM/LocalMusic-Album?…[&isFavourite=1]` | 2 | set / remove the favourite, then read the context menu again (current state + URL for the next click) |
-| Artist name | like **All** when All was not loaded in this session; otherwise none | 0 or ≈ S + filled sections | all albums of the artist (filter on the All list) |
+| Artist name | `/Browse?key=<svc>:MG/LocalMusic-Artist?artist=…` (artist menu), then its "Albums" link `/Browse?key=<svc>:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=…&service=<svc>`; none when the artist was shown before in this session | 2 × S or 0 | all albums of the artist with the player's play URLs and context menus (Bruno E10–E13) |
 | Random album ▶ / ＋ | like ▶ / ＋ | 1 | random album of the current view |
 
 ### Album popup in detail (example "Brothers In Arms", library)
@@ -111,7 +111,7 @@ The popup therefore has no genre line (decided 2026-11-14).
 | Click | API calls | Count | Purpose |
 |---|---|---|---|
 | Track | `autoplayURL` or `playURL` of the track from `/Browse` (`/Add?…`) | 1 | play from this track |
-| Artist name | like the artist name in section 4 | 0 or ≈ S + filled sections | |
+| Artist name | like the artist name in section 4 | 2 × S or 0 | |
 | Close ✕ / click outside | none | | |
 
 ## 6. Search (field at the top)
@@ -144,15 +144,16 @@ Older results are dropped, but their requests still run to the end.
 | Pin (open) | `/Playlist?start=0&end=199` (+ further pages of 200, at most 2000 entries) | 1+ | load the queue |
 | Unpin (close) | none | | |
 | Entry | `/Play?id=<n>` | 1 | play this entry |
-| ✕ Remove | `/Delete?id=<n>`, then `/Playlist?…` | 2 (+1) | remove the entry, reload the list |
-| Shuffle | `/Shuffle?state=0\|1`, then `/Playlist?…` | 2 (+1) | shuffle, reload the list |
+| ✕ Remove | `/Delete?id=<n>`; the new playlist id reloads the list | 1 + 1 | remove the entry |
+| Shuffle | `/Shuffle?state=0\|1`; the new playlist id reloads the list | 1 + 1 | shuffle |
 | Repeat | `/Repeat?state=0\|1\|2` | 1 | repeat (queue / track / off) |
 | Save | `/Save?name=<name>`, then `/Browse?key=<playlists>` | 2 | save as playlist, reload the playlist chips |
 | Delete playlist | `/Delete?service=BluOS&name=<name>`, then `/Browse?key=<playlists>` | 2 | delete the saved playlist |
-| Clear | `/Clear`, then `/Playlist?…` | 2 (+1) | clear the queue |
+| Clear | `/Clear`; the new playlist id reloads the list | 1 + 1 | clear the queue |
 
-(+1): when this changes the playlist id, the long polling reports it and the queue is loaded a
-second time (section 9).
+The playlist id (`<pid>` in `/Status`, `id` of `/Playlist`) changes on add, remove, shuffle on /
+off, clear and load (Bruno, 2 Write); the long polling reports it and the open queue is loaded
+once.
 
 ## 9. Background (no click)
 
@@ -179,14 +180,14 @@ second time (section 9).
 | 2 | No trial request for an unsectioned genre list (it was too short for all 37 genres – a fallback) | 37 per crawl, 2 per genre chip | low | ✅ done |
 | 3 | Load statistics and versions when the about popup opens | 10 per connect | low | ✅ done |
 | 4 | Remove `sync()` (`/Status` + `/Volume` on connect and after every command); the long polling reports every change, `/Status` also holds `<volume>` | 2 per connect, 2 per command | low | ✅ done, checked on the player |
-| 5 | Load the queue only once after ✕, shuffle, clear and playlist chip (today: the click reloads it *and* the changed playlist id in the long poll does) | 1 per such click (open queue) | medium; check in Bruno that the playlist id changes for all four | step C |
+| 5 | Load the queue only once after ✕, shuffle, clear and playlist chip (today: the click reloads it *and* the changed playlist id in the long poll does) | 1 per such click (open queue) | medium; checked in Bruno | ✅ done |
 | 6 | Genre chip after a page reload re-loaded the genre albums | up to 38 | – | ✅ obsolete (no crawl) |
 | 7 | Search from 3 characters and after 800 ms instead of 500 ms; Enter always | ≈ 6 per avoided intermediate search | – | ✅ done |
 | 8 | All and statistics share the album section list | S on the first All | low | ✅ done |
 | 9 | Favourites chip from the cache until ♥ is clicked in BluAlbum | 2 per click | changes made in the BluOS app would show only after reconnecting | ⏸ deferred |
-| 10 | Heart: do not read the context menu again after toggling (the opposite URL is derived already) | 1 per ♥ click | low | step C |
-| 11 | Cache the album popup per album for the session | 2 per re-opening | low | step C |
+| 10 | Heart: do not read the context menu again after toggling (the opposite URL is derived already) | 1 per ♥ click | the next click would use a self-built URL (rule: URLs from the player) | ✖ not done |
+| 11 | Cache the album popup per album for the session | 2 per re-opening | low | ✅ done |
 | 12 | Quality chips and All cached across sessions in localStorage | 38 / 36 per session | data may become stale | ⏸ deferred |
 | 13 | Quality chips ask only filled sections (USB: 9 of 27) | 18 per quality chip | low | ✅ done |
 | 14 | Album popup track list with `withContextMenuItems=0` | ≈ 60 % of the data | low (Bruno E09) | ✅ done |
-| 15 | Artist click via the `/Browse` artist key `MG/LocalMusic-Artist?artist=…` instead of the All list (keeps the player's URLs) | ≈ 36 when All is not loaded | check in Bruno first | step B |
+| 15 | Artist click via the `/Browse` artist key `MG/LocalMusic-Artist?artist=…` instead of the All list (keeps the player's URLs) | ≈ 32 when All is not loaded (36 → 4) | low (Bruno E10–E13) | ✅ done |
