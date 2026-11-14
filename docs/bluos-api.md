@@ -34,7 +34,7 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
   | 11000 | control API of every player |
   | 11010, 11020, 11030 | nodes 2–4 of an NAD CI580 (node 1 = 11000); discover via mDNS |
   | 11004 | library server; the short library endpoints (`/Albums`, `/Artwork`, …) redirect here. The same `/library/v1/…` requests also answer on 11000 |
-  | 80 | web pages of the player: `/reboot`, `/sharecfg`, `/Shares`, `/diag`, `/diagnostics`, `/wificfg`, `/triggercfg`, `/download_playlists_api`, `/upload_playlists_api` |
+  | 80 | web pages of the player: `/reboot`, `/sharecfg`, `/Shares`, `/diag`, `/diagnostics`, `/Dataexport`, `/apmode`, `/delete_index`, `/statistics`, `/wificfg`, `/triggercfg`, `/download_playlists_api`, `/upload_playlists_api` |
 
 - **Errors:** endpoints answer with HTTP errors or with an `<error>` root element instead of the expected one; clients should check the root element name.
 - **Unknown elements** in answers are to be ignored; the official documentation lists only part of them.
@@ -1315,14 +1315,16 @@ slaveVolume @min="-30" @max="30" @step="1" @isBalance="false" = "1"     (new tri
 |---|---|:---:|:---:|
 | `GET /Alarms` | list of the alarms with time, days, source and volume | | ✓ |
 | `GET, POST /alsa_setting` | listening mode and tone controls | | ✓ |
+| `GET /apmode` | web page "Force Hotspot Mode" (port 80) | | |
 | `GET, POST /audiomodes` | audio and Bluetooth modes | ✓ | ✓ |
 | `GET /audioPreset` | current listening mode and its choices | | ✓ |
-| `GET /Dataexport` | export of the player's data (presumably for support) | | |
-| `GET /diag` | diagnostics page | | |
-| `GET /diagnostics` | diagnostics page (second view) | | |
+| `GET /Dataexport` | export of the player's data (presumably for support) | | ✓ |
+| `GET /delete_index` | web page "Rebuild Index" (port 80) | | |
+| `GET /diag` | diagnostics page | | ✓ |
+| `GET /diagnostics` | diagnostics page (second view) | | ✓ |
 | `GET /Doorbell` | play the doorbell chime | ✓ | ✓ |
 | `GET /download_playlists_api` | backup of the saved playlists (port 80) | | ✓ |
-| `GET /error` | read and clear the last error message of the player | | |
+| `GET /error` | read and clear the last error message of the player | | ✓ |
 | `GET /GitVersion` | BluOS version | | ✓ |
 | `GET /LastScanCode` | last received IR code | | ✓ |
 | `GET /Name` | read or change the player name | | ✓ |
@@ -1332,15 +1334,16 @@ slaveVolume @min="-30" @max="30" @step="1" @isBalance="false" = "1"     (new tri
 | `GET /Services` | self-description of the sources | | ✓ |
 | `GET, POST /setting` | change a simple setting | | ✓ |
 | `GET /Settings` | settings tree of the player | ✓ | ✓ |
-| `GET /settings/sendSupportRequest` | web page "Send support request" | | |
+| `GET /settings/sendSupportRequest` | web page "Send support request" | | ✓ |
 | `GET /sharecfg` | web page for network shares (port 80) | | ✓ |
 | `GET /Shares` | network shares of the library (port 80) | | ✓ |
 | `GET /ShowIRCodes` | IR codes learned from a paired remote control | | ✓ |
 | `GET /Sleep` | step the sleep timer | | ✓ |
+| `GET /statistics` | switch the statistics collection (port 80) | | |
 | `GET /triggercfg` | web page for learning IR remote codes (port 80) | | ✓ |
 | `GET /update` | purpose unknown (presumably firmware update status) | | ✓ |
 | `GET /upgrade` | redirect to a web page, presumably the firmware upgrade | | ✓ |
-| `POST /upload_playlists_api` | restore the saved playlists (port 80) | | |
+| `POST /upload_playlists_api` | restore the saved playlists (port 80) | | ✓ |
 | `GET /Version` | API version | | ✓ |
 | `GET /wificfg` | web page for the Wi-Fi settings (port 80) | | ✓ |
 
@@ -1424,6 +1427,20 @@ No answer body (HTTP 200, empty).
 - The BluOS app sends it as **POST** with a JSON body, e.g. `{"preset":"MOVIE"}`; GET with `?<name>=<value>` works as well (verified). Seen: `preset` (`MUSIC`, `MOVIE`, `TV`).
 - More: `{"eq-switch":"ON"}`, `{"eq-bass":-1}`, `{"eq-treble":-1.5}`, `{"eq-balance":1.5}`, `{"eq-centre-trim":-2.5}` (numbers without quotes), `{"resetPreset":1}`.
 
+### `GET /apmode`
+
+```
+GET http://<player>:80/apmode?noheader=1
+```
+
+| Parameter | Meaning |
+|---|---|
+| `noheader` | `1` = page without its header |
+
+**Notes**
+
+- Linked on the diagnostics page. Presumably switches the player to its own Wi-Fi hotspot (setup mode) – it then leaves the home network. Not opened.
+
 ### `GET, POST /audiomodes`
 
 ```
@@ -1477,44 +1494,73 @@ setting @id="preset" @name="preset" @displayName="Listening Mode" @url="http://<
 ### `GET /Dataexport`
 
 ```
-GET /Dataexport   (also HEAD /Dataexport)
+GET http://<player>:80/Dataexport   (also HEAD)
 ```
 
 No known parameters.
 
+**Response format**
+
+Plain text: the system log of the player (here about 2,600 lines / 290 KB, `syslogd`, network, services …).
+
 **Notes**
 
-- The app first checks with `HEAD /Dataexport`, then loads it with GET. Content not looked at yet – it may contain personal data.
+- The app first checks with `HEAD /Dataexport`, then loads it with GET.
+- Verified. The log holds personal data (network, addresses, names).
+
+### `GET /delete_index`
+
+```
+GET http://<player>:80/delete_index?noheader=1
+```
+
+| Parameter | Meaning |
+|---|---|
+| `noheader` | `1` = page without its header |
+
+**Notes**
+
+- Linked on the diagnostics page. Presumably deletes the library index and rebuilds it – the whole library is scanned again. Not opened.
 
 ### `GET /diag`
 
 ```
-GET /diag?noheader=1&playnum=1
+GET http://<player>:80/diag?noheader=1&playnum=1
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `noheader` | `1` = page without its header |
 | `playnum` | seen as `1` |
+
+**Response format**
+
+An HTML page (the web app "BluOS", the script loads the content).
 
 **Notes**
 
 - Opened through `/redirectToCp?href=/diag&noheader=1`. Web page.
+- Verified.
 
 ### `GET /diagnostics`
 
 ```
-GET /diagnostics?noheader=1&playnum=1
+GET http://<player>:80/diagnostics?noheader=1&playnum=1&slave=<ip>
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `noheader` | `1` = page without its header |
 | `playnum` | seen as `1` |
+| `slave` | IP address of a group member: its diagnostics page |
+
+**Response format**
+
+An HTML page "Diagnostics": network name, signal strength, IP and MAC address, BluOS version, uptime, number of songs, connected shares, other players (with links to their pages), statistics switch, links "Rebuild Index", "Force Hotspot Mode", "Reboot".
 
 **Notes**
-
-- Web page.
+- Verified.
+- The page sends [`/statistics`](#get-statistics), links to [`/delete_index`](#get-delete_index), [`/apmode`](#get-apmode) and `/reboot?noheader=1`.
 
 ### `GET /Doorbell`
 
@@ -1567,9 +1613,16 @@ GET /error?<counter>&clear=1&counter=<counter>
 | `<counter>` | number of the error message to read, e.g. `/error?2` |
 | `clear`, `counter` | `clear=1&counter=<n>` clears that message |
 
+**Response format**
+
+```
+notification = "no errors"
+```
+
 **Notes**
 
-- After a command that failed (here `/Back` on a radio station without back) the app reads `/error?2` and clears it with `/error?clear=1&counter=2`; the counter counts up. Answer not looked at yet.
+- After a command that failed (here `/Back` on a radio station without back) the app reads `/error?2` and clears it with `/error?clear=1&counter=2`; the counter counts up.
+- Verified with `/error?1` (nothing to report).
 
 ### `GET /GitVersion`
 
@@ -1643,6 +1696,7 @@ An HTML page "Confirmation": "Settings Updated – Rebooting. Please close this 
 
 - Example: `curl -d yes=1 http://<player>/reboot`.
 - Verified: the player restarts and answers `/SyncStatus` again after about 20 s (Powernode); playback stops.
+- The diagnostics page links to `/reboot?noheader=1` (the web page with the reboot button).
 
 ### `GET /redirectToCp`
 
@@ -1783,20 +1837,26 @@ settings @pageId @schemaVersion
 - The settings tree the BluOS app shows. `@class` tells the control: `text`, `boolean`, `list`, `range`, `dual-range`, `iconlist`, `button`, `download`, `upload`, `alarms`, `sleep`.
 - `@url` is the endpoint that changes the setting; a setting without `@url` uses the `@url` of its `menuGroup`. Seen: [`/setting`](#get-post-setting), [`/audiomodes`](#get-post-audiomodes), [`/alsa_setting`](#get-post-alsa_setting), [`/SlaveVolume`](#get-post-slavevolume), [`/proxyToSlave`](#get-post-proxytoslave), [`/Reindex`](#get-reindex), [`/RemoveSlave`](#get-removeslave), and on port 80 [`/sharecfg`](#get-sharecfg), [`/wificfg`](#get-wificfg), [`/triggercfg`](#get-triggercfg), [`/download_playlists_api`](#get-download_playlists_api), [`/upload_playlists_api`](#post-upload_playlists_api).
 - Verified with schema 36, all menu pages read: top level (alarms, sleep timer, room name, amplifier standby, fixed group, library, playlists), `audio`, `audioPreset`, `zone`, `zone_player-<ip><port>` (per group member), `player` (Wi-Fi, indicator brightness, Wi-Fi Direct), `proximity`, `ir_remote`, `bluos_remote`, `library`, `managePlaylists`, `capture`, `capture-input<n>` (per input).
+- `/Settings?view=web&id=sendSupportRequest` answers an empty page `settings @pageId="sendSupportRequest"` (verified).
 
 ### `GET /settings/sendSupportRequest`
 
 ```
-GET /settings/sendSupportRequest?noheader=1
+GET http://<player>:80/settings/sendSupportRequest?noheader=1
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `noheader` | `1` = page without its header |
 
+**Response format**
+
+An HTML page (the web app "BluOS", the script loads the content).
+
 **Notes**
 
 - The page itself sends the request to Bluesound support – do not submit it while testing.
+- Verified (only read).
 
 ### `GET /sharecfg`
 
@@ -1880,6 +1940,20 @@ sleep = "30"     (minutes until the player switches off)
 - Verified: the answer is the minutes until the player switches off.
 - Each call steps the timer: 15 → 30 → 45 → 60 → 90 min → off (community projects), so even a call just to read the value changes the timer. To only read it, use `<sleep>` in [`/Status`](#get-status).
 
+### `GET /statistics`
+
+```
+GET http://<player>:80/statistics?enable=<value>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `enable` | value of the switch (On / Off) |
+
+**Notes**
+
+- Sent by the diagnostics page when "Statistics collection" (On / Off) changes. Not sent.
+
 ### `GET /triggercfg`
 
 ```
@@ -1944,9 +2018,16 @@ POST http://<player>:80/upload_playlists_api   (multipart/form-data, field file)
 |---|---|
 | `file` | form field (`filename="blob"`, `application/octet-stream`) with the JSON of [`/download_playlists_api`](#get-download_playlists_api) |
 
+**Response format**
+
+```
+message = "Successfully restored Playlists"
+```
+
 **Notes**
 
 - Setting "Restore Playlists" (class `upload`) in `/Settings?id=managePlaylists`: restores the saved playlists from a backup. It replaces the saved playlists.
+- Verified: uploading the backup just downloaded from [`/download_playlists_api`](#get-download_playlists_api) left the saved playlists unchanged.
 
 ### `GET /Version`
 
@@ -2000,26 +2081,26 @@ Action types: `player-link` (send the player request in `URI`), `browse` (load a
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
-| `GET /ui/action` | change a display option of a screen | | |
+| `GET /ui/action` | change a display option of a screen | | ✓ |
 | `GET /ui/browseContext` | header of a browse page (e.g. a playlist with play / shuffle buttons) | | ✓ |
 | `GET /ui/browseGenres` | genre screen of a source | | ✓ |
 | `GET /ui/browseGrouped` | list of a library menu entry with letters / pages | | ✓ |
 | `GET /ui/browseMenuGroup` | menu of a source | | ✓ |
 | `GET /ui/BrowseObjects` | list of objects of a browse request (e.g. the saved playlists) | | ✓ |
-| `GET /ui/clearUsageHistory` | clear the "recent" rows of the home screen | | |
+| `GET /ui/clearUsageHistory` | clear the "recent" rows of the home screen | | ✓ |
 | `GET /ui/Configuration` | configuration of the app screens | | ✓ |
 | `GET /ui/ContextMenu` | context menu of an object (play, add, edit, delete) | | ✓ |
 | `GET /ui/Favourites` | favourites of a source | | ✓ |
 | `GET /ui/Home` | home screen of the app | | ✓ |
 | `GET /ui/myPlaylistsRow` | row "My playlists" of the home screen per source | | ✓ |
-| `GET /ui/News` | news screen | | |
+| `GET /ui/News` | news screen | | ✓ |
 | `GET /ui/nowPlayingCM` | context menu of the playing item | | ✓ |
 | `GET /ui/presets` | preset screen of the app | | ✓ |
-| `GET /ui/prf` | runs a player request for the app | | |
+| `GET /ui/prf` | runs a player request for the app | | ✓ |
 | `GET /ui/Queue` | queue screen of the app | | ✓ |
 | `GET /ui/queueItemCM` | context menu of a queue entry | | ✓ |
 | `GET /ui/RecentlyPlayed` | recently played screen | | ✓ |
-| `GET /ui/resolveSoviURL` | resolve a "Sovi" URL (meaning not known) | | |
+| `GET /ui/resolveSoviURL` | resolve a "Sovi" URL (meaning not known) | | ✓ |
 | `GET /ui/Search` | search screen | | ✓ |
 | `GET /ui/Sources` | list of sources (navigation drawer) | | ✓ |
 
@@ -2031,13 +2112,18 @@ GET /ui/action?Cstyle=<style>~<type>&CBQ=<true|false>&Cfilter=<url>~<value>
 
 | Parameter | Meaning |
 |---|---|
-| `Cstyle` | display style per object type, e.g. `grid~Playlist` |
+| `Cstyle` | display style per object type: `grid~Playlist` or `list~Playlist` |
 | `CBQ` | `true` / `false`: an app option (switched in the playlist screen; meaning not known) |
 | `Cfilter` | filter of a list, e.g. `https://…/radio/podcasts/charts~it` (podcasts of Italy) |
+
+**Response format**
+
+Empty answer.
 
 **Notes**
 
 - Style selector of `/ui/BrowseObjects`; changes the display.
+- Verified with `Cstyle`: the style selector of [`/ui/BrowseObjects`](#get-uibrowseobjects) (`styleSelector @type`) shows the current style and changes with it.
 
 ### `GET /ui/browseContext`
 
@@ -2161,7 +2247,7 @@ GET /ui/BrowseObjects?service=<svc>&menuGroupId=<id>&type=<type>&browseIndex=<n>
 
 ```
 screen @id @screenTitle @service @navigationTitle @navigationIcon
-  sortMenu > item (sort=recent | alpha), styleSelector (/ui/action?Cstyle=…)
+  sortMenu > item (sort=recent | alpha), styleSelector @type (current style: grid | list) > action (/ui/action?Cstyle=…)
   list > item ×n @title @image > action @type="context-browse" (/Playlists?service=BluOS&playlist=…), contextMenu
 ```
 
@@ -2180,9 +2266,14 @@ GET /ui/clearUsageHistory?stations=1&queued=1
 | `stations` | `1` = recent stations (row on the home screen) |
 | `queued` | `1` = recently played ("Clear" in `/ui/RecentlyPlayed`) |
 
+**Response format**
+
+Empty answer.
+
 **Notes**
 
 - Used by `/ui/Home` and `/ui/RecentlyPlayed`; deletes the history.
+- Verified with `stations=1`.
 
 ### `GET /ui/Configuration`
 
@@ -2297,9 +2388,15 @@ GET /ui/News
 
 Parameters not known.
 
-**Notes**
+**Response format**
 
-- Only known from [`/ui/Configuration`](#get-uiconfiguration); not called yet.
+```
+screen @id="screen-news" @screenTitle="News & Updates"
+  list @id="news" > item ×n
+```
+
+**Notes**
+- Verified (empty list).
 
 ### `GET /ui/nowPlayingCM`
 
@@ -2354,9 +2451,14 @@ GET /ui/prf?u=<encoded request>&a=<encoded parameters>&t=1&cgsc=1
 | `a` | extra parameters for the rest of a list, e.g. `cursor=last&expr=maria&listindex=0&nextlist=1&playnow=1&service=LocalMusic&where=last` (play a search hit and queue the other hits) |
 | `t` | seen as `1` |
 
+**Response format**
+
+The answer of the passed request, e.g. `volume @db @mute … = "16"` for `u=%2FVolume`.
+
 **Notes**
 
-- Runs the given request.
+- Runs the given request for the app.
+- Verified with `u=%2FVolume`.
 
 ### `GET /ui/Queue`
 
@@ -2428,11 +2530,14 @@ screen @id="screen-recentlyPlayed"
 GET /ui/resolveSoviURL
 ```
 
-Parameters not known.
+The parameter for the URL is not known.
+
+**Response format**
+
+Without a URL the text `invalid URL scheme: ` (no XML).
 
 **Notes**
-
-- Only known from [`/ui/Configuration`](#get-uiconfiguration); not called yet.
+- Listed in [`/ui/Configuration`](#get-uiconfiguration). Verified without parameters; it expects a URL with a special scheme ("Sovi", presumably the internal name of BluOS).
 
 ### `GET /ui/Search`
 

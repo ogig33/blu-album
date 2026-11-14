@@ -1,0 +1,50 @@
+meta {
+  name: S36 Playlist screen (remember display style)
+  type: http
+  seq: 98
+}
+
+get {
+  url: http://{{host}}:11000/ui/BrowseObjects?browseIndex=0&menuGroupId=BluOS&service=BluOS&type=Playlist&url=%2FPlaylists%3Fservice%3DBluOS%26myPlaylists%3D1
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:post-response {
+  const raw = res.getBody();
+  const body = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? m[1].replace(/&amp;/g, "&") : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file, text) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), text === undefined ? body : text);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  console.log("HTTP " + res.getStatus() + ", " + (res.getHeader("content-type") || "") + "\n" + body.slice(0, 3000));
+  const sel = tags("styleSelector")[0] || "";
+  const want = attr(sel, "type");
+  // type of the style selector = the current style (e.g. "Display: Grid", type grid)
+  bru.setVar("vsStyleOld", want);
+  bru.setVar("vsStyleNew", want === "grid" ? "list" : "grid");
+  console.log("current style: " + want);
+}
+
+tests {
+  const raw = res.getBody();
+  const body = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? m[1].replace(/&amp;/g, "&") : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("has a style selector", () => expect(tags("styleSelector").length).to.equal(1));
+}
