@@ -20,12 +20,13 @@ How BluAlbum uses the API (clicks, requests, measurements): [`blu-album-api-usag
 10. [Artwork](#10-artwork)
 11. [Player grouping](#11-player-grouping)
 12. [System](#12-system)
+13. [App UI](#13-app-ui)
 
 ---
 
 ## 1. Basics
 
-- **Requests:** HTTP GET, `http://<player>:<port>/<Request>?<parameters>`; parameters are URL-encoded name/value pairs (UTF-8). Answers are UTF-8 XML. Exception: `/reboot` (POST, port 80).
+- **Requests:** HTTP GET, `http://<player>:<port>/<Request>?<parameters>`; parameters are URL-encoded name/value pairs (UTF-8). Answers are UTF-8 XML. Exceptions: `/reboot` (POST, port 80); the BluOS app sends `/setting` and `/audiomodes` as POST.
 - **Ports:**
 
   | Port | Use |
@@ -35,7 +36,7 @@ How BluAlbum uses the API (clicks, requests, measurements): [`blu-album-api-usag
   | 11004 | library server; the short library endpoints (`/Albums`, `/Artwork`, …) redirect here. The same `/library/v1/…` requests also answer on 11000 |
   | 80 | web pages of the player: `/reboot`, `/sharecfg`, `/wificfg`, `/triggercfg`, `/download_playlists_api`, `/upload_playlists_api` |
 
-- **Official / unofficial:** the column "Official" in each category overview marks endpoints of the official documentation. Unofficial endpoints come from the player's own answers (`url`, `playURL`, `actionURL` attributes), from community projects or from tests; they may change with any BluOS update.
+- **Official / unofficial:** the column "Official" in each category overview marks endpoints of the official documentation. Unofficial endpoints come from the player's own answers (`url`, `playURL`, `actionURL` attributes), from community projects, from captures of the BluOS app's traffic (Wireshark) or from tests; they may change with any BluOS update.
 - **Verified** (column in each category overview, and in the notes) means checked on a Bluesound Powernode, BluOS 4.18.18, API v0.5.43, library on a network share (`service=LocalMusic`) and a USB drive (`service=<USB id>`), with the Bruno collection `tests/api`.
 - **Errors:** `/Browse` answers an error with an `<error>` root element, one `<message>` and zero or more `<detail>` text nodes. Other endpoints answer with HTTP errors or short error roots; clients should check the root element name.
 - **Unknown elements** in answers are to be ignored; the official documentation lists only part of them.
@@ -283,7 +284,7 @@ state = "pause"     (with toggle: the new state)
 ### `/Play`
 
 ```
-/Play?seek=<seconds>&id=<n>&url=<encoded URL>&inputTypeIndex=<type>-<n>&inputIndex=<n>
+/Play?seek=<seconds>&id=<n>&url=<encoded URL>&title=<name>&image=<image>&inputTypeIndex=<type>-<n>&inputIndex=<n>
 ```
 
 | Parameter | Meaning |
@@ -293,6 +294,7 @@ state = "pause"     (with toggle: the new state)
 | `url` | URL-encoded stream URL (e.g. an MP3 on the web), or the `URL` attribute of an input from [`/RadioBrowse?service=Capture`](#radiobrowse) (already encoded) |
 | `inputTypeIndex` | select an input by type and number, e.g. `spdif-2` (BluOS ≥ 4.2.0) |
 | `inputIndex` | select an input by position, from 1, Bluetooth excluded (BluOS 3.8.0 – 4.2.0) |
+| `title`, `image` | the BluOS app sends them with an input URL (name and icon of the input) |
 
 **Response format**
 
@@ -658,14 +660,17 @@ presets @prid (= prid of /Status; changes when presets change)
 ### `/SetPreset`
 
 ```
-/SetPreset?name=<name>&url=<url>&image=<image url>
+/SetPreset?id=<slot>&name=<name>&url=<url>&encoded_url=<url>&image=<image url>&volume=<0–100>
 ```
 
 | Parameter | Meaning |
 |---|---|
+| `id` | preset slot; alone (`/SetPreset?id=5`) it deletes the preset |
 | `name` | name of the preset |
 | `url` | play request of the item (e.g. its `playURL`) |
+| `encoded_url` | source URL as the app sends it, e.g. `RadioParadise:/3:20/The%20Globe` |
 | `image` | image of the preset |
+| `volume` | volume set when the preset is loaded |
 
 **Response format**
 
@@ -677,8 +682,8 @@ presets @prid
 **Notes**
 
 - Without parameters (verified) the answer is the preset list, the same as [`/Presets`](#presets).
-- Stores an item as a preset. The parameters come from the player's own description in [`/Services`](#services) (request type `preset`, item parameters `name`, `url`, `image`).
-- Verified: stores the preset in the first free slot (here id 5), answers the new preset list; `prid` changes. `url` is stored URL-encoded and without `volume`. No request to delete a preset is known – remove it in the BluOS app.
+- Verified with `name`, `url`, `image` (parameters from [`/Services`](#services)): stores the preset in the first free slot (here id 5), answers the new preset list; `prid` changes; `url` is stored URL-encoded and without `volume`.
+- The BluOS app edits a preset with `id`, `name`, `volume`, `image`, `encoded_url` and deletes it with `id` alone (seen in a capture of the BluOS app (Wireshark); deleted the test preset).
 
 ---
 
@@ -769,8 +774,8 @@ browse @type @sid @service @serviceName @serviceIcon @searchKey @nextKey @parent
 
 | Parameter | Meaning |
 |---|---|
-| `service` | `Capture` = inputs; otherwise a radio service (e.g. `TuneIn`, `RadioParadise`) |
-| `url` | e.g. `presets` (favourite stations of a service) |
+| `service` | `Capture` = inputs; `Presets` = presets as browse list; `Alarms` = sources for an alarm; otherwise a radio service (e.g. `TuneIn`, `RadioParadise`) |
+| `url` | e.g. `presets` (favourite stations of a service), `playlists` (with `service=Alarms`) |
 | `c` | radio menus: `station`, `podcast`, `related` (related stations), `selectStream` |
 
 **Response format**
@@ -785,6 +790,7 @@ radiotime @service="Capture"
 
 - Verified with `service=Capture`: lists the active inputs (here Bluetooth, HDMI ARC, optical input 1), cloud sources (e.g. Spotify) and HUB inputs. `typeIndex` (e.g. `spdif-1`, `arc-1`) is the value for [`/Play?inputTypeIndex=`](#play); play an entry with `/Play?url=<URL>`.
 - The radio variants (`url`, `c`) come from the player's description in [`/Services`](#services); not tried yet.
+- `service=Presets`, `service=Alarms` (also `&url=playlists`) and `service=RadioParadise` seen in a capture of the BluOS app (Wireshark).
 
 ---
 
@@ -1132,7 +1138,7 @@ songs @service="BluOS" @playlist
 ### `/Artwork`
 
 ```
-/Artwork?service=<svc>&album=<album>&artist=<artist>&songid=<id>&albumid=<id>&fn=<file>&playlistimage=<id>&followRedirects=1
+/Artwork?service=<svc>&album=<album>&artist=<artist>&songid=<id>&albumid=<id>&fn=<file>&playlistimage=<id>&width=<px>&height=<px>&followRedirects=1
 ```
 
 | Parameter | Meaning |
@@ -1142,6 +1148,7 @@ songs @service="BluOS" @playlist
 | `songid`, `albumid` | track / album of a streaming service |
 | `fn` | file of the local library (e.g. image of a saved playlist) |
 | `playlistimage` | image of a streaming playlist |
+| `width`, `height` | size of the image in pixels (the app asks e.g. 480 × 480, 75 × 75) |
 | `followRedirects` | `1` = answer with the image itself instead of a redirect |
 
 **Response format**
@@ -1151,7 +1158,7 @@ The image (200, e.g. `image/jpeg`); without `followRedirects=1` a **301** to `ht
 **Notes**
 
 - Which identifying parameters appear depends on the service; take the URL from the `image` attribute of an answer and append `followRedirects=1` (official since v1.7, verified).
-- Other image paths in answers (`/images/…`, `/Sources/images/…`) are static files on the player.
+- Other image paths in answers (`/images/…`, `/Sources/images/…`) are static files on the player; they also take `width`, `height` and `style` (e.g. `Bluesound`).
 
 ### `/library/v1/Artwork`
 
@@ -1308,10 +1315,22 @@ slaveVolume @min="-30" @max="30" @step="1" @isBalance="false" = "1"     (new tri
 ### `/Alarms`
 
 ```
-/Alarms
+/Alarms?tz=<time zone>&id=<id>&enable=<0|1>&days=<flags>&hour=<HH>&minute=<MM>&end=<HHMM>&fadein=<0|1>&volume=<0–100>&source=<name>&url=<play request>&image=<image url>&shuffle=<true|false>&canShuffle=<true|false>&useBackup=<true|false>
 ```
 
-No known parameters.
+| Parameter | Meaning |
+|---|---|
+| `tz` | time zone of the client, e.g. `Europe/Berlin`; the app sends it with every request |
+| `id` | alarm to change; without `id` (and with the alarm parameters) a new alarm is created |
+| `enable` | `1` = on, `0` = off; `/Alarms?id=1&enable=0` switches an alarm off |
+| `days` | seven flags from Sunday to Saturday, e.g. `0001000` = Wednesday |
+| `hour`, `minute` | start time |
+| `end` | end time `HHMM` |
+| `fadein` | `1` = fade the volume in |
+| `volume` | alarm volume 0–100 |
+| `source`, `url`, `image` | what plays: name, play request (e.g. `/Load?name=TTT` for a saved playlist), image |
+| `shuffle`, `canShuffle` | play the source shuffled / whether it can be shuffled |
+| `useBackup` | presumably a fallback sound when the source is not available |
 
 **Response format**
 
@@ -1323,7 +1342,8 @@ alarms @supportsEndTime="true"
 
 **Notes**
 
-- Verified. Without alarms the list is empty.
+- Reading (`/Alarms`, `/Alarms?tz=…`) verified; without alarms the list is empty.
+- Switching an alarm off (`id` + `enable`) and creating one (all alarm parameters, no `id`) seen in a capture of the BluOS app (Wireshark); deleting not seen yet. The sources to choose from come from [`/RadioBrowse?service=Alarms`](#radiobrowse).
 - Alarm attributes (sample: `hour="8" minute="0" days="0000001" duration="60" end="0900"`):
 
   | Attribute | Meaning |
@@ -1331,7 +1351,7 @@ alarms @supportsEndTime="true"
   | `id` | alarm id |
   | `enable` | `1` = on, `0` = off |
   | `hour`, `minute` | start time |
-  | `days` | seven flags, one per weekday from Sunday to Saturday (`1` = active), e.g. `0000001` = Saturday (verified with a Saturday alarm) |
+  | `days` | seven flags, one per weekday from Sunday to Saturday (`1` = active), e.g. `0000001` = Saturday, `0001000` = Wednesday (verified with a Saturday and a Wednesday alarm) |
   | `duration` | playing time in minutes |
   | `end` | end time `HHMM` (start + `duration`) |
   | `volume`, `voldb` | alarm volume (0–100) and the same in dB |
@@ -1562,10 +1582,12 @@ indexing = "1"
 ### `/Services`
 
 ```
-/Services
+/Services?schemaVersion=<n>
 ```
 
-No parameters.
+| Parameter | Meaning |
+|---|---|
+| `schemaVersion` | schema the client understands; the app sends `35` |
 
 **Response format**
 
@@ -1805,3 +1827,151 @@ http://<player>:80/wificfg?noheader=1
 
 - Setting "WiFi" (`<webview>`) in `/Settings?id=player`.
 - Verified: answers the HTML shell of the web app "BluOS" (like `/sharecfg`).
+
+---
+
+## 13. App UI
+
+Screens and menus of the BluOS app (BluOS 4): the app asks the player for ready-made screen content under `/ui/…`. Useful to find out which player requests a screen uses; for an own app the endpoints of the other sections are the stable ones.
+
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `/ui/browseContext` | header of a browse page (e.g. a playlist with play / shuffle buttons) | | |
+| `/ui/BrowseObjects` | list of objects of a browse request (e.g. the saved playlists) | | |
+| `/ui/ContextMenu` | context menu of an object (play, add, edit, delete) | | |
+| `/ui/Home` | home screen of the app | | |
+| `/ui/myPlaylistsRow` | row "My playlists" of the home screen per source | | |
+| `/ui/presets` | preset screen of the app | | |
+| `/ui/prf` | runs a player request for the app | | |
+| `/ui/Queue` | queue screen of the app | | |
+| `/ui/Sources` | list of sources (navigation drawer) | | |
+
+### `/ui/browseContext`
+
+```
+/ui/browseContext?service=<svc>&type=<type>&title=<title>&url=<encoded browse request>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `service` | source, e.g. `BluOS` |
+| `type` | object type, e.g. `Playlist` |
+| `title` | title of the page |
+| `url` | URL-encoded browse request, e.g. `/Playlists?service=BluOS&playlist=TTT&playlistid=` |
+
+**Notes**
+
+- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+
+### `/ui/BrowseObjects`
+
+```
+/ui/BrowseObjects?service=<svc>&menuGroupId=<id>&type=<type>&browseIndex=<n>&url=<encoded browse request>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `service` | source, e.g. `BluOS` |
+| `menuGroupId` | menu group of `/Services`, e.g. `BluOS` |
+| `type` | object type, e.g. `Playlist` |
+| `browseIndex` | page / index, e.g. `0` |
+| `url` | URL-encoded browse request, e.g. `/Playlists?service=BluOS&myPlaylists=1` |
+
+**Notes**
+
+- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+
+### `/ui/ContextMenu`
+
+```
+/ui/ContextMenu?context=<context>&sourceContext=<context>&service=<svc>&type=<type>&id=<id>&name=<name>&title=<title>&playlist=<name>&url=<url>&image=<image>&volume=<0–100>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `context`, `sourceContext` | object type of the menu, e.g. `Playlist` |
+| `type` | e.g. `preset` |
+| `service` | source of the object |
+| `id`, `name`, `title`, `playlist`, `url`, `image`, `volume` | the object's own attributes, e.g. of a preset or a playlist |
+
+**Notes**
+
+- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+
+### `/ui/Home`
+
+```
+/ui/Home
+```
+
+No known parameters.
+
+**Notes**
+
+- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+
+### `/ui/myPlaylistsRow`
+
+```
+/ui/myPlaylistsRow?service=<svc>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `service` | `LocalMusic` or the USB id |
+
+**Notes**
+
+- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+
+### `/ui/presets`
+
+```
+/ui/presets
+```
+
+No known parameters.
+
+**Notes**
+
+- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+
+### `/ui/prf`
+
+```
+/ui/prf?u=<encoded request>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `u` | URL-encoded player request, e.g. `/Add?playlist=TTT&playnow=1&service=BluOS&shuffle=1` |
+
+**Notes**
+
+- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+
+### `/ui/Queue`
+
+```
+/ui/Queue?offset=<n>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `offset` | first entry, e.g. `0` |
+
+**Notes**
+
+- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
+
+### `/ui/Sources`
+
+```
+/ui/Sources
+```
+
+No known parameters.
+
+**Notes**
+
+- Seen in a capture of the BluOS app (Wireshark); the answer is not documented yet.
