@@ -7,7 +7,7 @@ of a real player (`fixtures/`). No player and no network are needed.
 ## Files
 - `run.js` – the test scenarios and a small test runner
 - `mock-player.js` – the mock player (fixtures + derived answers, records all commands)
-- `fixtures/` – recorded player answers (`NN-name.xml`, numbers as in the Bruno collection),
+- `fixtures/` – recorded player answers (`NN-name.xml`, `NN` = number of the Bruno request `ANN` / `CNN`),
   with personal details removed
 
 ## Run

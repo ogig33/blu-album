@@ -1,0 +1,37 @@
+meta {
+  name: S30 Delete the test playlist
+  type: http
+  seq: 92
+}
+
+get {
+  url: http://{{host}}:11000/Delete?service=BluOS&name=__bluos_verify__
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  const setting = (name) => tags("setting").find((t) => attr(t, "name") === name) || "";
+  console.log("HTTP " + res.getStatus() + "\n" + body.slice(0, 3000));
+
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  const setting = (name) => tags("setting").find((t) => attr(t, "name") === name) || "";
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("no error", () => expect(/<error/i.test(body)).to.equal(false));
+}

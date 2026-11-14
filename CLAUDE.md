@@ -116,7 +116,7 @@ Pitfalls:
   chasing a "bug".
 
 ## Tests
-- `tests/api` – Bruno collection, environment "Home" (`host` = player IP, `saveFixtures`, `runManual`). Three folders, the whole collection is the suite to run after a firmware update: "1 Read (safe)" only reads (app requests 01–26, album details and new variants E01–E13, reference endpoints V01–V12); "2 Write (changes the player)" sends every command of the app (01–47) and of the reference (W, S) and restores queue, position, volume, settings etc. afterwards; "3 Manual (run on purpose)" (doorbell, reindex, test preset, reboot) is skipped unless `runManual = true`. Fixtures go to `tests/api/fixtures/` (git-ignored, personal data).
+- `tests/api` – Bruno collection, environment "Home" (`host` = player IP, `saveFixtures`, `runManual`). Three folders, the whole collection is the suite to run after a firmware update: "1 Read (safe)" only reads (app requests A01–A26, album details and new variants E01–E13, reference endpoints V01–V25); "2 Write (changes the player)" sends every command of the app (C01–C47) and of the reference (W01–W15, S01–S30) and restores queue, position, volume, settings etc. afterwards; "3 Manual (run on purpose)" (M01–M08: doorbell, reindex, test preset, reboot) is skipped unless `runManual = true`. Fixtures go to `tests/api/fixtures/` (git-ignored, personal data).
 - `tests/tools/sanitize-fixtures.js` – copies fixtures to `tests/ui/fixtures` without IPs,
   room name, share / mount paths and USB ids.
 - `tests/ui` – Playwright tests (`npm test` in `tests/ui`) of the app against `mock-player.js`,

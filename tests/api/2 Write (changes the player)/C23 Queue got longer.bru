@@ -1,0 +1,47 @@
+meta {
+  name: C23 Queue got longer
+  type: http
+  seq: 23
+}
+
+get {
+  url: http://{{host}}:11000/Playlist?start=0&end=0
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  await new Promise((r) => setTimeout(r, 1500)); // give the player time to change state
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+
+  bru.setVar("queueLen2", attr(tags("playlist")[0] || "", "length") || "0");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? m[1] : ""; };
+
+  test("length increased", () => expect(+attr(tags("playlist")[0] || "", "length")).to.be.above(+bru.getVar("queueLen")));
+
+  // Playlist id (/Playlist id = <pid> of /Status): the app reloads the queue only when it changes
+  const pidNow = attr(tags("playlist")[0] || "", "id") || val("pid");
+  test("playlist id changed after adding an album", () => expect(pidNow).to.not.equal(bru.getVar("pid")));
+  bru.setVar("pid", pidNow);
+}

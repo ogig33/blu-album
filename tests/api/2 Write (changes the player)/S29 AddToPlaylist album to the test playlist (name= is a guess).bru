@@ -1,0 +1,74 @@
+meta {
+  name: S29 AddToPlaylist album to the test playlist (name= is a guess)
+  type: http
+  seq: 91
+}
+
+get {
+  url: http://{{host}}:11000/AddToPlaylist
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const H80 = "http://" + bru.getEnvVar("host") + ":80";
+  const u = bru.getVar("vsAddUrl");
+  if (!u) { bru.runner.skipRequest(); return; }
+  req.setUrl(H + u + "&name=" + encodeURIComponent("__bluos_verify__"));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  const setting = (name) => tags("setting").find((t) => attr(t, "name") === name) || "";
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("verify-addtoplaylist.xml");
+  console.log("HTTP " + res.getStatus() + "\n" + body.slice(0, 3000));
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  await new Promise((r) => setTimeout(r, 1000)); // give the player time
+  const axios = require("axios");
+  const countSongs = async () => {
+    let n = 0, next = H + "/Songs?service=BluOS&playlist=" + encodeURIComponent("__bluos_verify__");
+    for (let i = 0; next && i < 100; i++) {
+      const r = await axios.get(next, { responseType: "text", transformResponse: (x) => x });
+      const x = String(r.data || "");
+      n += (x.match(/<song\b/g) || []).length;
+      const l = (x.match(/<nextlink>([^<]*)<\/nextlink>/) || [])[1];
+      next = l ? H + l.replace(/&amp;/g, "&") : "";
+    }
+    return n;
+  };
+  bru.setVar("vsPlAfter", String(await countSongs()));
+  console.log("songs before: " + bru.getVar("vsPlBefore") + ", after: " + bru.getVar("vsPlAfter"));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  const setting = (name) => tags("setting").find((t) => attr(t, "name") === name) || "";
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("no error", () => expect(/<error/i.test(body)).to.equal(false));
+  test("test playlist got longer", () => expect(parseInt(bru.getVar("vsPlAfter") || "0")).to.be.above(parseInt(bru.getVar("vsPlBefore") || "0")));
+}

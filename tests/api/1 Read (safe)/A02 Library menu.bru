@@ -1,0 +1,71 @@
+meta {
+  name: A02 Library menu
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://{{host}}:11000/Browse
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const key = bru.getVar("libKey");
+  if (!key) {
+    // Source not available (e.g. no USB drive connected)
+    bru.runner.skipRequest();
+    return;
+  }
+  // Same request as the app: with the inline context menu items
+  req.setUrl("http://" + bru.getEnvVar("host") + ":11000/Browse?key=" + encodeURIComponent(key) + "&withContextMenuItems=1");
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("02-library-menu.xml");
+
+  const top = tags("browse")[0] || "";
+  const genres = items().find((t) => /GG\/Genres/.test(attr(t, "browseKey")));
+  const albums = items().find((t) => /bySection:Album/.test(attr(t, "browseKey")));
+  bru.setVar("libSearchKey", attr(top, "searchKey"));
+  bru.setVar("libGenresKey", genres ? attr(genres, "browseKey") : "");
+  bru.setVar("libAlbumsKey", albums ? attr(albums, "browseKey") : "");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+
+  test("has a searchKey", () => expect(attr(tags("browse")[0] || "", "searchKey")).to.not.equal(""));
+  test("has a Genres entry (key contains GG/Genres)", () => expect(items().some((t) => /GG\/Genres/.test(attr(t, "browseKey")))).to.equal(true));
+  test("has an albums entry (key contains bySection:Album)", () => expect(items().some((t) => /bySection:Album/.test(attr(t, "browseKey")))).to.equal(true));
+  test("has stats entries for Artist, Song, Composer", () => {
+    ["Artist", "Song", "Composer"].forEach((k) => expect(items().some((t) => new RegExp("bySection:" + k).test(attr(t, "browseKey"))), k).to.equal(true));
+  });
+}

@@ -1550,7 +1550,7 @@ An HTML page "Confirmation": "Settings Updated – Rebooting. Please close this 
 **Notes**
 
 - Example: `curl -d yes=1 http://<player>/reboot`.
-- Verified (Bruno R01–R02): the player restarts and answers `/SyncStatus` again after about 20 s (Powernode); playback stops.
+- Verified (Bruno M07–M08): the player restarts and answers `/SyncStatus` again after about 20 s (Powernode); playback stops.
 
 ### `/redirectToCp`
 

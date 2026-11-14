@@ -1,0 +1,58 @@
+meta {
+  name: M06 Presets contain the test preset
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://{{host}}:11000/Presets
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Manual requests run only with the environment variable runManual = true
+  if (bru.getEnvVar("runManual") !== "true") { bru.runner.skipRequest(); return; }
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const H80 = "http://" + bru.getEnvVar("host") + ":80";
+  await new Promise((r) => setTimeout(r, 1000)); // give the player time
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  const setting = (name) => tags("setting").find((t) => attr(t, "name") === name) || "";
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("verify-presets-after-setpreset.xml");
+  console.log("HTTP " + res.getStatus() + "\n" + body.slice(0, 3000));
+
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  const setting = (name) => tags("setting").find((t) => attr(t, "name") === name) || "";
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("preset __bluos_verify__ exists", () => expect(tags("preset").some((t) => attr(t, "name") === "__bluos_verify__")).to.equal(true));
+}

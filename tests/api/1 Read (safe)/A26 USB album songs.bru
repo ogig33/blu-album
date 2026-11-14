@@ -1,0 +1,64 @@
+meta {
+  name: A26 USB album songs
+  type: http
+  seq: 26
+}
+
+get {
+  url: http://{{host}}:11000/library/v1/Songs
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+
+  const svc = bru.getVar("usbSvc");
+  if (!svc) { bru.runner.skipRequest(); return; }
+
+  // first album of the USB "New" list (Read 14)
+  const alb = bru.getVar("usbNewAlb"), art = bru.getVar("usbNewArt");
+  if (!alb) { bru.runner.skipRequest(); return; }
+  const enc = (v) => encodeURIComponent(v).replace(/%20/g, "+");
+  req.setUrl(H + "/library/v1/Songs?service=" + svc + "&album=" + enc(alb) + "&artist=" + enc(art));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("26-usb-album-songs.xml");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+
+  const songs = body.match(/<song\b[\s\S]*?<\/song>/g) || [];
+  test("album has songs", () => expect(songs.length).to.be.above(0));
+  test("songs have title, art, date, quality", () => songs.forEach((x) => ["title", "art", "date", "quality"].forEach((t) => expect(new RegExp("<" + t + ">[^<]+</" + t + ">").test(x), t).to.equal(true))));
+  test("songs have atype, samplerate, bitrate, channels", () => songs.forEach((x) => ["atype", "samplerate", "bitrate", "channels"].forEach((n) => expect(attr(x, n), n).to.not.equal(""))));
+}

@@ -1,0 +1,41 @@
+meta {
+  name: C09 Status is playing the album
+  type: http
+  seq: 9
+}
+
+get {
+  url: http://{{host}}:11000/Status
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  await new Promise((r) => setTimeout(r, 1500)); // give the player time to change state
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? m[1] : ""; };
+
+  test("state play/stream", () => expect(val("state")).to.match(/^(play|stream)$/));
+  test("title3 is the album", () => expect(val("title3").replace(/&amp;/g, "&")).to.equal(bru.getVar("albumTitle")));
+}
