@@ -4,6 +4,8 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+
+## 0.8.1
 - Security: cover image URLs from player answers are checked (only on the player or http(s)),
   fixes the GitHub code scanning alerts "DOM text reinterpreted as HTML".
 - Search while typing starts only from 3 characters and after a pause of 800 ms (was 500 ms),
