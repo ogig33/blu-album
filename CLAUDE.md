@@ -36,12 +36,7 @@ Out of scope (do not build, suggest the alternative):
 - **All project documents in English** (README, CHANGELOG, `docs/`, test READMEs, Bruno and code
   comments), even when the conversation is in German.
 - **No default IP address** in the app.
-- **Semantic versioning, set only for a GitHub release:** every delivered change gets a line
-  under `## Unreleased` at the top of `CHANGELOG.md`; `APP.version` stays as it is. When the
-  owner asks for a release, Claude calculates the version once from all collected changes
-  (MINOR if any new feature, else PATCH; MAJOR only when the owner says so), sets it in
-  `APP.version` (the only place; shown in the settings footer and the about popup), renames
-  `Unreleased` to the version, then commits, tags `vX.Y.Z` and creates the release.
+- **Semantic versioning, set only for a GitHub release:** every delivered change of the app gets a line under `## Unreleased` at the top of `CHANGELOG.md`; `APP.version` stays as it is. Changes to the documentation (`docs/`, READMEs, CLAUDE.md) or only to the tests (`tests/`) get no CHANGELOG line. When the owner asks for a release, Claude calculates the version once from all collected changes (MINOR if any new feature, else PATCH; MAJOR only when the owner says so), sets it in `APP.version` (the only place; shown in the settings footer and the about popup), renames `Unreleased` to the version, then commits, tags `vX.Y.Z` and creates the release.
 - Do not publish anything (GitHub release, artifact, pages) without asking the owner first.
 - Check layout changes in Safari as well (see "Known pitfalls").
 
@@ -123,7 +118,7 @@ Pitfalls:
   which answers from the fixtures and records all commands. Runs in Chrome and Edge (installed
   apps, Playwright channels) and Safari (Playwright WebKit); `--browser chrome|safari|edge`.
 - Workflow for a change: verify unknown API behaviour in Bruno → adapt or add the UI test (and
-  the mock) → change the code → all UI tests green → CHANGELOG line under `Unreleased`.
+  the mock) → change the code → all UI tests green → CHANGELOG line under `Unreleased` (only for changes of the app).
 
 ## Backlog / ideas
 - Not done on purpose: the heart re-reads the album context menu after toggling (1 request) –
