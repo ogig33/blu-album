@@ -28,7 +28,7 @@ Out of scope (do not build, suggest the alternative):
 ## Rules
 - **One file.** No extra files (favicon, logo, fonts, libraries). Icons are inline SVG constants.
 - **No fallbacks: one implementation per feature.** Variants of an API call are checked first
-  against the real player with the Bruno collection (`tests/api`, folder "3 Explore"); only the
+  against the real player with the Bruno collection (`tests/api`, folder "1 Read", E requests); only the
   verified variant is implemented.
 - **Favourites are managed by the player only**, never locally (no localStorage for favourites).
 - **Values come from the API**, not hard-coded: source names, play / action URLs, quality, etc.
@@ -116,10 +116,7 @@ Pitfalls:
   chasing a "bug".
 
 ## Tests
-- `tests/api` – Bruno collection, environment "Home" (`host` = player IP, `saveFixtures`).
-  "1 Read (safe)" only reads; "2 Write (changes the player)" sends every command the app uses
-  and restores queue, volume, repeat and favourite afterwards; "3 Explore album details (safe)"
-  for trying new endpoints. Fixtures go to `tests/api/fixtures/` (git-ignored, personal data).
+- `tests/api` – Bruno collection, environment "Home" (`host` = player IP, `saveFixtures`, `runManual`). Three folders, the whole collection is the suite to run after a firmware update: "1 Read (safe)" only reads (app requests 01–26, album details and new variants E01–E13, reference endpoints V01–V12); "2 Write (changes the player)" sends every command of the app (01–47) and of the reference (W, S) and restores queue, position, volume, settings etc. afterwards; "3 Manual (run on purpose)" (doorbell, reindex, test preset, reboot) is skipped unless `runManual = true`. Fixtures go to `tests/api/fixtures/` (git-ignored, personal data).
 - `tests/tools/sanitize-fixtures.js` – copies fixtures to `tests/ui/fixtures` without IPs,
   room name, share / mount paths and USB ids.
 - `tests/ui` – Playwright tests (`npm test` in `tests/ui`) of the app against `mock-player.js`,

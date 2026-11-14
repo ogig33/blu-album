@@ -1,0 +1,45 @@
+meta {
+  name: R02 Player is back
+  type: http
+  seq: 8
+}
+
+get {
+  url: http://{{host}}:11000/SyncStatus
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Manual requests run only with the environment variable runManual = true
+  if (bru.getEnvVar("runManual") !== "true") { bru.runner.skipRequest(); return; }
+  // Waits until the player answers again (every 5 s, at most 5 minutes); needs Developer mode (axios).
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  await new Promise((r) => setTimeout(r, 10000)); // the player needs a moment to go down
+  const start = Date.now();
+  let up = false;
+  while (!up && Date.now() - start < 300000) {
+    try {
+      const r = await axios.get(H + "/SyncStatus", { timeout: 3000, responseType: "text", transformResponse: (x) => x });
+      up = /<SyncStatus/.test(String(r.data || ""));
+    } catch (e) { /* not up yet */ }
+    if (!up) await new Promise((r) => setTimeout(r, 5000));
+  }
+  const at = parseInt(bru.getVar("rebootAt") || "0");
+  bru.setVar("rebootSeconds", at ? String(Math.round((Date.now() - at) / 1000)) : "");
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  console.log("Player answers again " + bru.getVar("rebootSeconds") + " s after the reboot request\n" + body.slice(0, 1500));
+}
+
+tests {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("SyncStatus answers again", () => expect(/<SyncStatus/.test(String(res.getBody() || ""))).to.equal(true));
+}

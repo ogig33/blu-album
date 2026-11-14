@@ -1,0 +1,45 @@
+meta {
+  name: S16 Audio settings show the new trim
+  type: http
+  seq: 78
+}
+
+get {
+  url: http://{{host}}:11000/Settings?schemaVersion=36&id=audio
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const H80 = "http://" + bru.getEnvVar("host") + ":80";
+  if (!bru.getVar("vsTrimUrl")) { bru.runner.skipRequest(); return; }
+  await new Promise((r) => setTimeout(r, 1000)); // give the player time
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  const setting = (name) => tags("setting").find((t) => attr(t, "name") === name) || "";
+  console.log("HTTP " + res.getStatus() + "\n" + body.slice(0, 3000));
+
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  const setting = (name) => tags("setting").find((t) => attr(t, "name") === name) || "";
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  const t = tags("setting").find((x) => attr(x, "id") === bru.getVar("vsTrimId")) || "";
+  test("trim changed", () => expect(parseFloat(attr(t, "value"))).to.equal(parseFloat(bru.getVar("vsTrimNew"))));
+}
