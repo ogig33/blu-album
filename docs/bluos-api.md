@@ -1317,6 +1317,9 @@ slaveVolume @min="-30" @max="30" @step="1" @isBalance="false" = "1"     (new tri
 | `GET, POST /alsa_setting` | listening mode and tone controls | | ✓ |
 | `GET, POST /audiomodes` | audio and Bluetooth modes | ✓ | ✓ |
 | `GET /audioPreset` | current listening mode and its choices | | ✓ |
+| `GET /Dataexport` | export of the player's data (presumably for support) | | |
+| `GET /diag` | diagnostics page | | |
+| `GET /diagnostics` | diagnostics page (second view) | | |
 | `GET /Doorbell` | play the doorbell chime | ✓ | ✓ |
 | `GET /download_playlists_api` | backup of the saved playlists (port 80) | | ✓ |
 | `GET /error` | read and clear the last error message of the player | | |
@@ -1329,6 +1332,7 @@ slaveVolume @min="-30" @max="30" @step="1" @isBalance="false" = "1"     (new tri
 | `GET /Services` | self-description of the sources | | ✓ |
 | `GET, POST /setting` | change a simple setting | | ✓ |
 | `GET /Settings` | settings tree of the player | ✓ | ✓ |
+| `GET /settings/sendSupportRequest` | web page "Send support request" | | |
 | `GET /sharecfg` | web page for network shares (port 80) | | ✓ |
 | `GET /Shares` | network shares of the library | | |
 | `GET /ShowIRCodes` | IR codes learned from a paired remote control | | ✓ |
@@ -1469,6 +1473,48 @@ setting @id="preset" @name="preset" @displayName="Listening Mode" @url="http://<
 
 - Verified: answers the listening mode setting in the format of `/Settings`; `@value` is the current mode.
 - Change it with [`/alsa_setting?preset=<name>`](#get-post-alsa_setting) (the `@url` of the answer), using a `value@name` as `<name>`.
+
+### `GET /Dataexport`
+
+```
+GET /Dataexport   (also HEAD /Dataexport)
+```
+
+No known parameters.
+
+**Notes**
+
+- Seen in a capture of the BluOS app (help / support area): the app first checks with `HEAD /Dataexport`, then loads it with GET. Content not looked at yet – it may contain personal data.
+
+### `GET /diag`
+
+```
+GET /diag?noheader=1&playnum=1
+```
+
+| Parameter | Meaning |
+|---|---|
+| `noheader` | `1` = page without its header |
+| `playnum` | seen as `1` |
+
+**Notes**
+
+- Seen in a capture of the BluOS app (help / support area), opened through `/redirectToCp?href=/diag&noheader=1`. Web page.
+
+### `GET /diagnostics`
+
+```
+GET /diagnostics?noheader=1&playnum=1
+```
+
+| Parameter | Meaning |
+|---|---|
+| `noheader` | `1` = page without its header |
+| `playnum` | seen as `1` |
+
+**Notes**
+
+- Seen in a capture of the BluOS app (help / support area). Web page.
 
 ### `GET /Doorbell`
 
@@ -1616,6 +1662,7 @@ An HTTP redirect to that page (HTML).
 
 - Seen as `@url` of the root of [`/Services`](#get-services) (link to the music services page); "Cp" presumably means control panel.
 - Verified with `href=%2Fservices%3Fnoheader%3D1%26schemaVersion%3D0`: ends on the HTML page "Configure Music Services" (port 80).
+- Also `href=/diag&noheader=1` (diagnostics page, help area of the app).
 
 ### `GET /Reindex`
 
@@ -1711,13 +1758,14 @@ No answer body (HTTP 200, empty).
 ### `GET /Settings`
 
 ```
-GET /Settings?id=<menu id>&schemaVersion=<n>
+GET /Settings?id=<menu id>&schemaVersion=<n>&view=web
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `id` | menu page (the `@id` of a `menuGroup`); without it the top level |
 | `schemaVersion` | schema the client understands; the player reports its own in `/SyncStatus` (`schemaVersion="36"` on the test player). Lower values hide newer menus |
+| `view` | `web`: the page as web view, e.g. `/Settings?view=web&id=sendSupportRequest` (help area of the app) |
 
 **Response format**
 
@@ -1736,6 +1784,20 @@ settings @pageId @schemaVersion
 - `@url` is the endpoint that changes the setting; a setting without `@url` uses the `@url` of its `menuGroup`. Seen: [`/setting`](#get-post-setting), [`/audiomodes`](#get-post-audiomodes), [`/alsa_setting`](#get-post-alsa_setting), [`/SlaveVolume`](#get-post-slavevolume), [`/proxyToSlave`](#get-post-proxytoslave), [`/Reindex`](#get-reindex), [`/RemoveSlave`](#get-removeslave), and on port 80 [`/sharecfg`](#get-sharecfg), [`/wificfg`](#get-wificfg), [`/triggercfg`](#get-triggercfg), [`/download_playlists_api`](#get-download_playlists_api), [`/upload_playlists_api`](#post-upload_playlists_api).
 - Verified with schema 36, all menu pages read (Bruno V12): top level (alarms, sleep timer, room name, amplifier standby, fixed group, library, playlists), `audio`, `audioPreset`, `zone`, `zone_player-<ip><port>` (per group member), `player` (Wi-Fi, indicator brightness, Wi-Fi Direct), `proximity`, `ir_remote`, `bluos_remote`, `library`, `managePlaylists`, `capture`, `capture-input<n>` (per input).
 
+### `GET /settings/sendSupportRequest`
+
+```
+GET /settings/sendSupportRequest?noheader=1
+```
+
+| Parameter | Meaning |
+|---|---|
+| `noheader` | `1` = page without its header |
+
+**Notes**
+
+- Seen in a capture of the BluOS app (help / support area); the page itself sends the request to Bluesound support – do not submit it while testing.
+
 ### `GET /sharecfg`
 
 ```
@@ -1753,6 +1815,7 @@ An HTML page (single-page web app "BluOS", the script loads the content).
 **Notes**
 
 - Verified. Web page of the player for the network shares of the library; linked in `/Settings` as `<webview url=…>`.
+- The page loads `/settings/library/networkShares?noheader=1` and asks [`/Shares`](#get-shares) (seen in a capture).
 
 ### `GET /Shares`
 
@@ -1846,10 +1909,12 @@ update = "no message"
 ### `GET /upgrade`
 
 ```
-GET /upgrade
+GET /upgrade?noheader=1
 ```
 
-No known parameters.
+| Parameter | Meaning |
+|---|---|
+| `noheader` | `1` = page without its header (the app opens it like this in the help area) |
 
 **Response format**
 
