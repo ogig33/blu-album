@@ -1289,7 +1289,7 @@ slaveVolume @min="-30" @max="30" @step="1" @isBalance="false" = "1"     (new tri
 | `/GitVersion` | BluOS version | | ✓ |
 | `/LastScanCode` | last received IR code | | ✓ |
 | `/Name` | player name | | ✓ |
-| `/reboot` | soft reboot (POST, port 80) | ✓ | |
+| `/reboot` | soft reboot (POST, port 80) | ✓ | ✓ |
 | `/redirectToCp` | redirect to a page of the web interface | | ✓ |
 | `/Reindex` | rescan the music library | | ✓ |
 | `/Services` | self-description of the sources | | ✓ |
@@ -1513,11 +1513,12 @@ POST http://<player>:80/reboot   (form field yes=1)
 
 **Response format**
 
-An HTML page ("Rebooting…").
+An HTML page "Confirmation": "Settings Updated – Rebooting. Please close this window. – Please wait…", with a refresh to `/` after 15 s.
 
 **Notes**
 
 - Example: `curl -d yes=1 http://<player>/reboot`.
+- Verified (Bruno folder 7): the player restarts and answers `/SyncStatus` again after about 20 s (Powernode); playback stops.
 
 ### `/redirectToCp`
 
