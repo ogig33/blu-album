@@ -26,7 +26,7 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
 
 ## 1. Basics
 
-- **Requests:** HTTP GET (unless the endpoint says POST), `http://<player>:<port>/<Request>?<parameters>`; parameters are URL-encoded name/value pairs (UTF-8). Answers are UTF-8 XML. Exceptions: `/reboot` (POST, port 80), `/upload_playlists_api` (POST, port 80). The BluOS app sends settings (`/setting`, `/audiomodes`, `/alsa_setting`, also through `/proxyToSlave`) as POST with a JSON body `{"<name>":"<value>"}`; the same settings also work as GET with `?<name>=<value>` (verified).
+- **Requests:** `http://<player>:<port>/<Request>?<parameters>` with the HTTP method given at each endpoint; parameters are URL-encoded name/value pairs (UTF-8). Answers are UTF-8 XML unless the endpoint says otherwise.
 - **Ports:**
 
   | Port | Use |
@@ -36,16 +36,13 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
   | 11004 | library server; the short library endpoints (`/Albums`, `/Artwork`, …) redirect here. The same `/library/v1/…` requests also answer on 11000 |
   | 80 | web pages of the player: `/reboot`, `/sharecfg`, `/wificfg`, `/triggercfg`, `/download_playlists_api`, `/upload_playlists_api` |
 
-- **Official / unofficial:** the column "Official" in each category overview marks endpoints of the official documentation. Unofficial endpoints come from the player's own answers (`url`, `playURL`, `actionURL` attributes), from community projects, from captures of the BluOS app's traffic (Wireshark) or from tests; they may change with any BluOS update.
-- **Errors:** `/Browse` answers an error with an `<error>` root element, one `<message>` and zero or more `<detail>` text nodes. Other endpoints answer with HTTP errors or short error roots; clients should check the root element name.
+- **Errors:** endpoints answer with HTTP errors or with an `<error>` root element instead of the expected one; clients should check the root element name.
 - **Unknown elements** in answers are to be ignored; the official documentation lists only part of them.
 - **Relative URIs** in answers (`playURL`, `actionURL`, `image`, …) have an absolute path and are resolved against the player address (RFC 3986). Invoke them as they are; do not parse or build them.
-- **Keys** (`browseKey`, `nextKey`, `parentKey`, `contextMenuKey`, `searchKey`) are opaque and must be URL-encoded when passed as `key=`.
 - **Polling rules:**
   - Without long polling: at most one request every 30 s.
   - Long polling (`timeout` + `etag` from the previous answer's root): never two requests for the same resource less than 1 s apart, even when the first returned sooner.
-  - One long poll on `/Status` *or* `/SyncStatus` is usually enough: `/Status` carries `<syncStat>`, which changes whenever `/SyncStatus` changes.
-- **Grouped players:** many requests sent to a secondary player are proxied to the primary (`/Status`, playback, queue, browse). `/Status` of a secondary is a copy of the primary's; use `/SyncStatus` for the volume of each secondary.
+- **Grouped players:** many requests sent to a secondary player are proxied to the primary (status, playback, queue, browse).
 - **Notation of answer structures:** `element ×n @attribute = "sample text"`; indentation = nesting.
 
 ---
@@ -103,6 +100,8 @@ status @etag
 - `quality` is `hd` here but `hr` in the library filter (verified). MP3 files report their bitrate as `quality`; recognise MP3 by `streamFormat`.
 - Verified: during playback the player holds each long-poll request for the full 100 s and answers at once on a change (title, position jump, volume, shuffle, repeat, `pid`).
 - Radio streams may lack `title3` (verified with Radio Paradise: only `title1`, `title2`); `infourl` and `lyricsid` feed [`/Info`](#get-info).
+- One long poll on `/Status` *or* [`/SyncStatus`](#get-syncstatus) is usually enough: `<syncStat>` changes whenever `/SyncStatus` changes.
+- Grouped players: `/Status` of a secondary player is a copy of the primary's; use [`/SyncStatus`](#get-syncstatus) for the volume of each secondary.
 
 ### `GET /SyncStatus`
 
@@ -744,6 +743,8 @@ browse @type @sid @service @serviceName @serviceIcon @searchKey @nextKey @parent
   | `<svc>:CM/LocalMusic-Album?album=…&artist=…[&isFavourite=1]` | `@type="contextMenu"` · `item ×5 @actionURL @text @type` (`favourite-add/-delete`, `add-now`, `add-shuffle`, `addAll-next`, `addAll-last`) | 1.0 KB |
   | `<svc>:Search` + `q=love` | `@type="menu"` · `item ×4` (links to artists, albums, songs, composers); every list returns all hits | 0.7 KB |
   | `LocalMusic:Playlist/…imported=1` | imported playlists (empty here) | 0.2 KB |
+- Errors come as `<error>` root element with one `<message>` and zero or more `<detail>` text nodes.
+- Keys (`browseKey`, `nextKey`, `parentKey`, `contextMenuKey`, `searchKey`) are opaque: pass them unchanged, URL-encoded, as `key=`.
 
 ### `GET /Info`
 
