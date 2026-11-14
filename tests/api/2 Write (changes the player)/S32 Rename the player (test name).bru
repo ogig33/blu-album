@@ -1,0 +1,35 @@
+meta {
+  name: S32 Rename the player (test name)
+  type: http
+  seq: 94
+}
+
+get {
+  url: http://{{host}}:11000/Name
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  if (!bru.getVar("vsName")) { bru.runner.skipRequest(); return; }
+  req.setUrl(H + "/Name?set=" + encodeURIComponent(bru.getVar("vsName") + " test"));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const name = (body.match(/<name>([^<]*)<\/name>/) || [])[1] || "";
+  console.log(body);
+
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const name = (body.match(/<name>([^<]*)<\/name>/) || [])[1] || "";
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("no error", () => expect(/<error/i.test(body)).to.equal(false));
+}
