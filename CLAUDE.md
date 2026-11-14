@@ -33,6 +33,8 @@ Out of scope (do not build, suggest the alternative):
 - **Favourites are managed by the player only**, never locally (no localStorage for favourites).
 - **Values come from the API**, not hard-coded: source names, play / action URLs, quality, etc.
 - UI language English, minimalist design. **Communicate with the owner in German.**
+- **All project documents in English** (README, CHANGELOG, `docs/`, test READMEs, Bruno and code
+  comments), even when the conversation is in German.
 - **No default IP address** in the app.
 - **Semantic versioning, set only for a GitHub release:** every delivered change gets a line
   under `## Unreleased` at the top of `CHANGELOG.md`; `APP.version` stays as it is. When the
