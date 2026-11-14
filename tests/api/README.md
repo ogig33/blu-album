@@ -32,6 +32,8 @@ CLI (optional): `npm i -g @usebruno/cli`, then in this folder
   console and to `fixtures/explore-*.xml`. E09–E13 check variants the app uses:
   the album track list without context menus (E09) and the albums of an artist
   through the artist's browse menu, for the library (E10, E11) and USB (E12, E13).
+- **4 Verify reference (safe)**: only reads. Checks endpoints of the API reference [`docs/bluos-api.md`](../../docs/bluos-api.md) that are not verified yet (column "Verified"): `/SyncStatus`, `/Presets`, `/RadioBrowse?service=Capture`, `/Services`, `/Settings?id=audio`, `/Settings?id=capture&schemaVersion=32` and the network shares page `/sharecfg` on port 80; V08–V11 the first new library album, `/AddToPlaylistOptions` for it and `/library/v1/Playlists` (imported, favourites). Every answer goes to the console and to `fixtures/verify-*`. Runs on its own, no other folder needed.
+- **5 Verify reference (changes the player)**: run on purpose, while the player plays (or is paused) from a queue with at least 2 entries and at least one preset exists. Moves the first queue entry and back (`/Move`), stops (`/Stop`), loads the next preset (`/Preset?id=+1`), skips on the radio station if the player offers a skip action (`/Action`), then returns to the former queue entry and position (`/Play?seek=…&id=…`), pauses again if it was not playing and restores the volume. Answers go to `fixtures/verify-*`.
 - The Write folder also checks that the playlist id (`/Playlist` id = `<pid>` of
   `/Status`) changes after adding, removing, shuffle on / off, clear and load –
   the app reloads the queue only on this change.

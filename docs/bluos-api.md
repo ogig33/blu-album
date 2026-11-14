@@ -36,7 +36,7 @@ How BluAlbum uses the API (clicks, requests, measurements): [`blu-album-api-usag
   | 80 | web pages of the player: `/reboot`, `/sharecfg` |
 
 - **Official / unofficial:** the column "Official" in each category overview marks endpoints of the official documentation. Unofficial endpoints come from the player's own answers (`url`, `playURL`, `actionURL` attributes), from community projects or from tests; they may change with any BluOS update.
-- **Verified** in the notes means checked on a Bluesound Powernode, BluOS 4.18.18, API v0.5.43, library on a network share (`service=LocalMusic`) and a USB drive (`service=<USB id>`), with the Bruno collection `tests/api`.
+- **Verified** (column in each category overview, and in the notes) means checked on a Bluesound Powernode, BluOS 4.18.18, API v0.5.43, library on a network share (`service=LocalMusic`) and a USB drive (`service=<USB id>`), with the Bruno collection `tests/api`.
 - **Errors:** `/Browse` answers an error with an `<error>` root element, one `<message>` and zero or more `<detail>` text nodes. Other endpoints answer with HTTP errors or short error roots; clients should check the root element name.
 - **Unknown elements** in answers are to be ignored; the official documentation lists only part of them.
 - **Relative URIs** in answers (`playURL`, `actionURL`, `image`, …) have an absolute path and are resolved against the player address (RFC 3986). Invoke them as they are; do not parse or build them.
@@ -52,10 +52,10 @@ How BluAlbum uses the API (clicks, requests, measurements): [`blu-album-api-usag
 
 ## 2. Status
 
-| Endpoint | Function | Official |
-|---|---|:---:|
-| `/Status` | playback and volume state, long polling | ✓ |
-| `/SyncStatus` | player identity, volume and grouping, long polling | ✓ |
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `/Status` | playback and volume state, long polling | ✓ | ✓ |
+| `/SyncStatus` | player identity, volume and grouping, long polling | ✓ | ✓ |
 
 ### `/Status`
 
@@ -86,7 +86,7 @@ status @etag
   volume (0–100, -1 fixed), db, mute, muteVolume, muteDb
   quality                       cd | hd | dolbyAudio | mqa | mqaAuthored | bitrate number (lossy)
   streamFormat                  e.g. "MP3 320 kb/s", "FLAC 44.1kHz/16bit"
-  service, serviceIcon, image, stationImage, fn
+  service, serviceName, serviceType, serviceIcon, image, currentImage, stationImage, infourl, fn
   streamUrl                     present: not playing from the queue (no song / shuffle / repeat / skip)
   actions > action @name @url @icon @text @notification @state   (see /Action)
   sleep                         minutes left on the sleep timer
@@ -117,27 +117,32 @@ status @etag
 **Response format**
 
 ```
-SyncStatus @etag @syncStat @id="<ip>:<port>" @name @brand @model @modelName @icon @mac
-           @volume (0–100, -1 fixed) @db @mute @muteVolume @muteDb @group @initialized
-           @schemaVersion @zone @zoneMaster @zoneSlave @outlevel
+SyncStatus @etag @syncStat @id="<ip>:<port>" @name @brand @model @modelName @class @icon @mac @version
+           @volume (0–100, -1 fixed) @db @mute @muteVolume @muteDb @group @initialized @schemaVersion
+           @zone @zoneController @zoneMaster @zoneSlave @zoneUngroup @channelMode @channelName @distance @outlevel
   master @port @reconnecting = "<ip>"     only on a secondary player
-  slave ×n @id @port                      only on the primary player
+  slave ×n @id @port                      only on the primary player of a normal group
+  zoneSlave ×n @id @port @name @model @modelName @icon @channelMode @channelName @distance @zoneSubnet
+                                          members of a fixed group (home theatre, stereo pair)
+  zoneOptions @multi
+  pairWithSub, bluetoothOutput
+  audioPresetUrl @url="/audioPreset"
   battery @level @charging @icon
 ```
 
 **Notes**
 
+- Verified (fixed home theatre group): `version` = BluOS version, `class` (e.g. `streamer-amplifier`), `zoneController="true"` on the primary of the fixed group, `zoneUngroup` = request that dissolves it (`/RemoveSlave?slaves=…&ports=…`), one `zoneSlave` per surround speaker with its `channelMode` (`side_left`, `side_right`, …) and `distance` in m; `audioPresetUrl` points to [`/audioPreset`](#audiopreset).
 - Poll `/SyncStatus` when only name, volume and grouping matter; `/Status` for playback.
 - `initialized="false"`: the player still needs setup in the BluOS app.
-- `zone`, `zoneMaster`, `zoneSlave` describe fixed groups.
 
 ---
 
 ## 3. Volume
 
-| Endpoint | Function | Official |
-|---|---|:---:|
-| `/Volume` | read / set the volume, step in dB, mute | ✓ |
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `/Volume` | read / set the volume, step in dB, mute | ✓ | ✓ |
 
 ### `/Volume`
 
@@ -171,45 +176,47 @@ volume @db @mute @offsetDb @etag [@muteDb @muteVolume] [@source] = "16"   (level
 
 ## 4. Playback control
 
-| Endpoint | Function | Official |
-|---|---|:---:|
-| `/Action` | skip / back / love / ban on streaming radio | ✓ |
-| `/Add` | add / play albums, tracks, playlists | |
-| `/Back` | restart the track or previous track | ✓ |
-| `/Pause` | pause or toggle play / pause | ✓ |
-| `/Play` | play, resume, seek, play a queue entry, a URL or an input | ✓ |
-| `/Repeat` | repeat queue / track / off | ✓ |
-| `/Shuffle` | shuffle the queue on / off | ✓ |
-| `/Skip` | next track | ✓ |
-| `/Stop` | stop | ✓ |
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `/Action` | skip / back / love / ban on streaming radio | ✓ | ✓ |
+| `/Add` | add / play albums, tracks, playlists | | ✓ |
+| `/Back` | restart the track or previous track | ✓ | ✓ |
+| `/Pause` | pause or toggle play / pause | ✓ | ✓ |
+| `/Play` | play, resume, seek, play a queue entry, a URL or an input | ✓ | ✓ |
+| `/Repeat` | repeat queue / track / off | ✓ | ✓ |
+| `/Shuffle` | shuffle the queue on / off | ✓ | ✓ |
+| `/Skip` | next track | ✓ | ✓ |
+| `/Stop` | stop | ✓ | ✓ |
 
 ### `/Action`
 
 ```
-/Action?service=<service>&skip=<id>&back=<id>&love=<id>&ban=<id>
+/Action?service=<service>&skip=<id>&next=<id>&back=<id>&love=<id>&ban=<id>&action=<addFavourite|deleteFavourite>
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `service` | streaming service, e.g. `Slacker` |
-| `skip`, `back`, `love`, `ban` | the action with the track id given by the player |
+| `skip`, `next`, `back`, `love`, `ban` | the action with the track id given by the player (Radio Paradise uses `next` for its skip action) |
+| `action` | `addFavourite` / `deleteFavourite`: favourite of a streaming item (from [`/Services`](#services)) |
 
 **Response format**
 
 ```
-skip  |  back  |  love = "1"  |  love @skip="1" = "0"  (ban)  |  response = "<notification>"
+skip [= "1"]  |  back  |  love = "1"  |  love @skip="1" = "0"  (ban)  |  response = "<notification>"
 ```
 
 **Notes**
 
 - Streaming radio (e.g. Slacker, Radio Paradise, Amazon stations) does not use the queue. `/Status` then lists `<actions><action @name="back|skip|love|ban" @url @icon @text @notification @state/>`.
 - Invoke the `url` exactly as given; it is usually `/Action?…`, but any URI is possible. An action without `url` is not available.
+- Verified with Radio Paradise: `/Status` offered `<action name="back"/>` (no url, not available) and `<action name="skip" url="/Action?service=RadioParadise&next=55833"/>`; the skip answered `<skip>1</skip>`.
 - If the root is `<response>`, its text is a notification for the user; otherwise show the action's `notification`.
 
 ### `/Add`
 
 ```
-/Add?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&file=<file>&playnow=<1|-1>&where=<last|nextAlbum>&clear=0&shuffle=1&listindex=<n>&nextlist=1&cursor=last
+/Add?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&genre=<genre>&path=<path>&playlist=<name>&playlistid=<id>&file=<file>&playnow=<1|-1>&where=<next|nextAlbum|last>&clear=0&shuffle=<0|1>&listindex=<n>&nextlist=1&cursor=last
 ```
 
 | Parameter | Meaning |
@@ -217,16 +224,19 @@ skip  |  back  |  love = "1"  |  love @skip="1" = "0"  (ban)  |  response = "<no
 | `service` | source, e.g. `LocalMusic`, a USB id, `Deezer`, `Tidal` |
 | `album` + `artist` | album of the local library |
 | `albumid` | album of a streaming service |
+| `genre` | all songs of a genre |
+| `path` | all songs of a folder |
+| `playlist`, `playlistid` | a saved playlist (name) or a service playlist (id) |
 | `file` | single track (file) |
 | `playnow` | `1` = play now, `-1` = only add |
-| `where` | seen: `last` (end of the queue), `nextAlbum` (after the current album) |
-| `clear` | seen as `clear=0` in `add-now` URLs |
-| `shuffle` | `1` = add shuffled |
+| `where` | `next` (after the current track), `nextAlbum` (after the current album), `last` (end of the queue) |
+| `clear` | `0` in all "play now" requests |
+| `shuffle` | `1` = add shuffled, `0` = in order |
 | `listindex`, `nextlist`, `cursor` | used by `autoplayURL` (start at a track, fill the queue with the rest of the album) |
 
 **Notes**
 
-- Which parameters appear depends on the service and the action.
+- Which parameters appear depends on the service and the action; [`/Services`](#services) lists them per menu entry (play now, shuffle, add next, add last).
 - Verified examples: album play `/Add?playnow=1&service=LocalMusic&album=…&artist=…`; album to the end `/Add?album=…&artist=…&playnow=-1&service=<svc>&where=last`; track `/Add?playnow=1&file=…`.
 - Changes the queue id.
 - Not documented as a request; appears as `playURL`, `autoplayURL` and `actionURL` in `/Browse` answers (also in the official examples). Take the URLs from the player instead of building them.
@@ -293,7 +303,7 @@ state = "play" | "stream"
 **Notes**
 
 - `/Play` alone starts / resumes the current source (only from `pause`, not from `stop`).
-- `seek` only works when `/Status` has `totlen` / `canSeek=1`. `seek` + `id` is official since v1.6; `id` alone is verified.
+- `seek` only works when `/Status` has `totlen` / `canSeek=1`. `seek` + `id` (official since v1.6) and `id` alone are verified; `seek` + `id` also returns from a radio stream to the queue (answer `<state>play</state>`).
 - Use `seek` (+ `id`), `id`, `url`, `inputTypeIndex` or `inputIndex`, not several of them.
 - `url` with an input: active inputs only; the only way to select inputs of a BluOS HUB (`Hub%3A%2F%2F<ip>%3A11000%2Finput0`). The source must be connected and not hidden.
 - `inputTypeIndex`: also works for inactive inputs missing from `/RadioBrowse`; recommended for custom integration. Types: `spdif` (optical), `analog`, `coax`, `bluetooth`, `arc`, `earc`, `phono`, `computer`, `aesebu`, `balanced`, `microphone`; the number starts at 1 per type.
@@ -375,7 +385,7 @@ state = "stop"
 
 **Notes**
 
-- Cancels the timeout of a playing alarm.
+- Verified. Cancels the timeout of a playing alarm.
 
 ---
 
@@ -383,15 +393,60 @@ state = "stop"
 
 The play queue is the list the player plays from. Saved playlists belong to the service `BluOS`; in `/Browse` they appear in the top menu (`browseKey="playlists"`) with play URLs and context menus.
 
-| Endpoint | Function | Official |
-|---|---|:---:|
-| `/Clear` | clear the queue | ✓ |
-| `/Delete` | remove a queue entry or delete a saved playlist | ✓ |
-| `/Load` | load a saved playlist (or a service playlist) | |
-| `/Move` | move a queue entry | ✓ |
-| `/Playlist` | list the queue or its status | ✓ |
-| `/Playlists` | names of the saved playlists | |
-| `/Save` | save the queue as a playlist | ✓ |
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `/AddToPlaylist` | add an album or a song to a saved playlist | | |
+| `/AddToPlaylistOptions` | choices for adding an album or a song to a saved playlist | | ✓ |
+| `/Clear` | clear the queue | ✓ | ✓ |
+| `/Delete` | remove a queue entry or delete a saved playlist | ✓ | ✓ |
+| `/Load` | load a saved playlist (or a service playlist) | | ✓ |
+| `/Move` | move a queue entry | ✓ | ✓ |
+| `/Playlist` | list the queue or its status | ✓ | ✓ |
+| `/Playlists` | names of the saved playlists | | ✓ |
+| `/Save` | save the queue as a playlist | ✓ | ✓ |
+
+### `/AddToPlaylist`
+
+```
+/AddToPlaylist?sourceService=<svc>&album=<album>&artist=<artist>&<playlist parameter>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `sourceService` | source of the item |
+| `album` + `artist` | album to add (or the item parameters of the song) |
+| playlist | the chosen or new playlist; the parameter name is not known yet |
+
+**Notes**
+
+- Seen as `urlPath` in the answer of [`/AddToPlaylistOptions`](#addtoplaylistoptions), with the `requestParameter` values to send. Not tried yet – it changes a saved playlist.
+
+### `/AddToPlaylistOptions`
+
+```
+/AddToPlaylistOptions?service=<svc>&album=<album>&artist=<artist>&songid=<id>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `service` | source of the item |
+| `album` + `artist` | album to add |
+| `songid` | song to add |
+
+**Response format**
+
+```
+addToPlaylistOptions @service
+  urlPath = "/AddToPlaylist"
+  requestParameter ×n = "sourceService=LocalMusic" | "album=…" | "artist=…"
+  playlists @service @create="1" @serviceName="BluOS" @serviceIcon
+    name ×n @image = "<playlist name>"
+```
+
+**Notes**
+
+- Verified (library album): the answer describes the follow-up request – [`/AddToPlaylist`](#addtoplaylist) with the given parameters – and lists the saved playlists to choose from; `create="1"` = a new playlist may be created.
+- Read only; nothing is added.
 
 ### `/Clear`
 
@@ -466,6 +521,10 @@ Not documented; the queue id changes (verified).
 moved = "moved"
 ```
 
+**Notes**
+
+- Verified: moving entry 0 to position 1 and back.
+
 ### `/Playlist`
 
 ```
@@ -539,11 +598,11 @@ saved > entries = "126"
 
 Presets are created and deleted only in the BluOS app; they can hold radio stations, playlists and inputs.
 
-| Endpoint | Function | Official |
-|---|---|:---:|
-| `/Preset` | load a preset, the next or the previous one | ✓ |
-| `/Presets` | list the presets | ✓ |
-| `/SetPreset` | list the presets (parameters for changing them unknown) | |
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `/Preset` | load a preset, the next or the previous one | ✓ | ✓ |
+| `/Presets` | list the presets | ✓ | ✓ |
+| `/SetPreset` | store an item as a preset; without parameters the preset list | | ✓ |
 
 ### `/Preset`
 
@@ -564,7 +623,9 @@ state = "stream"                      (radio)
 
 **Notes**
 
+- Verified with `id=+1` (radio preset): answer `<state>stream</state>`.
 - Ids need not be consecutive; `+1` / `-1` wrap around.
+- The preset's `volume` (see [`/Presets`](#presets)) is applied.
 
 ### `/Presets`
 
@@ -578,20 +639,26 @@ No parameters.
 
 ```
 presets @prid (= prid of /Status; changes when presets change)
-  preset ×n @id @name @url @image
+  preset ×n @id @name @url @image @volume
 ```
 
 **Notes**
 
-- `url` is the source URL used to load the preset (e.g. `/Load?service=Tidal&id=…` or a radio key).
+- Verified. `url` is the ready request that plays the preset, e.g. `/Play?url=RadioParadise:/42:4/Serenity` or `/Play?url=TuneIn:s16252` (the official example also shows `/Load?service=Tidal&id=…`).
+- `volume`: volume set when the preset is loaded.
+- Ids need not be consecutive (here 1–4 and 6).
 
 ### `/SetPreset`
 
 ```
-/SetPreset
+/SetPreset?name=<name>&url=<url>&image=<image url>
 ```
 
-No known parameters.
+| Parameter | Meaning |
+|---|---|
+| `name` | name of the preset |
+| `url` | play request of the item (e.g. its `playURL`) |
+| `image` | image of the preset |
 
 **Response format**
 
@@ -602,17 +669,17 @@ presets @prid
 
 **Notes**
 
-- Verified without parameters: answers the preset list like [`/Presets`](#presets), each preset with `@volume` (volume set when the preset is loaded) and `@url` as a ready request (e.g. `/Play?url=RadioParadise:/42:4/Serenity`, `/Play?url=TuneIn:s16252`).
-- The name suggests that presets can be stored or changed with parameters; they are not known and need checking in Bruno before use.
+- Without parameters (verified) the answer is the preset list, the same as [`/Presets`](#presets).
+- Stores an item as a preset. The parameters come from the player's own description in [`/Services`](#services) (request type `preset`, item parameters `name`, `url`, `image`); not tried yet – it changes the presets of the player.
 
 ---
 
 ## 7. Browse and search
 
-| Endpoint | Function | Official |
-|---|---|:---:|
-| `/Browse` | menu tree, lists, context menus, search | ✓ |
-| `/RadioBrowse` | list of the inputs | ✓ |
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `/Browse` | menu tree, lists, context menus, search | ✓ | ✓ |
+| `/RadioBrowse` | list of the inputs; radio menus | ✓ | ✓ |
 
 ### `/Browse`
 
@@ -665,24 +732,27 @@ browse @type @sid @service @serviceName @serviceIcon @searchKey @nextKey @parent
 ### `/RadioBrowse`
 
 ```
-/RadioBrowse?service=Capture
+/RadioBrowse?service=<service>&url=<url>&c=<category>
 ```
 
 | Parameter | Meaning |
 |---|---|
-| `service` | `Capture` = inputs |
+| `service` | `Capture` = inputs; otherwise a radio service (e.g. `TuneIn`, `RadioParadise`) |
+| `url` | e.g. `presets` (favourite stations of a service) |
+| `c` | radio menus: `station`, `podcast`, `related` (related stations), `selectStream` |
 
 **Response format**
 
 ```
 radiotime @service="Capture"
-  item ×n @text @inputType @id @URL @image @type="audio" @playerName [@serviceType]
+  item ×n @text @id @type="audio" @inputType @typeIndex @URL @image [@playerName @serviceType]
   category @text @icon > remoteitem ×n …     (inputs of a BluOS HUB)
 ```
 
 **Notes**
 
-- Lists the active inputs, cloud sources (e.g. Spotify) and HUB inputs. Play an entry with [`/Play?url=<URL>`](#play).
+- Verified with `service=Capture`: lists the active inputs (here Bluetooth, HDMI ARC, optical input 1), cloud sources (e.g. Spotify) and HUB inputs. `typeIndex` (e.g. `spdif-1`, `arc-1`) is the value for [`/Play?inputTypeIndex=`](#play); play an entry with `/Play?url=<URL>`.
+- The radio variants (`url`, `c`) come from the player's description in [`/Services`](#services); not tried yet.
 
 ---
 
@@ -690,10 +760,10 @@ radiotime @service="Capture"
 
 These endpoints appear as `actionURL` values in `/Browse` context menus (also in the official examples), but are not documented as requests. Take the URLs from the player instead of building them.
 
-| Endpoint | Function | Official |
-|---|---|:---:|
-| `/AddFavourite` | mark a favourite | |
-| `/DeleteFavourite` | remove a favourite | |
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `/AddFavourite` | mark a favourite | | ✓ |
+| `/DeleteFavourite` | remove a favourite | | ✓ |
 
 ### `/AddFavourite`
 
@@ -734,21 +804,22 @@ These endpoints appear as `actionURL` values in `/Browse` context menus (also in
 
 All endpoints of this section answer on port 11000 like every other request. The short forms (`/Albums`, `/Artists`, …) only redirect to the library server on port 11004, which also answers the `/library/v1/…` requests; call `/library/v1/…` directly on port 11000. Everything in this section is verified.
 
-| Endpoint | Function | Official |
-|---|---|:---:|
-| `/Albums` | redirect to `/library/v1/Albums` | |
-| `/Artists` | redirect to `/library/v1/Artists` | |
-| `/Composers` | redirect to `/library/v1/Composers` | |
-| `/Folders` | redirect to `/library/v1/Folders` | |
-| `/Genres` | redirect to `/library/v1/Genres` | |
-| `/library/v1/Albums` | albums by section, newest, favourites, quality, genre, artist | |
-| `/library/v1/Artists` | artist names | |
-| `/library/v1/Composers` | composers | |
-| `/library/v1/Folders` | folder tree | |
-| `/library/v1/Genres` | all genre names | |
-| `/library/v1/Search` | artists, albums, songs for a search term | |
-| `/library/v1/Songs` | songs with technical data | |
-| `/Songs` | tracks of a saved playlist; otherwise redirect to `/library/v1/Songs` | |
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `/Albums` | redirect to `/library/v1/Albums` | | ✓ |
+| `/Artists` | redirect to `/library/v1/Artists` | | ✓ |
+| `/Composers` | redirect to `/library/v1/Composers` | | ✓ |
+| `/Folders` | redirect to `/library/v1/Folders` | | ✓ |
+| `/Genres` | redirect to `/library/v1/Genres` | | ✓ |
+| `/library/v1/Albums` | albums by section, newest, favourites, quality, genre, artist | | ✓ |
+| `/library/v1/Artists` | artist names | | ✓ |
+| `/library/v1/Composers` | composers | | ✓ |
+| `/library/v1/Folders` | folder tree | | ✓ |
+| `/library/v1/Genres` | all genre names | | ✓ |
+| `/library/v1/Playlists` | imported or favourite playlists of the library | | ✓ |
+| `/library/v1/Search` | artists, albums, songs for a search term | | ✓ |
+| `/library/v1/Songs` | songs with technical data | | ✓ |
+| `/Songs` | tracks of a saved playlist; otherwise redirect to `/library/v1/Songs` | | ✓ |
 
 General:
 - The root of every answer carries `id` (library: a fixed number, USB: `1`) and `service`, plus all filters passed as attributes.
@@ -911,6 +982,29 @@ genres @id @service @length="34"
 - All genre names in one request (1 KB), but no keys for `/Browse`.
 - `category`, `album` and `artist` are ignored.
 
+### `/library/v1/Playlists`
+
+```
+/library/v1/Playlists?service=<svc>&imported=1&category=FAVOURITES
+```
+
+| Parameter | Meaning |
+|---|---|
+| `service` | `LocalMusic` or the USB id |
+| `imported` | `1` = playlists imported from the share (e.g. M3U files) |
+| `category` | `FAVOURITES` = favourite playlists |
+
+**Response format**
+
+```
+playlists @imported | @category @id @service
+  (entries not seen yet)
+```
+
+**Notes**
+
+- Verified: both variants answer, empty on the test player (no imported or favourite playlists). Parameters from the player's description in [`/Services`](#services).
+
 ### `/library/v1/Search`
 
 ```
@@ -998,10 +1092,10 @@ songs @service="BluOS" @playlist
 
 ## 10. Artwork
 
-| Endpoint | Function | Official |
-|---|---|:---:|
-| `/Artwork` | cover art of albums, tracks, playlists, stations | ✓ |
-| `/library/v1/Artwork` | album cover from the library server | |
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `/Artwork` | cover art of albums, tracks, playlists, stations | ✓ | ✓ |
+| `/library/v1/Artwork` | album cover from the library server | | ✓ |
 
 ### `/Artwork`
 
@@ -1052,11 +1146,12 @@ The image itself (200, `image/jpeg`).
 
 The primary player selects the source; secondary players follow. Fixed groups (home theatre, stereo pairs) are set up in the BluOS app.
 
-| Endpoint | Function | Official |
-|---|---|:---:|
-| `/AddSlave` | add players to a group | ✓ |
-| `/proxyToSlave` | forward a request to a group member | |
-| `/RemoveSlave` | remove players from a group | ✓ |
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `/AddSlave` | add players to a group | ✓ | |
+| `/proxyToSlave` | forward a request to a group member | | |
+| `/RemoveSlave` | remove players from a group | ✓ | |
+| `/SlaveVolume` | level trim of a member of a fixed group | | |
 
 ### `/AddSlave`
 
@@ -1120,31 +1215,47 @@ The [`/SyncStatus`](#syncstatus) answer of the primary player.
 - Also the "Delete fixed group" button in `/Settings`.
 - To leave a group, community projects call `/RemoveSlave` with the player's own address.
 
+### `/SlaveVolume`
+
+```
+/SlaveVolume?slave=<ip>:<port>&db=<dB>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `slave` | address and port of the group member |
+| `db` | level trim in dB, -30 … 30 in steps of 1 |
+
+**Notes**
+
+- Seen in `/Settings?id=audio` of a fixed home theatre group ("Right Surround Trim", setting name `db`, verified read). Not sent yet – it changes the sound.
+
 ---
 
 ## 12. System
 
-| Endpoint | Function | Official |
-|---|---|:---:|
-| `/Alarms` | list of the alarms with time, days, source and volume | |
-| `/alsa_setting` | listening mode and tone controls | |
-| `/audiomodes` | audio and Bluetooth modes | ✓ |
-| `/audioPreset` | current listening mode and its choices | |
-| `/Doorbell` | play the doorbell chime | ✓ |
-| `/GitVersion` | BluOS version | |
-| `/LastScanCode` | last received IR code | |
-| `/Name` | player name | |
-| `/reboot` | soft reboot (POST, port 80) | ✓ |
-| `/Reindex` | rescan the music library | |
-| `/Services` | self-description of the sources | |
-| `/setting` | change a simple setting | |
-| `/Settings` | settings tree of the player | ✓ |
-| `/sharecfg` | web page for network shares (port 80) | |
-| `/ShowIRCodes` | IR codes learned from a paired remote control | |
-| `/Sleep` | step the sleep timer | |
-| `/update` | purpose unknown (presumably firmware update status) | |
-| `/upgrade` | redirect to a web page, presumably the firmware upgrade | |
-| `/Version` | API version | |
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `/Alarms` | list of the alarms with time, days, source and volume | | ✓ |
+| `/alsa_setting` | listening mode and tone controls | | |
+| `/audiomodes` | audio and Bluetooth modes | ✓ | |
+| `/audioPreset` | current listening mode and its choices | | ✓ |
+| `/Doorbell` | play the doorbell chime | ✓ | |
+| `/GitVersion` | BluOS version | | ✓ |
+| `/LastScanCode` | last received IR code | | ✓ |
+| `/Name` | player name | | ✓ |
+| `/reboot` | soft reboot (POST, port 80) | ✓ | |
+| `/redirectToCp` | redirect to a page of the web interface | | |
+| `/Reindex` | rescan the music library | | |
+| `/Services` | self-description of the sources | | ✓ |
+| `/setting` | change a simple setting | | |
+| `/Settings` | settings tree of the player | ✓ | ✓ |
+| `/sharecfg` | web page for network shares (port 80) | | ✓ |
+| `/ShowIRCodes` | IR codes learned from a paired remote control | | ✓ |
+| `/Sleep` | step the sleep timer | | ✓ |
+| `/update` | purpose unknown (presumably firmware update status) | | ✓ |
+| `/upgrade` | redirect to a web page, presumably the firmware upgrade | | |
+| `/Version` | API version | | ✓ |
 
 ### `/Alarms`
 
@@ -1186,43 +1297,45 @@ alarms @supportsEndTime="true"
 ### `/alsa_setting`
 
 ```
-/alsa_setting?preset=<mode>&eq-switch=<ON|OFF>&eq-treble=<n>&eq-bass=<n>&eq-balance=<n>&eq-centre-trim=<n>&eq-crossover=<n>
+/alsa_setting?preset=<mode>&eq-switch=<ON|OFF>&eq-treble=<dB>&eq-bass=<dB>&eq-balance=<n>&eq-centre-trim=<n>&eq-crossover=<Hz>&reset
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `preset` | listening mode, a `value@name` from [`/audioPreset`](#audiopreset) (e.g. `MUSIC`, `MOVIE`, `TV`) |
-| `eq-switch` | tone controls ON / OFF |
-| `eq-treble`, `eq-bass` | treble, bass |
-| `eq-balance` | balance |
-| `eq-centre-trim` | centre level |
-| `eq-crossover` | crossover frequency |
+| `eq-switch` | tone controls `ON` / `OFF` |
+| `eq-treble`, `eq-bass` | treble, bass: -6 … 6 dB in steps of 0.5 (only with `eq-switch=ON`) |
+| `eq-balance` | balance: -7 … 7 in steps of 0.5 |
+| `eq-centre-trim` | centre level: -10 … 10 in steps of 0.5 (only with centre channel on) |
+| `eq-crossover` | subwoofer crossover: 40 … 200 Hz in steps of 10 (only with a subwoofer) |
+| `reset` | "Reset All" button: back to the defaults |
 
 **Notes**
 
-- From community projects; for players with DSP.
+- Names, ranges and dependencies are from the player's own `/Settings?id=audio` answer (verified read); the form `/alsa_setting?<name>=<value>` comes from community projects. Not sent yet – it changes the sound.
+- Which settings exist depends on the player (DSP, centre, subwoofer).
 
 ### `/audiomodes`
 
 ```
-/audiomodes?bluetoothAutoplay=<0–3>&subwoofer=<name>&ears=<ON|OFF>&mqaDisable=<ON|OFF>&fixedVolume=<ON|OFF>&volumeLimits=<min>,<max>&replayGainMode=<name>&channelMode=<name>&enableClockTrim=<ON|OFF>
+/audiomodes?bluetoothAutoplay=<0–3>&subwoofer=<default|withsub>&ears=<ON|OFF>&volumeLimits=<min>,<max>&replayGainMode=<none|track|album|smart>&mqaDisable=<ON|OFF>&fixedVolume=<ON|OFF>&channelMode=<name>&enableClockTrim=<ON|OFF>
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `bluetoothAutoplay` | Bluetooth mode: `0` = manual, `1` = automatic, `2` = guest, `3` = disabled |
-| `subwoofer` | subwoofer mode |
-| `ears` | ON / OFF |
-| `mqaDisable` | MQA decoding off (ON) / on (OFF) |
-| `fixedVolume` | fixed volume ON / OFF |
-| `volumeLimits` | minimum and maximum volume in dB |
-| `replayGainMode` | replay gain mode |
+| `subwoofer` | `default` = off, `withsub` = on |
+| `ears` | stereo surround `ON` / `OFF` |
+| `volumeLimits` | minimum and maximum volume in dB, e.g. `-70,-10` (range -90 … 0, at least 30 dB apart) |
+| `replayGainMode` | `none`, `track`, `album`, `smart` |
+| `mqaDisable` | MQA decoding off (`ON`) / on (`OFF`) |
+| `fixedVolume` | fixed volume `ON` / `OFF` |
 | `channelMode` | channel mode |
-| `enableClockTrim` | ON / OFF |
+| `enableClockTrim` | `ON` / `OFF` |
 
 **Notes**
 
-- Only `bluetoothAutoplay` is official (no answer body); the others come from community projects. `/Settings?id=audio` shows the current values and choices.
+- Only `bluetoothAutoplay` is official (no answer body). `subwoofer`, `ears`, `volumeLimits`, `replayGainMode` with their values are from the player's own answers to `/Settings?id=audio` and `/Settings?id=capture` (verified read); `mqaDisable`, `fixedVolume`, `channelMode`, `enableClockTrim` only from community projects. Not sent yet – it changes the sound.
 
 ### `/audioPreset`
 
@@ -1330,6 +1443,24 @@ An HTML page ("Rebooting…").
 
 - Example: `curl -d yes=1 http://<player>/reboot`.
 
+### `/redirectToCp`
+
+```
+/redirectToCp?href=<encoded path>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `href` | URL-encoded page of the web interface, e.g. `%2Fservices%3Fnoheader%3D1%26schemaVersion%3D0` |
+
+**Response format**
+
+An HTTP redirect to that page (HTML).
+
+**Notes**
+
+- Seen as `@url` of the root of [`/Services`](#services) (link to the music services page); "Cp" presumably means control panel. Not tried yet.
+
 ### `/Reindex`
 
 ```
@@ -1351,9 +1482,21 @@ No parameters.
 
 No parameters.
 
+**Response format**
+
+```
+services @schemaVersion @sid @url="/redirectToCp?href=…"
+  service ×n @name @type @displayname @icon
+    menu > menuGroup / menuEntry @displayName
+      browseRequest | request | contextRequest | artworkRequest @url @type @subtype @resultType
+        requestItemParameter @name [@source @optional], requestParameter = "<name>=<value>"
+      sort, filter, search, genreItemParameter, enableOnAttribute, disableOnAttribute, confirmAction
+```
+
 **Notes**
 
-- Per service the `browseRequest`, `requestParameter`, `requestItemParameter`, `genreItemParameter`, `filter`, `sort` and `search` definitions. Source of the `/library/v1` parameter names in [Library](#9-library).
+- Verified (62 KB). The player's self-description of every source (`BluOS` playlists, `Capture` inputs, `Alarms`, `LocalMusic` library, USB, `TuneIn`, `RadioParadise`, `Airable` radio): which menus exist and which request (endpoint + fixed and item parameters) each menu entry and context menu action sends.
+- Best source for the parameters of requests that `/Browse` hands out as ready URLs, e.g. [`/Add`](#add), [`/SetPreset`](#setpreset), [`/AddToPlaylistOptions`](#addtoplaylistoptions), [`/library/v1/Playlists`](#libraryv1playlists).
 
 ### `/setting`
 
@@ -1363,12 +1506,12 @@ No parameters.
 
 | Parameter | Meaning |
 |---|---|
-| `<name>` | `@name` of a setting whose `@url` is `/setting`, e.g. `zonename`, `amplifierStandby`, `resizeall`, `server`, `centre` |
+| `<name>` | `@name` of a setting whose `@url` is `/setting`, e.g. `zonename`, `amplifierStandby`, `resizeall`, `server`, `centre` (centre channel) |
 | `<value>` | new value; booleans use `ON` / `OFF` |
 
 **Notes**
 
-- The form is presumed from community projects (`/setting?centre=ON|OFF`); the names come from `/Settings`.
+- The names come from `/Settings` (verified read); the form is presumed from community projects (`/setting?centre=ON|OFF`). Not sent yet.
 
 ### `/Settings`
 
@@ -1404,9 +1547,13 @@ http://<player>:80/sharecfg?noheader=1
 |---|---|
 | `noheader` | `1` = page without its header |
 
+**Response format**
+
+An HTML page (single-page web app "BluOS", the script loads the content).
+
 **Notes**
 
-- Web page of the player for the network shares of the library; seen in `/Settings`.
+- Verified. Web page of the player for the network shares of the library; linked in `/Settings`.
 
 ### `/ShowIRCodes`
 

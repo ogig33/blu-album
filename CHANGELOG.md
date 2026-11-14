@@ -4,6 +4,7 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Docs: column "Verified" in every endpoint overview of `docs/bluos-api.md`; Bruno folder "4 Verify reference (safe)" checks the endpoints that are not verified yet (read-only ones first); folder "5 Verify reference (changes the player)" checks `/Move`, `/Stop`, `/Preset`, `/Action` and `/Play?seek=…&id=…` and restores the player afterwards. More endpoints found in `/Services` and `/Settings` (`/AddToPlaylistOptions`, `/library/v1/Playlists`, `/SlaveVolume`, `/redirectToCp`).
 - Docs: new BluOS API reference `docs/bluos-api.md` (official Custom Integration API v1.7 and
   unofficial endpoints, grouped by category, with source tags); the BluAlbum-specific part moved
   to `docs/blu-album-api-usage.md` (was `api-calls.md`).
