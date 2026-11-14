@@ -67,10 +67,12 @@ Used endpoints:
 - `/Browse?withContextMenuItems=1&key=…&q=…` – menus, album lists, genres, tracks of an album
   (`type="track"`, `duration`, `playURL`, `autoplayURL`), search. Album keys:
   `<svc>:MG/LocalMusic-Album?album=…&artist=…`, context menu `<svc>:CM/LocalMusic-Album?…`
-  (with `&isFavourite=1` when it is a favourite).
+  (with `&isFavourite=1` when it is a favourite). `withContextMenuItems=0` drops only the
+  `contextMenu` children (album popup track list; Bruno E09). The album section list
+  (`…bySection:Album…`) has the album count per section in `text2`; USB lists only filled sections.
 - `/library/v1/Albums?service=<svc>&recent=1` (New), `&category=FAVOURITES` (Favourites),
-  `&quality=hr|cd|mqa&limit=500&section=X` (quality filter; only with `section`, 27 sections
-  #, A–Z; answer has `<album tracks date>`).
+  `&quality=hr|cd|mqa&limit=500&section=X` (quality filter; only with `section`; the app asks
+  only the sections with albums; answer has `<album tracks date>`).
 - `/library/v1/Songs?service=<svc>&album=…&artist=…` – songs of an album with `art`, `date`,
   `quality`, `time`, `fn` and attributes `atype`, `samplerate`, `samplebits`, `channels`,
   `bitrate` (works for library and USB).
@@ -92,7 +94,15 @@ Pitfalls:
 - `/Playlists` names carry an `image` attribute: `<name image="…">X</name>`.
 - `/Info?…` (album / track info) redirects to last.fm – not usable.
   `/Info?category=technical&filename=…` answered empty.
-- Genres via `/library` would need 27 requests per genre – postponed.
+- The player offers **no genre per album** (not in `/Browse` album / context menu,
+  `/library/v1/Songs`, `/library/v1/Albums`); the album popup has no genre line (decided
+  2026-11-14, the former genre crawl cost ≈ 560 requests).
+- `/Artists`, `/Albums`, `/Songs`, `/Genres`, `/Composers`, `/Folders` are only 302 redirects to
+  `/library/v1/…` on port 11004. Full endpoint reference: `docs/api-endpoints.md`; clicks and
+  their requests: `docs/api-calls.md`.
+- URLs for play / queue / favourites come from `/Browse`; only the `/library/v1` lists (New,
+  Favourites, quality) build them by the fixed pattern in `libAlbum()` (decided 2026-11-14: no
+  further self-built URLs).
 - Bruno: URLs are built by the scripts with `encodeURIComponent`; `settings { encodeUrl: false }`
   avoids double encoding (HTTP 400).
 
@@ -116,5 +126,7 @@ Pitfalls:
   the mock) → change the code → all UI tests green → CHANGELOG line under `Unreleased`.
 
 ## Backlog / ideas
-- Genres via `/library/v1` (postponed, 27 requests per genre)
+- Fewer requests, step B: artist click via `/Browse` key `MG/LocalMusic-Artist?artist=…`
+  (≈ 2 per source instead of the All list); step C: queue reloaded twice after ✕ / shuffle /
+  clear / playlist chip, heart re-reads the context menu, popup cache (see `docs/api-calls.md`)
 - Optional: GitHub Action that runs the UI tests on every push

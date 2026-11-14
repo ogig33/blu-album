@@ -70,6 +70,31 @@ test("connect: no playback command on page load (regression)", async (t) => {
   eq(t.player.state.commands.filter((c) => /^\/(Add|Play|Load)/.test(c)), [], "playback commands after load");
 });
 
+test("connect: only the requests the first view needs (no genre crawl, stats, versions, one-off status)", async (t) => {
+  await t.settle(1200);
+  const r = t.player.state.requests.map((x) => decodeURIComponent(x));
+  eq(r.filter((x) => /MG\/Genres\?genre=/.test(x)).length, 0, "no genre crawl");
+  eq(r.filter((x) => /^\/(GitVersion|Version)$/.test(x)), [], "no version requests");
+  eq(r.filter((x) => /bySection:(Album|Artist|Song|Composer)/.test(x)), [], "no statistics requests");
+  eq(r.filter((x) => /^\/Status$|^\/Volume$/.test(x)), [], "no one-off /Status or /Volume");
+  ok(r.some((x) => /^\/Status\?timeout=100/.test(x)), "status long polling runs");
+  ok(r.some((x) => /^\/Settings$/.test(x)), "settings (room name)");
+});
+
+test("about: statistics and versions are loaded when the popup opens, once", async (t) => {
+  const count = () => t.player.state.requests.map((x) => decodeURIComponent(x)).filter((x) => /^\/(GitVersion|Version)$|bySection:(Album|Artist|Song|Composer)/.test(x)).length;
+  eq(count(), 0, "nothing before the popup");
+  await t.page.click("#gear");
+  await t.page.click("#aboutb");
+  await t.page.waitForFunction(() => /BluOS version/.test(document.querySelector("#infodlg").textContent) && /Composers\s*[\d,]/.test(document.querySelector("#infodlg").textContent));
+  const n = count();
+  eq(n, 2 + 4 * 2, "versions + 4 statistics lists per source");
+  await t.page.click("#infoclose");
+  await t.page.click("#aboutb");
+  await t.settle(300);
+  eq(count(), n, "second opening: no new requests");
+});
+
 test("connect: compact connection line shows room and IP", async (t) => {
   await t.page.click("#gear");
   ok(await t.page.isVisible("#cline"), "connection line visible");
@@ -111,17 +136,19 @@ test("new: library + USB, newest first per source", async (t) => {
   ok(/recently added/.test(await t.msg()), "status line");
 });
 
-test("quality CD: sectioned requests, results from section A", async (t) => {
+test("quality CD: one request per section with albums, results from section A", async (t) => {
   await t.chip("CD");
   await t.page.waitForFunction(() => /CD quality|No CD/.test(document.querySelector("#msg").textContent));
-  const n = t.player.state.requests.filter((r) => /quality=cd/.test(r)).length;
-  eq(n, 27 * 2, "27 sections x 2 sources");
+  const reqs = t.player.state.requests.filter((r) => /quality=cd/.test(r));
+  eq(reqs.length, 27 + 2, "library: 27 filled sections, USB: only its 2 filled sections");
+  eq(reqs.filter((r) => /service=1A2B_3C4D/.test(r)).map((r) => new URL("http://x" + r).searchParams.get("section")).sort(), ["A", "S"], "USB sections");
   ok((await t.tiles()).length > 0, "albums shown");
   await t.chip("All");
   await t.settle();
   await t.chip("CD");
   await t.settle();
-  eq(t.player.state.requests.filter((r) => /quality=cd/.test(r)).length, 54, "second click served from cache");
+  eq(t.player.state.requests.filter((r) => /quality=cd/.test(r)).length, 29, "second click served from cache");
+  eq(t.player.state.requests.filter((r) => /bySection%3AAlbum|bySection:Album/.test(decodeURIComponent(r))).length, 2, "album sections asked once per source (shared by CD and All)");
 });
 
 test("all: albums from the sections", async (t) => {
@@ -143,6 +170,8 @@ test("grid: random album tile first, play button picks from the view", async (t)
   await t.page.click("#grid .item:first-child .play:not(.addq)");
   await t.settle();
   ok(t.player.state.commands.some((c) => /^\/Add\?playnow=1/.test(c)), "play command sent");
+  await t.settle(1200);
+  eq(t.player.state.requests.filter((x) => /^\/Status$|^\/Volume$/.test(x)), [], "no one-off /Status or /Volume after the command (long polling reports the change)");
 });
 
 test("grid: lazy rendering in batches of 60", async (t) => {
@@ -163,6 +192,9 @@ test("popup: details and source line, no buttons", async (t) => {
   ok(/library/i.test(await t.page.textContent("#ds")), "source line");
   await t.page.waitForSelector("#tracks li button");
   eq(await t.page.$$eval("#dlg .dl > .cov button, #dlg .info button", (b) => b.map((x) => x.getAttribute("aria-label") || x.title)).then((l) => l.filter((x) => !/^Albums by|^Show albums by/.test(x))), [], "no play / queue / heart buttons in the popup");
+  ok(!(await t.page.$("#dg")), "no genre line");
+  const tr = t.player.state.requests.filter((x) => /^\/Browse/.test(x) && /MG\/LocalMusic-Album/.test(decodeURIComponent(x)));
+  ok(tr.length > 0 && tr.every((x) => /withContextMenuItems=0/.test(x)), "track list without context menus");
 });
 
 test("popup: year, quality tag and technical data from /library/v1/Songs", async (t) => {
@@ -245,6 +277,25 @@ test("search: uses the player search, no random tile", async (t) => {
   await t.page.waitForFunction(() => /for/.test(document.querySelector("#msg").textContent));
   ok((await t.page.textContent("#grid .item:first-child b")) !== "Random album", "no random tile");
   ok(t.player.state.requests.some((r) => /Search/.test(decodeURIComponent(r))), "search request");
+});
+
+test("search: while typing only from 3 characters and after a pause, Enter always", async (t) => {
+  const searches = () => t.player.state.requests.filter((r) => /[?&]q=/.test(r)).length;
+  const n0 = searches();
+  await t.page.type("#q", "lo", { delay: 60 });
+  await t.settle(1200);
+  eq(searches() - n0, 0, "no search for 2 characters");
+  await t.page.type("#q", "ve", { delay: 60 });
+  await t.settle(300);
+  eq(searches() - n0, 0, "no search before the pause");
+  await t.page.waitForFunction(() => /for/.test(document.querySelector("#msg").textContent));
+  const n1 = searches();
+  ok(n1 - n0 >= 1, "one search after the pause");
+  await t.page.fill("#q", "");
+  await t.page.type("#q", "u2", { delay: 60 });
+  await t.page.press("#q", "Enter");
+  await t.page.waitForFunction(() => /“u2”/.test(document.querySelector("#msg").textContent));
+  ok(searches() > n1, "Enter searches with 2 characters");
 });
 
 test("footer: now playing and quality tag, no source icon", async (t) => {

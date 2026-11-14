@@ -6,6 +6,17 @@ PATCH for fixes and visual changes, MINOR for new features.
 ## Unreleased
 - Security: cover image URLs from player answers are checked (only on the player or http(s)),
   fixes the GitHub code scanning alerts "DOM text reinterpreted as HTML".
+- Search while typing starts only from 3 characters and after a pause of 800 ms (was 500 ms),
+  fewer player requests; Enter still searches at once.
+- Fewer player requests (first connect 585 → 9 on the test library):
+  - Album popup: no genre line any more, so the genre crawl on connect (and its "Reload" button)
+    is gone; the player offers no genre per album.
+  - Library statistics and player versions load when the about popup opens, not on connect.
+  - No extra `/Status` + `/Volume` after commands; the status long polling reports the change.
+  - Quality chips ask only the A–Z sections that contain albums (USB drive: 9 instead of 27);
+    the section list is loaded once and shared with All and the statistics.
+  - Genre albums: no more trial request for an unsectioned list.
+  - Album popup reads the track list without the unused per-song context menus (about 60 % less data).
 
 ## 0.8.0
 - About popup: link to the GitHub repository.

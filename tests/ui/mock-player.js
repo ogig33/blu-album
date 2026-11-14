@@ -32,10 +32,10 @@ function createPlayer(opts = {}) {
     if (key === USB + ":") return fx("03");
     if (/GG\/Genres$/.test(key)) return key.startsWith(USB) ? '<browse type="genres"><item browseKey="1A2B_3C4D:MG/Genres?genre=Soundtrack" text="Soundtrack" type="genre"></item></browse>' : fx("04");
     if (/MG\/Genres\?genre=/.test(key)) return fx("05");
-    // Album sections (all albums, genre albums) and the stats lists
+    // Album sections (all albums, genre albums) and the stats lists. Like the real player, the USB drive
+    // lists only the sections that contain albums (here: A and S).
+    if (/bySection:Album/.test(key) && key.startsWith(USB)) return fx("06").replace(/\s*<item[^>]*text="(?![AS]")[^"]*"[^>]*><\/item>/g, "");
     if (/bySection:(Album|Artist|Song|Composer)/.test(key)) return fx("06");
-    // Unsectioned genre list (genreAlbums tries it first): empty -> falls back to sections
-    if (/:S:Album\//.test(key) && !/section=/.test(key)) return '<browse type="albums"></browse>';
     // Section "#" carries the recorded albums, all other sections are empty
     if (/:S:Album\//.test(key)) return /section=%23/.test(key) ? fx("07") : '<browse type="albums"></browse>';
     if (/MG\/LocalMusic-Album/.test(key)) return fx("08");

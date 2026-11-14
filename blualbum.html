@@ -173,7 +173,6 @@ input {
 @media (min-width: 800px) {
   body.qpin #az,
   body.qpin #msg,
-  body.qpin #gstat,
   body.qpin #grid {
     margin-right: 360px;
   }
@@ -1275,19 +1274,6 @@ nav .gap {
   font-size: 12px;
   color: var(--dim);
 }
-#gstat {
-  padding: 0 14px;
-  color: var(--dim);
-  font-size: 13px;
-}
-#gstat:empty {
-  display: none;
-}
-#gstat button {
-  padding: 2px 8px;
-  margin-left: 8px;
-  font-size: 12px;
-}
 /* ---------- Album popup ---------- */
 dialog {
   width: min(760px, 94vw);
@@ -1580,7 +1566,6 @@ dialog::backdrop {
 <!-- Genre chips (filled by openSources) -->
 <nav id="az" aria-label="Genre filter"></nav>
 <div id="msg">Open the menu, enter your player's IP address and tap Connect.</div>
-<div id="gstat"></div>
 <main id="grid"></main>
 <!-- Album popup -->
 <dialog id="dlg">
@@ -1588,7 +1573,7 @@ dialog::backdrop {
   <div class="dl">
     <div class="dleft">
       <div class="cov"><img id="dimg" alt=""></div>
-      <div class="info"><h2 id="dt"></h2><div class="meta"><p id="da"></p><p id="dy"></p><p id="dg"></p><p id="dtech"></p><p id="ds"></p></div></div>
+      <div class="info"><h2 id="dt"></h2><div class="meta"><p id="da"></p><p id="dy"></p><p id="dtech"></p><p id="ds"></p></div></div>
     </div>
     <div class="dright">
       <p id="dsum"></p>
@@ -1704,12 +1689,12 @@ dialog::backdrop {
  * (HTTP GET on port 11000, XML answers). No server and no build step are needed.
  *
  * Modules (in this order):
- *   1. Configuration                   Fixed values: texts, A-Z sections, quality filters, cover sizes, icons.
+ *   1. Configuration                   Fixed values: texts, quality filters, search timing, cover sizes, icons.
  *   2. Helpers                         DOM shorthand, safe localStorage, XML attributes, formatting, status line and toast.
  *   3. State                           All mutable state of the app, declared in one place.
  *   4. Player API                      Requests to the player (HTTP GET on port 11000, XML answers).
  *   5. Connection & sources            Connecting to the player, music sources (USB / library) and their switches.
- *   6. Albums from /Browse             Album lists, genres and the album-to-genre map from the player's browse menus.
+ *   6. Albums from /Browse             Album lists (All, genres) from the player's browse menus.
  *   7. Albums from /library/v1/Albums  New, favourites and quality lists from the library endpoint.
  *   8. Views                           What the chips show: genre, All, New, Favourites, quality, artist.
  *   9. Album grid                      Lazy rendering of the album tiles and the random album tile.
@@ -1724,7 +1709,7 @@ dialog::backdrop {
  */
 
 /* ---------- Configuration ---------- */
-// Fixed values: texts, A-Z sections, quality filters, cover sizes, icons.
+// Fixed values: texts, quality filters, search timing, cover sizes, icons.
 
 // App name and version (semantic versioning MAJOR.MINOR.PATCH). The only place where the version is set.
 // Source code and releases on GitHub (link in the about popup).
@@ -1735,11 +1720,11 @@ const RELEASES_LATEST = "https://api.github.com/repos/ogig33/blu-album/releases/
 const SVC_LIBRARY = "LocalMusic", SVC_PLAYLISTS = "BluOS";
 // Shown when fetch() fails with a TypeError: usually the browser lacks Local Network permission.
 const LAN_MSG = "Please make sure your browser has permission to access the Local Area Network (LAN).";
-// Filters like quality only work per A-Z section and there is no index of the sections,
-// so all 27 sections (# and A-Z) are requested, 6 at a time, and joined in A-Z order.
-const SECTIONS = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 // Quality chips: filter values of the library ("Filter by quality" in /Services).
 const QUALITIES = [["hr", "HD", "High resolution albums"], ["cd", "CD", "CD quality albums"], ["mqa", "MQA", "MQA albums"]];
+// Search while typing: starts after a pause of SEARCH_DELAY ms and only from SEARCH_MIN characters
+// (each search costs several player requests); Enter always searches.
+const SEARCH_MIN = 3, SEARCH_DELAY = 800;
 // Minimum tile width of the album grid; the grid fills the row with as many tiles as fit.
 const TILE = { s: "110px", m: "150px", l: "220px" };
 // File formats of /library/v1/Songs (atype) and which of them are lossy (no bit depth shown).
@@ -1814,8 +1799,6 @@ function toast(t) {
   clearTimeout(toast.t);
   toast.t = setTimeout(() => e.className = "", 1800);
 }
-// Key that identifies an album in gmap and in the favourites list.
-const gkey = (t, a) => (t + "|" + a).toLowerCase();
 // Image URL from a player answer: a path on the player (cover art from /Artwork gets
 // followRedirects=1) or an absolute http(s) URL (now playing). Anything else, e.g. a path that
 // would leave the player or another scheme, gives "" (no image).
@@ -1838,10 +1821,11 @@ function imgUrl(p) {
 // Player and current view.
 // base: player URL ("" = not connected), cache: albums per view (genre name, "__all", "__q:cd" ...),
 // shown: albums currently rendered, activeKey: id of the selected view (drops outdated async results),
-// activeBtn: selected chip, gmap: album -> genres (for the popup), gAlb: genre -> albums.
-let base = "", cache = {}, shown = [], activeKey = "", gmap = {}, gAlb = {}, activeBtn = null;
+// activeBtn: selected chip.
+let base = "", cache = {}, shown = [], activeKey = "", activeBtn = null;
 // sources: music sources found on the player (USB drive, library).
-// srcs: the enabled sources after opening, each {key, svc, name, searchKey, genresKey, albumsKey, genres, menu}.
+// srcs: the enabled sources after opening, each {key, svc, name, searchKey, genresKey, albumsKey, genres, menu,
+// secs} (secs: promise of the album sections, see albumSections()).
 // epoch increases on every connect / source change so late async results can be ignored (see ctx()).
 let sources = [], srcs = [], epoch = 0;
 // Album grid: lazy rendering observer and a token that cancels an older render.
@@ -1867,7 +1851,8 @@ let searchSeq = 0, searchTimer = 0;
 let playerName = "";
 // Settings panel: library settings rows [label, value] and library statistics;
 // about popup: player software versions [label, value] (shown below the room name).
-let libRows = [], libStats = {}, playerRows = [];
+// aboutCtx: ctx() for which statistics and versions were loaded (they load when the about popup opens).
+let libRows = [], libStats = {}, playerRows = [], aboutCtx = "";
 
 // Forgets everything that belongs to the previous player (called on connect).
 function resetPlayerState() {
@@ -1885,8 +1870,6 @@ function resetPlayerState() {
 // Forgets everything loaded from the current source selection (called on connect and source change).
 function resetLibrary() {
   cache = {};
-  gmap = {};
-  gAlb = {};
   srcs = [];
   activeBtn = null;
   activeKey = "";
@@ -1917,8 +1900,10 @@ async function apiRaw(path) {
   }
 }
 // Calls /Browse and returns the parsed XML. key = browse key, q = search term.
-// withContextMenuItems=1 makes the player include per-album actions (add to queue, favourites ...).
-const browse = (key, q) => api("/Browse?withContextMenuItems=1" + (key ? "&key=" + encodeURIComponent(key) : "") + (q ? "&q=" + encodeURIComponent(q) : ""));
+// withContextMenuItems=1 makes the player include per-album actions (add to queue, favourites ...);
+// menus = false leaves them out where they are not used (track list of the album popup: about 60 %
+// smaller, play URLs stay).
+const browse = (key, q, menus = true) => api("/Browse?withContextMenuItems=" + (menus ? 1 : 0) + (key ? "&key=" + encodeURIComponent(key) : "") + (q ? "&q=" + encodeURIComponent(q) : ""));
 // Player command with a toast on failure; returns the parsed XML or null.
 const xml = async (path) => {
   if (!base) {
@@ -1933,10 +1918,10 @@ const xml = async (path) => {
   }
 };
 // Sends a player command (play, add to queue ...) and shows `label` as feedback.
+// The new play state arrives through the /Status long polling (pollStatus).
 async function cmd(url, label) {
   if (!(await apiRaw(url)).ok) return toast("Failed");
   toast(label);
-  setTimeout(sync, 900);
 }
 
 /* ---------- Connection & sources ---------- */
@@ -2014,7 +1999,6 @@ async function connect() {
   base = "http://" + ip + ":11000";
   epoch++;
   resetPlayerState();
-  $("#gstat").textContent = "";
   renderLib();
   setTitle("");
   stopPoll();
@@ -2039,7 +2023,6 @@ async function connect() {
     playlistsKey = plItem ? attr(plItem, "browseKey") : "";
     loadPlaylists();
     if (!sources.length) throw new Error("No USB or library source found. Is the drive connected?");
-    sync();
     loadInfo();
     pollStatus();
     renderSources();
@@ -2061,7 +2044,6 @@ async function openSources() {
   libStats = {};
   renderLib();
   resetLibrary();
-  $("#gstat").textContent = "";
   $("#az").innerHTML = "";
   $("#grid").innerHTML = "";
   $("#q").value = "";
@@ -2095,7 +2077,6 @@ async function openSources() {
     // Genre chips: union of the genre names of all sources
     const names = [...new Set(srcs.flatMap((x) => x.genres.map((g) => attr(g, "text"))))].sort((x, y) => x.localeCompare(y));
     if (!names.length) throw new Error("No genres found. Has the library finished indexing?");
-    loadStats(names.length);
     const nav = $("#az"), hasAlbums = srcs.some((x) => x.albumsKey);
     if (hasAlbums) {
       const ba = document.createElement("button");
@@ -2140,7 +2121,6 @@ async function openSources() {
       nav.append(b);
     });
     msg("Select a genre.");
-    loadGenres();
     // Keep the playlist chips at the end of the row (they may have arrived while this function was waiting).
     renderPlChips();
     // Default view: Favourites, or the first genre. Never pick by position: a playlist chip would start playback.
@@ -2185,26 +2165,26 @@ async function fetchAlbums(key) {
   }
   return all;
 }
-// Loads all albums of one genre. Tries the unsectioned list first (one request),
-// falls back to loading the A-Z sections when that returns too few albums.
+// A-Z sections of a source's album list (<item type="section" text="A" text2="<album count>">),
+// requested once per source selection and shared by All, the quality chips and the statistics.
+function albumSections(x) {
+  if (!x.albumsKey) return Promise.resolve([]);
+  if (!x.secs) {
+    x.secs = browse(x.albumsKey).then((d) => items(d).filter((i) => attr(i, "type") === "section"));
+    x.secs.catch(() => x.secs = null);
+  }
+  return x.secs;
+}
+// Sections of a source that contain albums.
+const filledSections = async (x) => (await albumSections(x)).filter((i) => attr(i, "text2") !== "0");
+// Loads all albums of one genre: genre menu -> A-Z sections (with album counts) -> the albums of
+// every section that is not empty.
 async function genreAlbums(g) {
   const ab = items(await browse(attr(g, "browseKey"))).find((i) => /bySection:Album/.test(attr(i, "browseKey")));
   if (!ab) return [];
-  const secs = items(await browse(attr(ab, "browseKey"))).filter((i) => attr(i, "type") === "section");
-  if (!secs.length) return [];
-  const total = secs.reduce((n, x) => n + (+attr(x, "text2") || 0), 0);
-  let albums = [];
-  const first = attr(secs[0], "browseKey"), flat = first.replace(/&section=[^&]*$/, "");
-  if (flat !== first) {
-    try {
-      albums = await fetchAlbums(flat);
-    } catch (e) {
-    }
-  }
-  if (albums.length < total) {
-    albums = [];
-    for (const x of secs) if (attr(x, "text2") !== "0") albums.push(...await fetchAlbums(attr(x, "browseKey")));
-  }
+  const secs = items(await browse(attr(ab, "browseKey"))).filter((i) => attr(i, "type") === "section" && attr(i, "text2") !== "0");
+  const albums = [];
+  for (const x of secs) albums.push(...await fetchAlbums(attr(x, "browseKey")));
   return albums;
 }
 // All albums of a genre name across the enabled sources.
@@ -2212,62 +2192,6 @@ const genreAlbumsAll = async (name) => joinSources(await Promise.all(srcs.map((x
   const g = x.genres.find((y) => attr(y, "text") === name);
   return g ? genreAlbums(g) : [];
 })));
-// Loads a genre and records the genre in gmap for each of its albums.
-async function doGenre(name) {
-  const albums = await genreAlbumsAll(name);
-  gAlb[name] = albums;
-  albums.forEach((a) => {
-    const k = gkey(a.t, a.a), l = gmap[k] || (gmap[k] = []);
-    if (!l.includes(name)) l.push(name);
-  });
-}
-// Crawls all genres (3 requests in parallel) to learn which genres each album has.
-// The result is cached in localStorage; "Reload" forces a new crawl.
-async function loadGenres(force) {
-  if (!srcs.length) return;
-  const ck = "genres:" + base + "|" + srcs.map((x) => x.key).join("+"), st = $("#gstat"), mine = ctx();
-  if (!force) {
-    try {
-      const c = JSON.parse(store.get(ck) || "null");
-      if (c) {
-        gmap = c;
-        return;
-      }
-    } catch (e) {
-    }
-  }
-  gmap = {};
-  try {
-    const gs = [...new Set(srcs.flatMap((x) => x.genres.map((g) => attr(g, "text"))))];
-    let done = 0;
-    const total = gs.length;
-    const show = () => {
-      if (mine === ctx()) st.textContent = "Loading genres \u2026 " + done + "/" + total;
-    };
-    show();
-    const worker = async () => {
-      while (gs.length > 0 && mine === ctx()) {
-        const g = gs.shift();
-        try {
-          await doGenre(g);
-        } catch (e) {
-        }
-        done++;
-        show();
-      }
-    };
-    await Promise.all([worker(), worker(), worker()]);
-    if (mine !== ctx()) return;
-    store.set(ck, JSON.stringify(gmap));
-    st.textContent = "Genres loaded (" + Object.keys(gmap).length + " albums).";
-    const b = document.createElement("button");
-    b.textContent = "Reload";
-    b.onclick = () => loadGenres(true);
-    st.append(b);
-  } catch (e) {
-    st.textContent = "Could not load genres.";
-  }
-}
 
 /* ---------- Albums from /library/v1/Albums ---------- */
 // New, favourites and quality lists from the library endpoint.
@@ -2308,15 +2232,19 @@ async function libAlbums(svc, filter, max) {
   }
   return out.slice(0, max);
 }
-async function libSectionAlbums(svc, filter) {
-  const parts = new Array(SECTIONS.length);
+// Filters like quality only work per A-Z section: every section of the source that contains albums
+// (albumSections, names "#", "A" ... as the player reports them) is requested, 6 at a time, and the
+// results are joined in A-Z order. Empty sections cannot contain filtered albums and are skipped.
+async function libSectionAlbums(x, filter) {
+  const names = (await filledSections(x)).map((i) => attr(i, "text"));
+  const parts = new Array(names.length);
   let next = 0;
   const worker = async () => {
-    while (next < SECTIONS.length) {
+    while (next < names.length) {
       const i = next++;
-      const path = "/library/v1/Albums?service=" + encodeURIComponent(svc) + "&" + filter + "&limit=500&section=" + encodeURIComponent(SECTIONS[i]);
+      const path = "/library/v1/Albums?service=" + encodeURIComponent(x.svc) + "&" + filter + "&limit=500&section=" + encodeURIComponent(names[i]);
       const d = await api(path);
-      parts[i] = [...d.querySelectorAll("section > album")].map((el) => libAlbum(el, svc));
+      parts[i] = [...d.querySelectorAll("section > album")].map((el) => libAlbum(el, x.svc));
     }
   };
   await Promise.all(Array.from({ length: 6 }, worker));
@@ -2341,7 +2269,7 @@ async function loadGenre(name, btn) {
   try {
     if (!cache[name]) {
       msg("Loading albums \u2026");
-      cache[name] = gAlb[name] || await genreAlbumsAll(name);
+      cache[name] = await genreAlbumsAll(name);
     }
     if (name !== activeKey) return;
     shown = cache[name];
@@ -2358,7 +2286,7 @@ async function ensureAll(tag, label) {
   const mine = ctx();
   msg(label + " \u2026");
   // Sections of all sources (each source's albums come A-Z, the sources are joined and re-sorted)
-  const lists = await Promise.all(srcs.filter((x) => x.albumsKey).map(async (x) => items(await browse(x.albumsKey)).filter((y) => attr(y, "type") === "section" && attr(y, "text2") !== "0")));
+  const lists = await Promise.all(srcs.filter((x) => x.albumsKey).map(filledSections));
   const secs = lists.flat(), parts = [], q = secs.map((x, i) => i);
   let n = 0;
   const worker = async () => {
@@ -2398,7 +2326,7 @@ async function loadLibView(key, btn, filter, max, label, done, empty, sectioned)
     // Sectioned results are kept for the session (27 requests); New / Favourites are always fresh.
     // Every enabled source is asked; New keeps each source's newest-first order (sources one after another),
     // the other lists are joined A-Z.
-    const per = (x) => sectioned ? libSectionAlbums(x.svc, filter) : libAlbums(x.svc, filter, max);
+    const per = (x) => sectioned ? libSectionAlbums(x, filter) : libAlbums(x.svc, filter, max);
     const lists = sectioned && cache[key] ? null : await Promise.all(srcs.map(per));
     const list = sectioned ? cache[key] || (cache[key] = joinSources(lists)) : key === "__new" ? lists.flat() : joinSources(lists);
     if (activeKey !== key || mine !== ctx()) return;
@@ -2669,7 +2597,6 @@ async function openAlbum(a) {
   const sum = (n, secs) => n ? n + (+n === 1 ? " track" : " tracks") + (secs ? " \u00B7 " + fmtTime(secs) : "") : "";
   $("#dsum").textContent = sum(a.n, 0);
   albumDetails([]);
-  $("#dg").textContent = (gmap[gkey(a.t, a.a)] || []).join(", ");
   // Source (USB / library) with the same icon as in the player, set apart from the album metadata
   const sn = sourceName(a.key), ds = $("#ds");
   ds.innerHTML = sn ? sourceIcon(a.key) : "";
@@ -2686,7 +2613,7 @@ async function openAlbum(a) {
   const seq = ++dlgSeq, svc = a.key.split(":")[0], q = a.key.split("?")[1] || "";
   try {
     const [bd, sd] = await Promise.all([
-      browse(a.key),
+      browse(a.key, "", false),
       api("/library/v1/Songs?service=" + svc + "&" + q).catch(() => null)
     ]);
     if (seq !== dlgSeq) return;
@@ -2896,10 +2823,7 @@ async function loadQueue() {
         d.textContent = fmtTime(secs);
         it.append(d);
       }
-      it.onclick = async () => {
-        await xml("/Play?id=" + id);
-        setTimeout(sync, 500);
-      };
+      it.onclick = () => xml("/Play?id=" + id);
       const rm = document.createElement("button");
       rm.className = "rm";
       rm.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>';
@@ -3107,17 +3031,6 @@ async function pollStatus() {
     if (dt < 1e3) await new Promise((res) => setTimeout(res, 1e3 - dt));
   }
 }
-// One-off refresh of play state and volume (after a command).
-async function sync() {
-  if (!base) return;
-  try {
-    const st = await xml("/Status");
-    const s = st && st.querySelector("state");
-    if (s) setState(s.textContent);
-    setVol(await xml("/Volume"));
-  } catch (e) {
-  }
-}
 // Opens / closes the full-screen view (only while something is playing).
 function showFull(open) {
   if (open && !$("#ft1").textContent) return;
@@ -3139,7 +3052,8 @@ async function searchAlbums(key) {
   for (const x of secs) out.push(...await fetchAlbums(attr(x, "browseKey")));
   return out;
 }
-// Uses the player's own search (Enter or after 500 ms). An empty field restores the selected view.
+// Uses the player's own search (Enter, or while typing, see SEARCH_MIN / SEARCH_DELAY).
+// An empty field restores the selected view.
 async function search() {
   const v = $("#q").value.trim(), seq = ++searchSeq;
   const btns = document.querySelectorAll("#az button");
@@ -3222,10 +3136,12 @@ async function countItems(key) {
   return its.filter((i) => attr(i, "type") !== "link").length;
 }
 // Fills the library statistics (albums, artists, songs, composers summed over the enabled sources;
-// genres = number of different genre names); values appear as they arrive.
-async function loadStats(genreCount) {
+// genres = number of different genre names); values appear as they arrive. Albums are counted from
+// the album sections that All and the quality chips use as well (albumSections).
+async function loadStats() {
   const mine = ctx();
-  libStats = { Albums: null, Artists: null, Songs: null, Genres: genreCount, Composers: null };
+  const genres = new Set(srcs.flatMap((x) => x.genres.map((g) => attr(g, "text")))).size;
+  libStats = { Albums: null, Artists: null, Songs: null, Genres: genres, Composers: null };
   renderLib();
   await Promise.all([["Albums", "Album"], ["Artists", "Artist"], ["Songs", "Song"], ["Composers", "Composer"]].map(async ([label, k]) => {
     let sum = 0, any = false;
@@ -3233,7 +3149,7 @@ async function loadStats(genreCount) {
       const it = x.menu.find((i) => new RegExp("bySection:" + k).test(attr(i, "browseKey")));
       if (!it) return;
       try {
-        const n = await countItems(attr(it, "browseKey"));
+        const n = k === "Album" ? (await albumSections(x)).reduce((s, y) => s + (+attr(y, "text2") || 0), 0) : await countItems(attr(it, "browseKey"));
         sum += n;
         any = true;
       } catch (e) {
@@ -3244,11 +3160,9 @@ async function loadStats(genreCount) {
     renderLib();
   }));
 }
-// Reads /Settings (room name, network shares, artwork optimisation, server mode)
-// and the player software versions (/GitVersion = BluOS, /Version = API).
+// Reads /Settings (room name, network shares, artwork optimisation, server mode).
 async function loadInfo() {
   const mine = base;
-  loadVersions();
   try {
     const d = await api("/Settings");
     if (mine !== base) return;
@@ -3276,6 +3190,14 @@ async function loadInfo() {
       renderLib();
     }
   }
+}
+// Statistics and player versions are only shown in the about popup, so they are loaded when it
+// opens (once per player and source selection, not on connect).
+function loadAbout() {
+  if (!srcs.length || aboutCtx === ctx()) return;
+  aboutCtx = ctx();
+  loadStats();
+  loadVersions();
 }
 // Player rows of the about popup: BluOS version (/GitVersion) and API version (/Version).
 async function loadVersions() {
@@ -3376,8 +3298,9 @@ $("#ver").textContent = $("#ver2").textContent = "v" + APP.version;
 $("#repo").href = APP.repo;
 $("#repo").textContent = APP.repo.replace(/^https:\/\//, "");
 $("#updb").onclick = checkUpdate;
-// Footer line opens the about popup.
+// Footer line opens the about popup (and loads its statistics and player versions).
 $("#aboutb").onclick = () => {
+  loadAbout();
   $("#infodlg").showModal();
   $("#infoclose").blur();
 };
@@ -3405,14 +3328,9 @@ $("#pp").onclick = async () => {
   const s = d && d.querySelector("state");
   if (s) setState(s.textContent);
 };
-$("#bk").onclick = async () => {
-  await xml("/Back");
-  setTimeout(sync, 500);
-};
-$("#sk").onclick = async () => {
-  await xml("/Skip");
-  setTimeout(sync, 500);
-};
+// Back / skip: the new track arrives through the /Status long polling.
+$("#bk").onclick = () => xml("/Back");
+$("#sk").onclick = () => xml("/Skip");
 // Volume slider and +/- buttons.
 {
   const sl = $("#vs");
@@ -3523,7 +3441,10 @@ $("#dlg").onclick = (e) => {
 };
 $("#q").oninput = () => {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(search, 500);
+  const n = $("#q").value.trim().length;
+  // Empty field: restore the view at once (no request); 1-2 characters: wait for more or Enter
+  if (!n) search();
+  else if (n >= SEARCH_MIN) searchTimer = setTimeout(search, SEARCH_DELAY);
 };
 $("#q").onkeydown = (e) => {
   if (e.key === "Enter") {
@@ -3537,10 +3458,10 @@ bindSegment("#sizes", "size", "tile", applySize);
 bindSwitch("#gsw", "genrechips", (on) => $("#az").classList.toggle("nog", !on));
 bindSwitch("#qsw", "qchips", (on) => document.body.classList.toggle("noqc", !on));
 bindSwitch("#psw", "plchips", (on) => document.body.classList.toggle("nopl", !on));
-// Remove values stored by older versions: local favourites (now on the player only) and the former
-// single-source choice (now one switch per source).
+// Remove values stored by older versions: local favourites (now on the player only), the former
+// single-source choice (now one switch per source) and the genre map of the former genre crawl.
 try {
-  Object.keys(localStorage).filter((k) => /^(fav|src):/.test(k)).forEach((k) => localStorage.removeItem(k));
+  Object.keys(localStorage).filter((k) => /^(fav|src|genres):/.test(k)).forEach((k) => localStorage.removeItem(k));
 } catch (e) {
 }
 $("#cvb").onclick = () => showFull($("#full").hidden);
