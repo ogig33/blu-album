@@ -134,7 +134,7 @@ SyncStatus @etag @syncStat @id="<ip>:<port>" @name @brand @model @modelName @cla
 
 - Verified (fixed home theatre group): `version` = BluOS version, `class` (e.g. `streamer-amplifier`), `zoneController="true"` on the primary of the fixed group, `zoneUngroup` = request that dissolves it (`/RemoveSlave?slaves=…&ports=…`), one `zoneSlave` per surround speaker with its `channelMode` (`side_left`, `side_right`, …) and `distance` in m; `audioPresetUrl` points to [`/audioPreset`](#get-audiopreset).
 - Poll `/SyncStatus` when only name, volume and grouping matter; `/Status` for playback.
-- `initialized="false"`: the player still needs setup in the BluOS app.
+- `initialized="false"`: the player still needs setup in the BluOS Controller.
 
 ---
 
@@ -168,10 +168,10 @@ volume @db @mute @offsetDb @etag [@muteDb @muteVolume] [@source] = "16"   (level
 **Notes**
 
 - Without parameters: read the volume. Use one of `level`, `abs_db`, `db` or `mute` per request.
-- All variants are limited to the volume range configured in the BluOS app (typically -80…0 dB).
+- All variants are limited to the volume range configured in the BluOS Controller (typically -80…0 dB).
 - The official parameter table says `mute=0` mutes, but its own examples (and community projects) use `mute=1` to mute – the examples are right.
 - Verified: `level`, `db=2`, `db=-2`.
-- The BluOS app sends every change with `tell_slaves=1` (`/Volume?level=…&tell_slaves=1`, `/Volume?mute=1&tell_slaves=1`).
+- The BluOS Controller sends every change with `tell_slaves=1` (`/Volume?level=…&tell_slaves=1`, `/Volume?mute=1&tell_slaves=1`).
 
 ---
 
@@ -296,7 +296,7 @@ GET /Play?seek=<seconds>&id=<n>&url=<encoded URL>&title=<name>&title1=<name>&ima
 | `url` | URL-encoded stream URL (e.g. an MP3 on the web), or the `URL` attribute of an input from [`/RadioBrowse?service=Capture`](#get-radiobrowse) (already encoded) |
 | `inputTypeIndex` | select an input by type and number, e.g. `spdif-2` (BluOS ≥ 4.2.0) |
 | `inputIndex` | select an input by position, from 1, Bluetooth excluded (BluOS 3.8.0 – 4.2.0) |
-| `title`, `image` | the BluOS app sends them with an input URL (name and icon of the input) |
+| `title`, `image` | the BluOS Controller sends them with an input URL (name and icon of the input) |
 | `title1` | name shown for a stream, e.g. the chosen TuneIn stream or a radio station |
 
 **Response format**
@@ -540,7 +540,7 @@ moved = "moved"
 **Notes**
 
 - Verified: moving entry 0 to position 1 and back.
-- The app's queue editor sends it, e.g. `/Move?new=3&old=6`.
+- The BluOS Controller's queue editor sends it, e.g. `/Move?new=3&old=6`.
 
 ### `GET /Playlist`
 
@@ -599,7 +599,7 @@ GET /Save?name=<name>&service=BluOS&create=1
 |---|---|
 | `name` | name of the new BluOS playlist |
 | `service` | `BluOS` |
-| `create` | `1` = create a new playlist (the app sends it when saving under a new name) |
+| `create` | `1` = create a new playlist (the BluOS Controller sends it when saving under a new name) |
 
 **Response format**
 
@@ -616,7 +616,7 @@ saved > entries = "126"
 
 ## 6. Presets
 
-Presets are created and deleted only in the BluOS app; they can hold radio stations, playlists and inputs.
+Presets are created and deleted only in the BluOS Controller; they can hold radio stations, playlists and inputs.
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
@@ -679,7 +679,7 @@ GET /SetPreset?id=<slot>&name=<name>&url=<url>&encoded_url=<url>&image=<image ur
 | `id` | preset slot; alone (`/SetPreset?id=5`) it deletes the preset |
 | `name` | name of the preset |
 | `url` | play request of the item (e.g. its `playURL`) |
-| `encoded_url` | source URL as the app sends it, e.g. `RadioParadise:/3:20/The%20Globe` |
+| `encoded_url` | source URL as the BluOS Controller sends it, e.g. `RadioParadise:/3:20/The%20Globe` |
 | `image` | image of the preset |
 | `volume` | volume set when the preset is loaded |
 | `delete` | `1` together with `id`: deletes the preset |
@@ -695,7 +695,7 @@ presets @prid
 
 - Without parameters (verified) the answer is the preset list, the same as [`/Presets`](#get-presets).
 - Verified with `name`, `url`, `image` (parameters from [`/Services`](#get-services)): stores the preset in the first free slot (here id 5), answers the new preset list; `prid` changes; `url` is stored URL-encoded and without `volume`.
-- The BluOS app edits a preset with `id`, `name`, `volume`, `image`, `encoded_url` and deletes it with `id` alone.
+- The BluOS Controller edits a preset with `id`, `name`, `volume`, `image`, `encoded_url` and deletes it with `id` alone.
 - Moving a preset to another slot = store it under the new `id`, then `/SetPreset?id=<old>&delete=1`.
 
 ---
@@ -807,7 +807,7 @@ radiotime @service="Capture"
 
 - Verified with `service=Capture`: lists the active inputs (here Bluetooth, HDMI ARC, optical input 1), cloud sources (e.g. Spotify) and HUB inputs. `typeIndex` (e.g. `spdif-1`, `arc-1`) is the value for [`/Play?inputTypeIndex=`](#get-play); play an entry with `/Play?url=<URL>`.
 - The radio variants (`url`, `c`) come from the player's description in [`/Services`](#get-services); not tried yet.
-- `service=Presets`, `service=Alarms` (also `&url=playlists`) and `service=RadioParadise` are used by the BluOS app.
+- `service=Presets`, `service=Alarms` (also `&url=playlists`) and `service=RadioParadise` are used by the BluOS Controller.
 - Browsing radio: `url` takes the full directory URL of the service (TuneIn `https://api.radiotime.com/categories/…`, Airable `https://<id>.airable.io/radio/…`, also podcasts); `service=Airable&url=alarms` lists alarm sources; `c=selectStream&id=s16252&service=TuneIn` lists the streams of a station.
 
 ---
@@ -961,7 +961,7 @@ GET /library/v1/Artists?service=<svc>&section=<letter>&category=FAVOURITES&genre
 | `category` | `FAVOURITES` = favourite artists |
 | `genre` | artists of a genre – together with `section` |
 | `artist` | only the name of this artist |
-| `offset` | without a filter: first entry of the page (the app asks 0, 30, 60 …) |
+| `offset` | without a filter: first entry of the page (the BluOS Controller asks 0, 30, 60 …) |
 
 **Response format**
 
@@ -974,7 +974,7 @@ artists @id @service
 **Notes**
 
 - Empty without a filter.
-- Without a filter but with `offset` the app pages through all artists; the same for `/library/v1/Albums` and `/library/v1/Composers`.
+- Without a filter but with `offset` the BluOS Controller pages through all artists; the same for `/library/v1/Albums` and `/library/v1/Composers`.
 
 ### `GET /library/v1/Composers`
 
@@ -1103,7 +1103,7 @@ GET /library/v1/Songs?service=<svc>&album=<album>&artist=<artist>&composer=<comp
 | `genre` | with `section`: songs of the genre, 50 per page |
 | `category` | `FAVOURITES` – empty (no song favourites) |
 | `limit` | page size; works here (e.g. `section=A&limit=5`) |
-| `all` | `1` = all songs of the source, paged with `offset` (30 per page in the app) |
+| `all` | `1` = all songs of the source, paged with `offset` (30 per page in the BluOS Controller) |
 | `offset` | first entry of the page |
 
 **Response format**
@@ -1170,7 +1170,7 @@ GET /Artwork?service=<svc>&album=<album>&artist=<artist>&songid=<id>&albumid=<id
 | `songid`, `albumid` | track / album of a streaming service |
 | `fn` | file of the local library (e.g. image of a saved playlist) |
 | `playlistimage` | image of a streaming playlist |
-| `width`, `height` | size of the image in pixels (the app asks e.g. 480 × 480, 75 × 75) |
+| `width`, `height` | size of the image in pixels (the BluOS Controller asks e.g. 480 × 480, 75 × 75) |
 | `followRedirects` | `1` = answer with the image itself instead of a redirect |
 
 **Response format**
@@ -1205,7 +1205,7 @@ The image itself (200, `image/jpeg`).
 
 ## 11. Player grouping
 
-The primary player selects the source; secondary players follow. Fixed groups (home theatre, stereo pairs) are set up in the BluOS app.
+The primary player selects the source; secondary players follow. Fixed groups (home theatre, stereo pairs) are set up in the BluOS Controller.
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
@@ -1260,7 +1260,7 @@ The answer of the forwarded request, e.g. the `SyncStatus` of the member.
 
 - Seen as `url` of fixed group members in `/Settings` (audio settings of a surround speaker).
 - Verified with `url=%2FSyncStatus`: answers the member's `/SyncStatus` (with `managedZoneSlave="true"`, `pairSlaveOnly`, `master`, `slaveVol`).
-- Changes settings of a group member: the app sends `POST /proxyToSlave?slave=<ip>%3A<port>&url=%2Fsetting` with the JSON body of the setting, e.g. `{"ledbrightness":"dim"}`.
+- Changes settings of a group member: the BluOS Controller sends `POST /proxyToSlave?slave=<ip>%3A<port>&url=%2Fsetting` with the JSON body of the setting, e.g. `{"ledbrightness":"dim"}`.
 
 ### `GET /RemoveSlave`
 
@@ -1305,7 +1305,7 @@ slaveVolume @min="-30" @max="30" @step="1" @isBalance="false" = "1"     (new tri
 
 - Seen in `/Settings?id=audio` of a fixed home theatre group ("Right Surround Trim", setting name `db`).
 - Verified: trim 0 → 1 dB, read back from `/Settings?id=audio`, restored. The member's own `/SyncStatus` shows the trim as `<slaveVol>`.
-- The BluOS app sends it as POST with a JSON body, e.g. `{"db":-4}`.
+- The BluOS Controller sends it as POST with a JSON body, e.g. `{"db":-4}`.
 
 ---
 
@@ -1355,7 +1355,7 @@ GET /Alarms?tz=<time zone>&id=<id>&enable=<0|1>&days=<flags>&hour=<HH>&minute=<M
 
 | Parameter | Meaning |
 |---|---|
-| `tz` | time zone of the client, e.g. `Europe/Berlin`; the app sends it with every request |
+| `tz` | time zone of the client, e.g. `Europe/Berlin`; the BluOS Controller sends it with every request |
 | `id` | alarm to change; without `id` (and with the alarm parameters) a new alarm is created |
 | `enable` | `1` = on, `0` = off; `/Alarms?id=1&enable=0` switches an alarm off |
 | `delete` | `1` together with `id`: deletes the alarm (`/Alarms?delete=1&id=2`) |
@@ -1379,7 +1379,7 @@ alarms @supportsEndTime="true"
 **Notes**
 
 - Reading (`/Alarms`, `/Alarms?tz=…`) verified; without alarms the list is empty.
-- Editing an alarm (`id` with all alarm parameters), switching it on / off (`id` + `enable`) and creating one (all alarm parameters, no `id`) and deleting (`delete=1&id=…`) are used by the BluOS app. The sources to choose from come from [`/RadioBrowse?service=Alarms`](#get-radiobrowse).
+- Editing an alarm (`id` with all alarm parameters), switching it on / off (`id` + `enable`) and creating one (all alarm parameters, no `id`) and deleting (`delete=1&id=…`) are used by the BluOS Controller. The sources to choose from come from [`/RadioBrowse?service=Alarms`](#get-radiobrowse).
 - Alarm attributes (sample: `hour="8" minute="0" days="0000001" duration="60" end="0900"`):
 
   | Attribute | Meaning |
@@ -1424,7 +1424,7 @@ No answer body (HTTP 200, empty).
 
 - Names, ranges and dependencies are from the player's own `/Settings?id=audio` answer (verified read); the form `/alsa_setting?<name>=<value>` comes from community projects. Verified with `eq-balance` (0 ↔ 0.5, read back from `/Settings?id=audio`, restored).
 - Which settings exist depends on the player (DSP, centre, subwoofer).
-- The BluOS app sends it as **POST** with a JSON body, e.g. `{"preset":"MOVIE"}`; GET with `?<name>=<value>` works as well (verified). Seen: `preset` (`MUSIC`, `MOVIE`, `TV`).
+- The BluOS Controller sends it as **POST** with a JSON body, e.g. `{"preset":"MOVIE"}`; GET with `?<name>=<value>` works as well (verified). Seen: `preset` (`MUSIC`, `MOVIE`, `TV`).
 - More: `{"eq-switch":"ON"}`, `{"eq-bass":-1}`, `{"eq-treble":-1.5}`, `{"eq-balance":1.5}`, `{"eq-centre-trim":-2.5}` (numbers without quotes), `{"resetPreset":1}`.
 
 ### `GET /apmode`
@@ -1467,7 +1467,7 @@ No answer body (HTTP 200, empty).
 **Notes**
 
 - Only `bluetoothAutoplay` is official (no answer body). `subwoofer`, `ears`, `volumeLimits`, `replayGainMode` with their values are from the player's own answers to `/Settings?id=audio` and `/Settings?id=capture` (verified read); `mqaDisable`, `fixedVolume`, `channelMode`, `enableClockTrim` only from community projects. Verified with `replayGainMode` (`album` ↔ `track`, read back from `/Settings?id=audio`, restored).
-- The BluOS app sends it as **POST** with a JSON body, e.g. `{"replayGainMode":"none"}`; GET with `?<name>=<value>` works as well (verified). Seen: `replayGainMode` (`none`, `track`, `album`, `smart`), `subwoofer` (`withsub`, `default`).
+- The BluOS Controller sends it as **POST** with a JSON body, e.g. `{"replayGainMode":"none"}`; GET with `?<name>=<value>` works as well (verified). Seen: `replayGainMode` (`none`, `track`, `album`, `smart`), `subwoofer` (`withsub`, `default`).
 - More: `{"bluetoothAutoplay":"0"}`, `{"ears":"ON"}`, `{"volumeLimits":"-70,-16"}`.
 
 ### `GET /audioPreset`
@@ -1505,7 +1505,7 @@ Plain text: the system log of the player (here about 2,600 lines / 290 KB, `sysl
 
 **Notes**
 
-- The app first checks with `HEAD /Dataexport`, then loads it with GET.
+- The BluOS Controller first checks with `HEAD /Dataexport`, then loads it with GET.
 - Verified. The log holds personal data (network, addresses, names).
 
 ### `GET /delete_index`
@@ -1621,7 +1621,7 @@ notification = "no errors"
 
 **Notes**
 
-- After a command that failed (here `/Back` on a radio station without back) the app reads `/error?2` and clears it with `/error?clear=1&counter=2`; the counter counts up.
+- After a command that failed (here `/Back` on a radio station without back) the BluOS Controller reads `/error?2` and clears it with `/error?clear=1&counter=2`; the counter counts up.
 - Verified with `/error?1` (nothing to report).
 
 ### `GET /GitVersion`
@@ -1676,7 +1676,7 @@ name = "Living Room"
 **Notes**
 
 - Without parameters (verified): the player name, the same as `@name` of [`/SyncStatus`](#get-syncstatus).
-- `set` renames the player ("Room name" in the app); verified.
+- `set` renames the player ("Room name" in the BluOS Controller); verified.
 
 ### `POST /reboot`
 
@@ -1716,7 +1716,7 @@ An HTTP redirect to that page (HTML).
 
 - Seen as `@url` of the root of [`/Services`](#get-services) (link to the music services page); "Cp" presumably means control panel.
 - Verified with `href=%2Fservices%3Fnoheader%3D1%26schemaVersion%3D0`: ends on the HTML page "Configure Music Services" (port 80).
-- Also `href=/diag&noheader=1` (diagnostics page, help area of the app).
+- Also `href=/diag&noheader=1` (diagnostics page, help area of the BluOS Controller).
 
 ### `GET /Reindex`
 
@@ -1746,7 +1746,7 @@ GET /Services?schemaVersion=<n>
 
 | Parameter | Meaning |
 |---|---|
-| `schemaVersion` | schema the client understands; the app sends `35` |
+| `schemaVersion` | schema the client understands; the BluOS Controller sends `35` |
 
 **Response format**
 
@@ -1806,7 +1806,7 @@ No answer body (HTTP 200, empty).
   | `capture-input<n>-groupCompress` | boolean | compressed audio to grouped players | `capture-input<n>` |
   | `capture-input<n>-isMqaSource` | boolean | MQA pass-through (optical inputs) | `capture-input<n>` |
   | `capture-input<n>-hide` | boolean | hide the source | `capture-input<n>` |
-- The BluOS app sends it as **POST** with a JSON body, e.g. `{"capture-input0-hide":"OFF"}`; GET with `?<name>=<value>` works as well (verified). Names: `capture-input<n>-hide`, `centre`, `amplifierStandby`, `proximity_enable`.
+- The BluOS Controller sends it as **POST** with a JSON body, e.g. `{"capture-input0-hide":"OFF"}`; GET with `?<name>=<value>` works as well (verified). Names: `capture-input<n>-hide`, `centre`, `amplifierStandby`, `proximity_enable`.
 - More names: `capture-input<n>-name`, `-icon`, `-preset`, `-autosense`, `-autosenseUngroup`, `-lowLatency`, `-latency` (number, e.g. `{"capture-input6-latency":80}`), `-groupCompress`; `ledbrightness`, `proximity_timeout` (number), `bluos_remote_channel`, `bluos_remote_enable`.
 
 ### `GET /Settings`
@@ -1819,7 +1819,7 @@ GET /Settings?id=<menu id>&schemaVersion=<n>&view=web
 |---|---|
 | `id` | menu page (the `@id` of a `menuGroup`); without it the top level |
 | `schemaVersion` | schema the client understands; the player reports its own in `/SyncStatus` (`schemaVersion="36"` on the test player). Lower values hide newer menus |
-| `view` | `web`: the page as web view, e.g. `/Settings?view=web&id=sendSupportRequest` (help area of the app) |
+| `view` | `web`: the page as web view, e.g. `/Settings?view=web&id=sendSupportRequest` (help area of the BluOS Controller) |
 
 **Response format**
 
@@ -1834,7 +1834,7 @@ settings @pageId @schemaVersion
 
 **Notes**
 
-- The settings tree the BluOS app shows. `@class` tells the control: `text`, `boolean`, `list`, `range`, `dual-range`, `iconlist`, `button`, `download`, `upload`, `alarms`, `sleep`.
+- The settings tree the BluOS Controller shows. `@class` tells the control: `text`, `boolean`, `list`, `range`, `dual-range`, `iconlist`, `button`, `download`, `upload`, `alarms`, `sleep`.
 - `@url` is the endpoint that changes the setting; a setting without `@url` uses the `@url` of its `menuGroup`. Seen: [`/setting`](#get-post-setting), [`/audiomodes`](#get-post-audiomodes), [`/alsa_setting`](#get-post-alsa_setting), [`/SlaveVolume`](#get-post-slavevolume), [`/proxyToSlave`](#get-post-proxytoslave), [`/Reindex`](#get-reindex), [`/RemoveSlave`](#get-removeslave), and on port 80 [`/sharecfg`](#get-sharecfg), [`/wificfg`](#get-wificfg), [`/triggercfg`](#get-triggercfg), [`/download_playlists_api`](#get-download_playlists_api), [`/upload_playlists_api`](#post-upload_playlists_api).
 - Verified with schema 36, all menu pages read: top level (alarms, sleep timer, room name, amplifier standby, fixed group, library, playlists), `audio`, `audioPreset`, `zone`, `zone_player-<ip><port>` (per group member), `player` (Wi-Fi, indicator brightness, Wi-Fi Direct), `proximity`, `ir_remote`, `bluos_remote`, `library`, `managePlaylists`, `capture`, `capture-input<n>` (per input).
 - `/Settings?view=web&id=sendSupportRequest` answers an empty page `settings @pageId="sendSupportRequest"` (verified).
@@ -1997,7 +1997,7 @@ GET /upgrade?noheader=1
 
 | Parameter | Meaning |
 |---|---|
-| `noheader` | `1` = page without its header (the app opens it like this in the help area) |
+| `noheader` | `1` = page without its header (the BluOS Controller opens it like this in the help area) |
 
 **Response format**
 
@@ -2062,7 +2062,7 @@ GET http://<player>:80/wificfg?noheader=1
 
 ## 13. BluOS Controller UI
 
-Screens and menus of the BluOS app (BluOS 4): the app asks the player for ready-made screen content under `/ui/…`. Every button and list entry carries the request it sends, so these answers show which player requests a screen uses. For an own app the endpoints of the other sections are the stable ones.
+Screens and menus of the BluOS Controller (BluOS 4): the BluOS Controller asks the player for ready-made screen content under `/ui/…`. Every button and list entry carries the request it sends, so these answers show which player requests a screen uses. For other clients the endpoints of the other sections are the stable ones.
 
 Common answer structure (verified):
 
@@ -2077,7 +2077,7 @@ screen @id @screenTitle @version @refreshOnPlayerChange [@service @navigationTit
 action @type @URI [@resultType @title @refreshScreen @haptic @notification @notificationIcon]
 ```
 
-Action types: `player-link` (send the player request in `URI`), `browse` (load another `/ui` screen or a context menu), `context-browse`, `webpage` (open a web page, e.g. `/redirectToCp?…`), `setting` (open `/Settings?id=…`), `confirmation` (ask first, then send `URI`), `deep-link` (navigation inside the app, e.g. `/settings`, `/add-preset`, `/edit-queue`, `/reorder-presets`, `/customise-screen`, `/music-service/<svc>` – not player endpoints), `reorder`, `add`.
+Action types: `player-link` (send the player request in `URI`), `browse` (load another `/ui` screen or a context menu), `context-browse`, `webpage` (open a web page, e.g. `/redirectToCp?…`), `setting` (open `/Settings?id=…`), `confirmation` (ask first, then send `URI`), `deep-link` (navigation inside the BluOS Controller, e.g. `/settings`, `/add-preset`, `/edit-queue`, `/reorder-presets`, `/customise-screen`, `/music-service/<svc>` – not player endpoints), `reorder`, `add`.
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
@@ -2088,16 +2088,16 @@ Action types: `player-link` (send the player request in `URI`), `browse` (load a
 | `GET /ui/browseMenuGroup` | menu of a source | | ✓ |
 | `GET /ui/BrowseObjects` | list of objects of a browse request (e.g. the saved playlists) | | ✓ |
 | `GET /ui/clearUsageHistory` | clear the "recent" rows of the home screen | | ✓ |
-| `GET /ui/Configuration` | configuration of the app screens | | ✓ |
+| `GET /ui/Configuration` | configuration of the BluOS Controller screens | | ✓ |
 | `GET /ui/ContextMenu` | context menu of an object (play, add, edit, delete) | | ✓ |
 | `GET /ui/Favourites` | favourites of a source | | ✓ |
-| `GET /ui/Home` | home screen of the app | | ✓ |
+| `GET /ui/Home` | home screen of the BluOS Controller | | ✓ |
 | `GET /ui/myPlaylistsRow` | row "My playlists" of the home screen per source | | ✓ |
 | `GET /ui/News` | news screen | | ✓ |
 | `GET /ui/nowPlayingCM` | context menu of the playing item | | ✓ |
-| `GET /ui/presets` | preset screen of the app | | ✓ |
-| `GET /ui/prf` | runs a player request for the app | | ✓ |
-| `GET /ui/Queue` | queue screen of the app | | ✓ |
+| `GET /ui/presets` | preset screen of the BluOS Controller | | ✓ |
+| `GET /ui/prf` | runs a player request for the BluOS Controller | | ✓ |
+| `GET /ui/Queue` | queue screen of the BluOS Controller | | ✓ |
 | `GET /ui/queueItemCM` | context menu of a queue entry | | ✓ |
 | `GET /ui/RecentlyPlayed` | recently played screen | | ✓ |
 | `GET /ui/resolveSoviURL` | resolve a "Sovi" URL (meaning not known) | | ✓ |
@@ -2113,7 +2113,7 @@ GET /ui/action?Cstyle=<style>~<type>&CBQ=<true|false>&Cfilter=<url>~<value>
 | Parameter | Meaning |
 |---|---|
 | `Cstyle` | display style per object type: `grid~Playlist` or `list~Playlist` |
-| `CBQ` | `true` / `false`: an app option (switched in the playlist screen; meaning not known) |
+| `CBQ` | `true` / `false`: a BluOS Controller option (switched in the playlist screen; meaning not known) |
 | `Cfilter` | filter of a list, e.g. `https://…/radio/podcasts/charts~it` (podcasts of Italy) |
 
 **Response format**
@@ -2202,8 +2202,8 @@ screen @id @screenTitle @service
 
 **Notes**
 
-- Artists, albums, songs and composers of the library; the app loads pages of 30 with `offset`.
-- Verified (628 artists): the letter index gives the offset of every letter, the app loads the pages it needs with `offset`.
+- Artists, albums, songs and composers of the library; the BluOS Controller loads pages of 30 with `offset`.
+- Verified (628 artists): the letter index gives the offset of every letter, the BluOS Controller loads the pages it needs with `offset`.
 
 ### `GET /ui/browseMenuGroup`
 
@@ -2225,7 +2225,7 @@ screen @id="screen-<svc>" @service @navigationTitle
 
 **Notes**
 
-- First screen of a source in the app.
+- First screen of a source in the BluOS Controller.
 - Verified (library).
 
 ### `GET /ui/BrowseObjects`
@@ -2296,7 +2296,7 @@ configuration
 
 **Notes**
 
-- Verified. Lists the app's entry screens; the app asks it first when it connects. `/ui/News`, `/ui/Search`, `/ui/nowPlayingCM` and `/ui/resolveSoviURL` are only known from this list.
+- Verified. Lists the BluOS Controller's entry screens; the BluOS Controller asks it first when it connects. `/ui/News`, `/ui/Search`, `/ui/nowPlayingCM` and `/ui/resolveSoviURL` are only known from this list.
 
 ### `GET /ui/ContextMenu`
 
@@ -2415,7 +2415,7 @@ contextMenu @title @subTitle @image
 
 **Notes**
 
-- Context menu of the playing item (from [`/ui/Configuration`](#get-uiconfiguration)); the app asks it when the now playing screen opens its menu.
+- Context menu of the playing item (from [`/ui/Configuration`](#get-uiconfiguration)); the BluOS Controller asks it when the now playing screen opens its menu.
 - Verified (a library track): Favourite via `/ui/prf?cgsc=1&u=/AddFavourite?fn=…`, Add to playlist via `/AddToPlaylistOptions?service=…&songid=…`.
 
 ### `GET /ui/presets`
@@ -2457,7 +2457,7 @@ The answer of the passed request, e.g. `volume @db @mute … = "16"` for `u=%2FV
 
 **Notes**
 
-- Runs the given request for the app.
+- Runs the given request for the BluOS Controller.
 - Verified with `u=%2FVolume`.
 
 ### `GET /ui/Queue`
@@ -2563,7 +2563,7 @@ screen @id="screen-<svc>-Search" @screenTitle="Search" @service
 
 **Notes**
 
-- The app sends a new request while the text is typed; results open with `/ui/browseContext` (e.g. `type=Artist&url=/Artists?…`).
+- The BluOS Controller sends a new request while the text is typed; results open with `/ui/browseContext` (e.g. `type=Artist&url=/Artists?…`).
 - Verified (library). The source selector uses `service=<svc>` as well.
 
 ### `GET /ui/Sources`
