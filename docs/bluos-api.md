@@ -33,7 +33,7 @@ How BluAlbum uses the API (clicks, requests, measurements): [`blu-album-api-usag
   | 11000 | control API of every player |
   | 11010, 11020, 11030 | nodes 2–4 of an NAD CI580 (node 1 = 11000); discover via mDNS |
   | 11004 | library server; the short library endpoints (`/Albums`, `/Artwork`, …) redirect here. The same `/library/v1/…` requests also answer on 11000 |
-  | 80 | web pages of the player: `/reboot`, `/sharecfg` |
+  | 80 | web pages of the player: `/reboot`, `/sharecfg`, `/wificfg`, `/triggercfg`, `/download_playlists_api`, `/upload_playlists_api` |
 
 - **Official / unofficial:** the column "Official" in each category overview marks endpoints of the official documentation. Unofficial endpoints come from the player's own answers (`url`, `playURL`, `actionURL` attributes), from community projects or from tests; they may change with any BluOS update.
 - **Verified** (column in each category overview, and in the notes) means checked on a Bluesound Powernode, BluOS 4.18.18, API v0.5.43, library on a network share (`service=LocalMusic`) and a USB drive (`service=<USB id>`), with the Bruno collection `tests/api`.
@@ -395,7 +395,7 @@ The play queue is the list the player plays from. Saved playlists belong to the 
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
-| `/AddToPlaylist` | add an album or a song to a saved playlist | | |
+| `/AddToPlaylist` | add an album or a song to a saved playlist | | ✓ |
 | `/AddToPlaylistOptions` | choices for adding an album or a song to a saved playlist | | ✓ |
 | `/Clear` | clear the queue | ✓ | ✓ |
 | `/Delete` | remove a queue entry or delete a saved playlist | ✓ | ✓ |
@@ -408,18 +408,25 @@ The play queue is the list the player plays from. Saved playlists belong to the 
 ### `/AddToPlaylist`
 
 ```
-/AddToPlaylist?sourceService=<svc>&album=<album>&artist=<artist>&<playlist parameter>
+/AddToPlaylist?sourceService=<svc>&album=<album>&artist=<artist>&name=<playlist>
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `sourceService` | source of the item |
 | `album` + `artist` | album to add (or the item parameters of the song) |
-| playlist | the chosen or new playlist; the parameter name is not known yet |
+| `name` | name of the saved playlist to add to |
+
+**Response format**
+
+```
+addToPlaylist @service="BluOS"
+```
 
 **Notes**
 
-- Seen as `urlPath` in the answer of [`/AddToPlaylistOptions`](#addtoplaylistoptions), with the `requestParameter` values to send. Not tried yet – it changes a saved playlist.
+- The request is built from the answer of [`/AddToPlaylistOptions`](#addtoplaylistoptions): its `urlPath` with the `requestParameter` values, plus `name`.
+- Verified: adding a library album to a test playlist made the playlist longer (counted with [`/Songs`](#songs)); the test playlist was deleted again.
 
 ### `/AddToPlaylistOptions`
 
@@ -670,7 +677,8 @@ presets @prid
 **Notes**
 
 - Without parameters (verified) the answer is the preset list, the same as [`/Presets`](#presets).
-- Stores an item as a preset. The parameters come from the player's own description in [`/Services`](#services) (request type `preset`, item parameters `name`, `url`, `image`); not tried yet – it changes the presets of the player.
+- Stores an item as a preset. The parameters come from the player's own description in [`/Services`](#services) (request type `preset`, item parameters `name`, `url`, `image`).
+- Verified: stores the preset in the first free slot (here id 5), answers the new preset list; `prid` changes. `url` is stored URL-encoded and without `volume`. No request to delete a preset is known – remove it in the BluOS app.
 
 ---
 
@@ -679,6 +687,7 @@ presets @prid
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
 | `/Browse` | menu tree, lists, context menus, search | ✓ | ✓ |
+| `/Info` | information on an artist, album, track or station (last.fm, lyrics, technical data) | | ✓ |
 | `/RadioBrowse` | list of the inputs; radio menus | ✓ | ✓ |
 
 ### `/Browse`
@@ -728,6 +737,29 @@ browse @type @sid @service @serviceName @serviceIcon @searchKey @nextKey @parent
   | `<svc>:CM/LocalMusic-Album?album=…&artist=…[&isFavourite=1]` | `@type="contextMenu"` · `item ×5 @actionURL @text @type` (`favourite-add/-delete`, `add-now`, `add-shuffle`, `addAll-next`, `addAll-last`) | 1.0 KB |
   | `<svc>:Search` + `q=love` | `@type="menu"` · `item ×4` (links to artists, albums, songs, composers); every list returns all hits | 0.7 KB |
   | `LocalMusic:Playlist/…imported=1` | imported playlists (empty here) | 0.2 KB |
+
+### `/Info`
+
+```
+/Info?service=<svc>&artist=<artist>&album=<album>&title=<title>&category=technical&filename=<file>&lyricsid=<id>&infourl=<url>&url=<url>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `service` | source, e.g. `LocalMusic` or the USB id |
+| `artist` | artist info; with `album` album info, with `album` + `title` track info |
+| `category` | `technical` together with `filename`: technical data of a file (short form, result type `BriefInfo`) |
+| `filename` | file of the track |
+| `lyricsid` | lyrics of a track (short form, result type `BriefInfo`) |
+| `infourl` | info page of the playing item (compare `<infourl>` in `/Status`) |
+| `url` | info on a radio station or stream |
+
+**Notes**
+
+- The variants come from the player's description in [`/Services`](#services) (menu entries of type `info`).
+- Verified: artist / album / track info of the library redirects to last.fm; `category=technical&filename=…` answered empty. Not usable for BluAlbum.
+- Verified with `infourl` (Radio Paradise, `<infourl>` from `/Status`): answers the info web page itself (here a Wikipedia page, HTML).
+- `lyricsid` and `url` not tried yet.
 
 ### `/RadioBrowse`
 
@@ -1149,9 +1181,9 @@ The primary player selects the source; secondary players follow. Fixed groups (h
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
 | `/AddSlave` | add players to a group | ✓ | |
-| `/proxyToSlave` | forward a request to a group member | | |
+| `/proxyToSlave` | forward a request to a group member | | ✓ |
 | `/RemoveSlave` | remove players from a group | ✓ | |
-| `/SlaveVolume` | level trim of a member of a fixed group | | |
+| `/SlaveVolume` | level trim of a member of a fixed group | | ✓ |
 
 ### `/AddSlave`
 
@@ -1190,9 +1222,14 @@ addSlave
 | `slave` | address and port of the group member |
 | `url` | URL-encoded request to forward, e.g. `%2Faudiomodes` |
 
+**Response format**
+
+The answer of the forwarded request, e.g. the `SyncStatus` of the member.
+
 **Notes**
 
 - Seen as `url` of fixed group members in `/Settings` (audio settings of a surround speaker).
+- Verified with `url=%2FSyncStatus`: answers the member's `/SyncStatus` (with `managedZoneSlave="true"`, `pairSlaveOnly`, `master`, `slaveVol`).
 
 ### `/RemoveSlave`
 
@@ -1226,9 +1263,16 @@ The [`/SyncStatus`](#syncstatus) answer of the primary player.
 | `slave` | address and port of the group member |
 | `db` | level trim in dB, -30 … 30 in steps of 1 |
 
+**Response format**
+
+```
+slaveVolume @min="-30" @max="30" @step="1" @isBalance="false" = "1"     (new trim in dB)
+```
+
 **Notes**
 
-- Seen in `/Settings?id=audio` of a fixed home theatre group ("Right Surround Trim", setting name `db`, verified read). Not sent yet – it changes the sound.
+- Seen in `/Settings?id=audio` of a fixed home theatre group ("Right Surround Trim", setting name `db`).
+- Verified: trim 0 → 1 dB, read back from `/Settings?id=audio`, restored. The member's own `/SyncStatus` shows the trim as `<slaveVol>`.
 
 ---
 
@@ -1237,25 +1281,29 @@ The [`/SyncStatus`](#syncstatus) answer of the primary player.
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
 | `/Alarms` | list of the alarms with time, days, source and volume | | ✓ |
-| `/alsa_setting` | listening mode and tone controls | | |
-| `/audiomodes` | audio and Bluetooth modes | ✓ | |
+| `/alsa_setting` | listening mode and tone controls | | ✓ |
+| `/audiomodes` | audio and Bluetooth modes | ✓ | ✓ |
 | `/audioPreset` | current listening mode and its choices | | ✓ |
-| `/Doorbell` | play the doorbell chime | ✓ | |
+| `/Doorbell` | play the doorbell chime | ✓ | ✓ |
+| `/download_playlists_api` | backup of the saved playlists (port 80) | | ✓ |
 | `/GitVersion` | BluOS version | | ✓ |
 | `/LastScanCode` | last received IR code | | ✓ |
 | `/Name` | player name | | ✓ |
 | `/reboot` | soft reboot (POST, port 80) | ✓ | |
-| `/redirectToCp` | redirect to a page of the web interface | | |
-| `/Reindex` | rescan the music library | | |
+| `/redirectToCp` | redirect to a page of the web interface | | ✓ |
+| `/Reindex` | rescan the music library | | ✓ |
 | `/Services` | self-description of the sources | | ✓ |
-| `/setting` | change a simple setting | | |
+| `/setting` | change a simple setting | | ✓ |
 | `/Settings` | settings tree of the player | ✓ | ✓ |
 | `/sharecfg` | web page for network shares (port 80) | | ✓ |
 | `/ShowIRCodes` | IR codes learned from a paired remote control | | ✓ |
 | `/Sleep` | step the sleep timer | | ✓ |
+| `/triggercfg` | web page for learning IR remote codes (port 80) | | ✓ |
 | `/update` | purpose unknown (presumably firmware update status) | | ✓ |
-| `/upgrade` | redirect to a web page, presumably the firmware upgrade | | |
+| `/upgrade` | redirect to a web page, presumably the firmware upgrade | | ✓ |
+| `/upload_playlists_api` | restore the saved playlists (port 80) | | |
 | `/Version` | API version | | ✓ |
+| `/wificfg` | web page for the Wi-Fi settings (port 80) | | ✓ |
 
 ### `/Alarms`
 
@@ -1297,7 +1345,7 @@ alarms @supportsEndTime="true"
 ### `/alsa_setting`
 
 ```
-/alsa_setting?preset=<mode>&eq-switch=<ON|OFF>&eq-treble=<dB>&eq-bass=<dB>&eq-balance=<n>&eq-centre-trim=<n>&eq-crossover=<Hz>&reset
+/alsa_setting?preset=<mode>&eq-switch=<ON|OFF>&eq-treble=<dB>&eq-bass=<dB>&eq-balance=<n>&eq-centre-trim=<n>&eq-crossover=<Hz>&reset&resetPreset
 ```
 
 | Parameter | Meaning |
@@ -1308,11 +1356,16 @@ alarms @supportsEndTime="true"
 | `eq-balance` | balance: -7 … 7 in steps of 0.5 |
 | `eq-centre-trim` | centre level: -10 … 10 in steps of 0.5 (only with centre channel on) |
 | `eq-crossover` | subwoofer crossover: 40 … 200 Hz in steps of 10 (only with a subwoofer) |
-| `reset` | "Reset All" button: back to the defaults |
+| `reset` | "Reset All" button: all listening modes back to the defaults |
+| `resetPreset` | "Reset Music Mode" button: only the current listening mode |
+
+**Response format**
+
+No answer body (HTTP 200, empty).
 
 **Notes**
 
-- Names, ranges and dependencies are from the player's own `/Settings?id=audio` answer (verified read); the form `/alsa_setting?<name>=<value>` comes from community projects. Not sent yet – it changes the sound.
+- Names, ranges and dependencies are from the player's own `/Settings?id=audio` answer (verified read); the form `/alsa_setting?<name>=<value>` comes from community projects. Verified with `eq-balance` (0 ↔ 0.5, read back from `/Settings?id=audio`, restored).
 - Which settings exist depends on the player (DSP, centre, subwoofer).
 
 ### `/audiomodes`
@@ -1333,9 +1386,13 @@ alarms @supportsEndTime="true"
 | `channelMode` | channel mode |
 | `enableClockTrim` | `ON` / `OFF` |
 
+**Response format**
+
+No answer body (HTTP 200, empty).
+
 **Notes**
 
-- Only `bluetoothAutoplay` is official (no answer body). `subwoofer`, `ears`, `volumeLimits`, `replayGainMode` with their values are from the player's own answers to `/Settings?id=audio` and `/Settings?id=capture` (verified read); `mqaDisable`, `fixedVolume`, `channelMode`, `enableClockTrim` only from community projects. Not sent yet – it changes the sound.
+- Only `bluetoothAutoplay` is official (no answer body). `subwoofer`, `ears`, `volumeLimits`, `replayGainMode` with their values are from the player's own answers to `/Settings?id=audio` and `/Settings?id=capture` (verified read); `mqaDisable`, `fixedVolume`, `channelMode`, `enableClockTrim` only from community projects. Verified with `replayGainMode` (`album` ↔ `track`, read back from `/Settings?id=audio`, restored).
 
 ### `/audioPreset`
 
@@ -1373,6 +1430,25 @@ setting @id="preset" @name="preset" @displayName="Listening Mode" @url="http://<
 ```
 status @enable @volume @chime="Doorbell:audio/chime_1.mp3"
 ```
+
+**Notes**
+- Verified on the Powernode: `<error>Not supported</error>` – the doorbell chime depends on the player model.
+
+### `/download_playlists_api`
+
+```
+http://<player>:80/download_playlists_api
+```
+
+No known parameters.
+
+**Response format**
+
+JSON: an array with one object per saved playlist (structure not looked at in detail).
+
+**Notes**
+
+- Verified (3 playlists → 3 objects). Setting "Backup playlists" (class `download`) in `/Settings?id=managePlaylists`: downloads all saved BluOS playlists.
 
 ### `/GitVersion`
 
@@ -1459,7 +1535,8 @@ An HTTP redirect to that page (HTML).
 
 **Notes**
 
-- Seen as `@url` of the root of [`/Services`](#services) (link to the music services page); "Cp" presumably means control panel. Not tried yet.
+- Seen as `@url` of the root of [`/Services`](#services) (link to the music services page); "Cp" presumably means control panel.
+- Verified with `href=%2Fservices%3Fnoheader%3D1%26schemaVersion%3D0`: ends on the HTML page "Configure Music Services" (port 80).
 
 ### `/Reindex`
 
@@ -1469,10 +1546,17 @@ An HTTP redirect to that page (HTML).
 
 No parameters.
 
+**Response format**
+
+```
+indexing = "1"
+```
+
 **Notes**
 
 - Starts a rescan of the music library ("Reindex music collection" button in `/Settings`).
-- `/Status` has an `<indexing>` element (0 in the official sample), presumably the indexing state.
+- Verified: answers `<indexing>1</indexing>` and starts the rescan, which runs in the background (on the test player still running after several minutes).
+- `<indexing>` in `/Status` does **not** show the rescan: 3 s after the start it was `0` while the rescan was still running. How to follow its progress is not known.
 
 ### `/Services`
 
@@ -1506,12 +1590,39 @@ services @schemaVersion @sid @url="/redirectToCp?href=…"
 
 | Parameter | Meaning |
 |---|---|
-| `<name>` | `@name` of a setting whose `@url` is `/setting`, e.g. `zonename`, `amplifierStandby`, `resizeall`, `server`, `centre` (centre channel) |
+| `<name>` | `@name` of a setting whose `@url` (or its menu's `@url`) is `/setting`, see the table below |
 | `<value>` | new value; booleans use `ON` / `OFF` |
+
+**Response format**
+
+No answer body (HTTP 200, empty).
 
 **Notes**
 
-- The names come from `/Settings` (verified read); the form is presumed from community projects (`/setting?centre=ON|OFF`). Not sent yet.
+- Verified with `ledbrightness` (`dim` ↔ `default`, read back from `/Settings?id=player`, restored). The names, classes and ranges come from the player's `/Settings` tree:
+
+  | Name | Class | Values | Menu |
+  |---|---|---|---|
+  | `zonename` | text | room / group name | top level |
+  | `amplifierStandby` | boolean | `ON` / `OFF` | top level |
+  | `resizeall` | boolean | optimise artwork | `library` |
+  | `server` | boolean | server mode (share the USB drive) | `library` |
+  | `centre` | boolean | centre channel | `audio` |
+  | `ledbrightness` | list | `default`, `dim`, `off` | `player`, group members via `/proxyToSlave` |
+  | `zoneap-enable` | boolean | Wi-Fi Direct | `player` |
+  | `proximity_enable` | boolean | proximity sensor | `proximity` |
+  | `proximity_timeout` | range | 2 … 10 s | `proximity` |
+  | `bluos_remote_enable` | boolean | BluOS IR remote | `bluos_remote` |
+  | `bluos_remote_channel` | list | IR channel `0` … `7` | `bluos_remote` |
+  | `capture-input<n>-name` | text | name of input `n` | `capture-input<n>` |
+  | `capture-input<n>-icon` | iconlist | an `/images/capture/ic_….png` path | `capture-input<n>` |
+  | `capture-input<n>-preset` | list | listening mode of the input (e.g. `MUSIC`, `TV`) | `capture-input<n>` |
+  | `capture-input<n>-autosense`, `…-autosenseUngroup` | boolean | switch to the input on signal, ungroup then | `capture-input<n>` |
+  | `capture-input<n>-lowLatency` | boolean | A/V mode | `capture-input<n>` |
+  | `capture-input<n>-latency` | range | lip-sync delay 50 … 150 ms, steps of 10 | `capture-input<n>` |
+  | `capture-input<n>-groupCompress` | boolean | compressed audio to grouped players | `capture-input<n>` |
+  | `capture-input<n>-isMqaSource` | boolean | MQA pass-through (optical inputs) | `capture-input<n>` |
+  | `capture-input<n>-hide` | boolean | hide the source | `capture-input<n>` |
 
 ### `/Settings`
 
@@ -1521,21 +1632,25 @@ services @schemaVersion @sid @url="/redirectToCp?href=…"
 
 | Parameter | Meaning |
 |---|---|
-| `id` | sub menu, e.g. `audio`, `capture`; without it the top level |
-| `schemaVersion` | schema the client understands (32 in the official example) |
+| `id` | menu page (the `@id` of a `menuGroup`); without it the top level |
+| `schemaVersion` | schema the client understands; the player reports its own in `/SyncStatus` (`schemaVersion="36"` on the test player). Lower values hide newer menus |
 
 **Response format**
 
 ```
-settings @schemaVersion
-  setting @id @name @displayName @class @value @url @icon [@description @explanation @pattern …]
+settings @pageId @schemaVersion
+  setting @id @name @displayName @class @value @url @icon [@description @explanation @pattern @refresh @hideIfDisabled …]
+    value ×n @name @displayName [@min @max @step @units @minRange]    (choices or range)
+    dependsOn @name @value                                            (shown only when that setting has that value)
+    webview @url                                                      (setting opens a web page)
   menuGroup @id @displayName @url @icon [@inline @description] > setting ×n, menuGroup ×n
 ```
 
 **Notes**
 
-- The tree the BluOS app shows. `@class` tells the control (`text`, `boolean`, `list`, `button`, `alarms`, `sleep`, …); `@url` is the endpoint that changes the setting (`/setting`, `/audiomodes`, `/Reindex`, `/RemoveSlave`, `/proxyToSlave?…`, `http://<player>:80/sharecfg?noheader=1`).
-- Verified on the Powernode (schema 28 without the parameter): alarms, sleep timer, audio, room / zone name (`zonename`), amplifier standby, fixed group members, network shares (`sharecfg`), reindex, artwork optimisation (`resizeall`), server mode (`server`).
+- The settings tree the BluOS app shows. `@class` tells the control: `text`, `boolean`, `list`, `range`, `dual-range`, `iconlist`, `button`, `download`, `upload`, `alarms`, `sleep`.
+- `@url` is the endpoint that changes the setting; a setting without `@url` uses the `@url` of its `menuGroup`. Seen: [`/setting`](#setting), [`/audiomodes`](#audiomodes), [`/alsa_setting`](#alsa_setting), [`/SlaveVolume`](#slavevolume), [`/proxyToSlave`](#proxytoslave), [`/Reindex`](#reindex), [`/RemoveSlave`](#removeslave), and on port 80 [`/sharecfg`](#sharecfg), [`/wificfg`](#wificfg), [`/triggercfg`](#triggercfg), [`/download_playlists_api`](#download_playlists_api), [`/upload_playlists_api`](#upload_playlists_api).
+- Verified with schema 36, all menu pages read (Bruno V12): top level (alarms, sleep timer, room name, amplifier standby, fixed group, library, playlists), `audio`, `audioPreset`, `zone`, `zone_player-<ip><port>` (per group member), `player` (Wi-Fi, indicator brightness, Wi-Fi Direct), `proximity`, `ir_remote`, `bluos_remote`, `library`, `managePlaylists`, `capture`, `capture-input<n>` (per input).
 
 ### `/sharecfg`
 
@@ -1553,7 +1668,7 @@ An HTML page (single-page web app "BluOS", the script loads the content).
 
 **Notes**
 
-- Verified. Web page of the player for the network shares of the library; linked in `/Settings`.
+- Verified. Web page of the player for the network shares of the library; linked in `/Settings` as `<webview url=…>`.
 
 ### `/ShowIRCodes`
 
@@ -1597,6 +1712,22 @@ sleep = "30"     (minutes until the player switches off)
 - Verified: the answer is the minutes until the player switches off.
 - Each call steps the timer: 15 → 30 → 45 → 60 → 90 min → off (community projects), so even a call just to read the value changes the timer. To only read it, use `<sleep>` in [`/Status`](#status).
 
+### `/triggercfg`
+
+```
+http://<player>:80/triggercfg?noheader=1&playnum=1
+```
+
+| Parameter | Meaning |
+|---|---|
+| `noheader` | `1` = page without its header |
+| `playnum` | seen as `1`; meaning not known |
+
+**Notes**
+
+- Setting "IR Learning" (`<webview>`) in `/Settings?id=ir_remote`: web page to learn the codes of a remote control; the result shows in [`/ShowIRCodes`](#showircodes).
+- Verified: answers the HTML shell of the web app "BluOS" (like `/sharecfg`); opening it did not change anything noticeable.
+
 ### `/update`
 
 ```
@@ -1633,6 +1764,18 @@ An HTTP redirect to a web page (not XML).
 - Seen on the player: the request redirects to a web page, presumably the firmware upgrade page of the player. Not checked further.
 - Open it only on purpose: the page may start a firmware upgrade. Compare [`/update`](#update).
 
+### `/upload_playlists_api`
+
+```
+http://<player>:80/upload_playlists_api
+```
+
+No known parameters.
+
+**Notes**
+
+- Setting "Restore Playlists" (class `upload`) in `/Settings?id=managePlaylists`: presumably uploads a JSON backup from [`/download_playlists_api`](#download_playlists_api) (method and form field not known). Not tried – it replaces the saved playlists.
+
 ### `/Version`
 
 ```
@@ -1646,3 +1789,18 @@ No parameters.
 ```
 version = "v0.5.43"
 ```
+
+### `/wificfg`
+
+```
+http://<player>:80/wificfg?noheader=1
+```
+
+| Parameter | Meaning |
+|---|---|
+| `noheader` | `1` = page without its header |
+
+**Notes**
+
+- Setting "WiFi" (`<webview>`) in `/Settings?id=player`.
+- Verified: answers the HTML shell of the web app "BluOS" (like `/sharecfg`).
