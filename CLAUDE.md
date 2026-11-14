@@ -100,8 +100,9 @@ Pitfalls:
   `/library/v1/Songs`, `/library/v1/Albums`); the album popup has no genre line (decided
   2026-11-14, the former genre crawl cost ≈ 560 requests).
 - `/Artists`, `/Albums`, `/Songs`, `/Genres`, `/Composers`, `/Folders` are only 302 redirects to
-  `/library/v1/…` on port 11004. Full endpoint reference: `docs/api-endpoints.md`; clicks and
-  their requests: `docs/api-calls.md`.
+  `/library/v1/…` on port 11004. BluOS API reference (official v1.7 + unofficial endpoints, by
+  category, with source tags): `docs/bluos-api.md`; BluAlbum's clicks, their requests and endpoint
+  choices: `docs/blu-album-api-usage.md`.
 - URLs for play / queue / favourites come from `/Browse`; only the `/library/v1` lists (New,
   Favourites, quality) build them by the fixed pattern in `libAlbum()` (decided 2026-11-14: no
   further self-built URLs).

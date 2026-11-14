@@ -4,6 +4,9 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Docs: new BluOS API reference `docs/bluos-api.md` (official Custom Integration API v1.7 and
+  unofficial endpoints, grouped by category, with source tags); the BluAlbum-specific part moved
+  to `docs/blu-album-api-usage.md` (was `api-calls.md`).
 
 ## 0.8.1
 - Security: cover image URLs from player answers are checked (only on the player or http(s)),
