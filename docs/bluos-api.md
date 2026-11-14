@@ -34,7 +34,7 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
   | 11000 | control API of every player |
   | 11010, 11020, 11030 | nodes 2–4 of an NAD CI580 (node 1 = 11000); discover via mDNS |
   | 11004 | library server; the short library endpoints (`/Albums`, `/Artwork`, …) redirect here. The same `/library/v1/…` requests also answer on 11000 |
-  | 80 | web pages of the player: `/reboot`, `/sharecfg`, `/wificfg`, `/triggercfg`, `/download_playlists_api`, `/upload_playlists_api` |
+  | 80 | web pages of the player: `/reboot`, `/sharecfg`, `/Shares`, `/diag`, `/diagnostics`, `/wificfg`, `/triggercfg`, `/download_playlists_api`, `/upload_playlists_api` |
 
 - **Errors:** endpoints answer with HTTP errors or with an `<error>` root element instead of the expected one; clients should check the root element name.
 - **Unknown elements** in answers are to be ignored; the official documentation lists only part of them.
@@ -1334,7 +1334,7 @@ slaveVolume @min="-30" @max="30" @step="1" @isBalance="false" = "1"     (new tri
 | `GET /Settings` | settings tree of the player | ✓ | ✓ |
 | `GET /settings/sendSupportRequest` | web page "Send support request" | | |
 | `GET /sharecfg` | web page for network shares (port 80) | | ✓ |
-| `GET /Shares` | network shares of the library | | |
+| `GET /Shares` | network shares of the library (port 80) | | ✓ |
 | `GET /ShowIRCodes` | IR codes learned from a paired remote control | | ✓ |
 | `GET /Sleep` | step the sleep timer | | ✓ |
 | `GET /triggercfg` | web page for learning IR remote codes (port 80) | | ✓ |
@@ -1623,7 +1623,7 @@ name = "Living Room"
 **Notes**
 
 - Without parameters (verified): the player name, the same as `@name` of [`/SyncStatus`](#get-syncstatus).
-- `set` renames the player ("Room name" in the app, seen in a capture of the BluOS app).
+- `set` renames the player ("Room name" in the app); verified with Bruno S31–S35 (rename and back).
 
 ### `POST /reboot`
 
@@ -1820,14 +1820,24 @@ An HTML page (single-page web app "BluOS", the script loads the content).
 ### `GET /Shares`
 
 ```
-GET /Shares
+GET http://<player>:80/Shares
 ```
 
 No known parameters.
 
+**Response format**
+
+```
+shares @count
+  share ×n
+    sharename = "\\<server>\<share>"
+    username  = "<user name>"
+```
+
 **Notes**
 
-- Asked by the network shares page ([`/sharecfg`](#get-sharecfg)) – seen in a capture of the BluOS app; presumably the list of configured shares. Answer not looked at yet.
+- Verified (Bruno V31): the network shares of the library with their user names (no passwords) – the answer holds personal data. Asked by the network shares page ([`/sharecfg`](#get-sharecfg)).
+- On port 11000 the answer is `404 page not found`.
 
 ### `GET /ShowIRCodes`
 
@@ -1993,9 +2003,9 @@ Action types: `player-link` (send the player request in `URI`), `browse` (load a
 |---|---|:---:|:---:|
 | `GET /ui/action` | change a display option of a screen | | |
 | `GET /ui/browseContext` | header of a browse page (e.g. a playlist with play / shuffle buttons) | | ✓ |
-| `GET /ui/browseGenres` | genre screen of a source | | |
-| `GET /ui/browseGrouped` | list of a library menu entry with letters / pages | | |
-| `GET /ui/browseMenuGroup` | menu of a source | | |
+| `GET /ui/browseGenres` | genre screen of a source | | ✓ |
+| `GET /ui/browseGrouped` | list of a library menu entry with letters / pages | | ✓ |
+| `GET /ui/browseMenuGroup` | menu of a source | | ✓ |
 | `GET /ui/BrowseObjects` | list of objects of a browse request (e.g. the saved playlists) | | ✓ |
 | `GET /ui/clearUsageHistory` | clear the "recent" rows of the home screen | | |
 | `GET /ui/Configuration` | configuration of the app screens | | ✓ |
@@ -2004,14 +2014,14 @@ Action types: `player-link` (send the player request in `URI`), `browse` (load a
 | `GET /ui/Home` | home screen of the app | | ✓ |
 | `GET /ui/myPlaylistsRow` | row "My playlists" of the home screen per source | | ✓ |
 | `GET /ui/News` | news screen | | |
-| `GET /ui/nowPlayingCM` | context menu of the playing item | | |
+| `GET /ui/nowPlayingCM` | context menu of the playing item | | ✓ |
 | `GET /ui/presets` | preset screen of the app | | ✓ |
 | `GET /ui/prf` | runs a player request for the app | | |
 | `GET /ui/Queue` | queue screen of the app | | ✓ |
 | `GET /ui/queueItemCM` | context menu of a queue entry | | ✓ |
 | `GET /ui/RecentlyPlayed` | recently played screen | | ✓ |
 | `GET /ui/resolveSoviURL` | resolve a "Sovi" URL (meaning not known) | | |
-| `GET /ui/Search` | search screen | | |
+| `GET /ui/Search` | search screen | | ✓ |
 | `GET /ui/Sources` | list of sources (navigation drawer) | | ✓ |
 
 ### `GET /ui/action`
@@ -2070,9 +2080,17 @@ GET /ui/browseGenres?service=<svc>&genreGroupId=Genres&title=<title>&url=<encode
 | `url` | list of genres, e.g. `/library/v1/Genres?service=LocalMusic` |
 | `genre`, `withGenre` | one genre (`withGenre=1`) |
 
+**Response format**
+
+```
+screen @id="screen-<svc>-Genres" @screenTitle
+  list > item ×n @title > action (/ui/browseGenres?genre=…&withGenre=1), contextMenu (/ui/ContextMenu?context=Genre&genre=…)
+```
+
 **Notes**
 
 - Genre list and the screen of one genre (seen in a capture of the BluOS app).
+- Verified (Bruno V30, library).
 
 ### `GET /ui/browseGrouped`
 
@@ -2088,9 +2106,19 @@ GET /ui/browseGrouped?service=<svc>&menuGroupId=<id>&browseIndex=<n>&title=<titl
 | `type` | `Artist`, `Album`, `Song`, `Composer` |
 | `url` | list request with `offset`, e.g. `/library/v1/Artists?service=LocalMusic&offset=30`, `/library/v1/Songs?all=1&service=LocalMusic` |
 
+**Response format**
+
+```
+screen @id @screenTitle @service
+  list @offset @total
+    index @revision > item ×n @key ("A", "B", …) @offset @length      (letter index of the whole list)
+    item ×n @title > action, contextMenu                             (30 entries per page)
+```
+
 **Notes**
 
 - Artists, albums, songs and composers of the library (seen in a capture of the BluOS app); the app loads pages of 30 with `offset`.
+- Verified (Bruno V29, 628 artists): the letter index gives the offset of every letter, the app loads the pages it needs with `offset`.
 
 ### `GET /ui/browseMenuGroup`
 
@@ -2103,9 +2131,17 @@ GET /ui/browseMenuGroup?service=<svc>&menuGroupId=<id>&title=<title>
 | `service` | source, e.g. `LocalMusic`, `TuneIn`, `RadioParadise`, `Airable` |
 | `menuGroupId` | sub menu, e.g. `LocalMusic-Favourites` |
 
+**Response format**
+
+```
+screen @id="screen-<svc>" @service @navigationTitle
+  row ×n @id @title (Artists, Albums, Songs, Genres, Playlists, Composers, Folders, Favourites, New …) > action (/ui/browseGrouped | /ui/browseGenres | /ui/BrowseObjects …)
+```
+
 **Notes**
 
 - First screen of a source in the app (seen in a capture of the BluOS app).
+- Verified (Bruno V28, library).
 
 ### `GET /ui/BrowseObjects`
 
@@ -2180,7 +2216,7 @@ GET /ui/ContextMenu?context=<context>&sourceContext=<context>&service=<svc>&type
 
 | Parameter | Meaning |
 |---|---|
-| `context`, `sourceContext` | object type of the menu: `Playlist`, `Album`, `Artist`, `Song` (with `filename`), `Folder` (with `path`) |
+| `context`, `sourceContext` | object type of the menu: `Playlist`, `Album`, `Artist`, `Genre` (with `genre`), `Song` (with `filename`), `Folder` (with `path`) |
 | `type` | e.g. `preset` |
 | `service` | source of the object |
 | `id`, `name`, `title`, `playlist`, `album`, `artist`, `isFavourite`, `url`, `image`, `volume` | the object's own attributes, e.g. of a preset, a playlist or an album |
@@ -2274,9 +2310,17 @@ GET /ui/nowPlayingCM
 
 No known parameters.
 
+**Response format**
+
+```
+contextMenu @title @subTitle @image
+  item ×n @text @icon > action   (Favourite, Add to playlist…, Go to album, Go to artist, Info, Technical info)
+```
+
 **Notes**
 
-- Context menu of the playing item (from [`/ui/Configuration`](#get-uiconfiguration)); seen in a capture of the BluOS app when the now playing screen opens its menu. Answer not looked at yet.
+- Context menu of the playing item (from [`/ui/Configuration`](#get-uiconfiguration)); seen in a capture of the BluOS app when the now playing screen opens its menu.
+- Verified (Bruno V26, a library track): Favourite via `/ui/prf?cgsc=1&u=/AddFavourite?fn=…`, Add to playlist via `/AddToPlaylistOptions?service=…&songid=…`.
 
 ### `GET /ui/presets`
 
@@ -2394,18 +2438,29 @@ Parameters not known.
 ### `GET /ui/Search`
 
 ```
-GET /ui/Search?q=<text>&forService=<svc>&CsearchService=<svc>
+GET /ui/Search?q=<text>&forService=<svc>&service=<svc>&CsearchService=<svc>
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `q` | search text |
 | `forService` | search in one source, e.g. `LocalMusic`, `TuneIn` |
+| `service` | the same, used by the source selector of the answer |
 | `CsearchService` | choose the source of the search screen, e.g. `Airable` |
+
+**Response format**
+
+```
+screen @id="screen-<svc>-Search" @screenTitle="Search" @service
+  selectorMenu > item ×n @text @icon @selected > action (/ui/Search?service=<svc>&q=…)   (Library, Radio, TuneIn, USB)
+  search @value @prompt @parameterName="q" @URI="/ui/Search?forService=<svc>"
+  list ×n @title (Artists, Albums, Songs, Composers) > item ×n … , "View All"
+```
 
 **Notes**
 
-- Seen in a capture of the BluOS app: the app sends a new request while the text is typed; results open with `/ui/browseContext` (e.g. `type=Artist&url=/Artists?…`). Answer not looked at yet.
+- Seen in a capture of the BluOS app: the app sends a new request while the text is typed; results open with `/ui/browseContext` (e.g. `type=Artist&url=/Artists?…`).
+- Verified (Bruno V27, library). The source selector uses `service=<svc>` as well.
 
 ### `GET /ui/Sources`
 

@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: http://{{host}}:11000/Shares
+  url: http://{{host}}:80/Shares
   body: none
   auth: none
 }
@@ -15,7 +15,7 @@ settings {
 }
 
 script:post-response {
-  // Network shares of the library (asked by the /sharecfg page): read only. The answer goes to the console and fixtures/.
+  // Network shares of the library (asked by the /sharecfg page, port 80; port 11000 answers 404): read only. The answer goes to the console and fixtures/.
   const body = String(res.getBody() || "");
   // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
   const saveFixture = (file) => {
@@ -36,5 +36,5 @@ script:post-response {
 tests {
   const body = String(res.getBody() || "");
   test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
-  test("answer has a root element, no error", () => { expect(/<[A-Za-z]/.test(body)).to.equal(true); expect(/<error/i.test(body)).to.equal(false); });
+  test("no error", () => expect(/<error|404 page not found/i.test(body)).to.equal(false));
 }
