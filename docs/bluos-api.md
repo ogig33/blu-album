@@ -777,7 +777,7 @@ GET /Info?service=<svc>&artist=<artist>&album=<album>&title=<title>&category=tec
 **Notes**
 
 - The variants come from the player's description in [`/Services`](#get-services) (menu entries of type `info`).
-- Verified: artist / album / track info of the library redirects to last.fm; `category=technical&filename=…` answered empty. Not usable for BluAlbum.
+- Verified: artist / album / track info of the library redirects to last.fm; `category=technical&filename=…` answered empty.
 - Verified with `infourl` (Radio Paradise, `<infourl>` from `/Status`): answers the info web page itself (here a Wikipedia page, HTML).
 - `lyricsid`: lyrics (`/Info?lyricsid=39888&service=RadioParadise`, "Lyrics" in the now playing screen); `url` not seen yet.
 
