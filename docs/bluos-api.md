@@ -2,7 +2,7 @@
 
 All BluOS HTTP endpoints known to this project, grouped by category, with their parameters, function and answer structure: the official *BluOS Custom Integration API* and unofficial endpoints (seen in the player's own answers, in community projects, or explored against a real player).
 
-Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-content/uploads/2025/06/BluOS-Custom-Integration-API_v1.7.pdf) (Lenbrook, 2025-04-09; linked on [bluos.io/downloads](https://bluos.io/downloads/)).
+Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-content/uploads/2025/06/BluOS-Custom-Integration-API_v1.7.pdf) (Lenbrook, 2025-04-09; linked on [bluos.io/downloads](https://bluos.io/downloads/)); the column "Official" in each category overview marks the endpoints documented there, all others are unofficial and may change with any BluOS update.
 
 **Verified** (column "Verified" in each category overview, and in the notes) means checked on a **Bluesound Powernode N331** with **BluOS 4.18.18** (API v0.5.43), library on a network share (`service=LocalMusic`) and a USB drive (`service=<USB id>`), with the Bruno collection `tests/api`. Other players and BluOS versions may differ.
 
