@@ -20,7 +20,7 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
 10. [Artwork](#10-artwork)
 11. [Player grouping](#11-player-grouping)
 12. [System](#12-system)
-13. [App UI](#13-app-ui)
+13. [BluOS Controller UI](#13-bluos-controller-ui)
 
 ---
 
@@ -2060,7 +2060,7 @@ GET http://<player>:80/wificfg?noheader=1
 
 ---
 
-## 13. App UI
+## 13. BluOS Controller UI
 
 Screens and menus of the BluOS app (BluOS 4): the app asks the player for ready-made screen content under `/ui/…`. Every button and list entry carries the request it sends, so these answers show which player requests a screen uses. For an own app the endpoints of the other sections are the stable ones.
 
