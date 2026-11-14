@@ -97,7 +97,7 @@ Pitfalls:
 - `/Artists`, `/Albums`, `/Songs`, `/Genres`, `/Composers`, `/Folders` are only 302 redirects to
   `/library/v1/…` on port 11004. BluOS API reference (official v1.7 + unofficial endpoints, by
   category, with source tags): `docs/bluos-api.md`; BluAlbum's clicks, their requests and endpoint
-  choices: `docs/blu-album-api-usage.md`.
+  choices: `docs/blu-album-api-usage.md` (private, local only, not in git – see `.gitignore`).
 - URLs for play / queue / favourites come from `/Browse`; only the `/library/v1` lists (New,
   Favourites, quality) build them by the fixed pattern in `libAlbum()` (decided 2026-11-14: no
   further self-built URLs).

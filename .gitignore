@@ -6,3 +6,5 @@ test-results/
 playwright-report/
 # macOS
 .DS_Store
+# Private notes, not published
+docs/blu-album-api-usage.md
