@@ -45,7 +45,7 @@ Settings such as the last IP address and the design are kept in the browser's lo
 
 ## Requirements
 - A BluOS player with a music library (network share) and/or a USB drive, in the same network
-- A current browser (tested with Safari, Chrome and Microsoft Edge)
+- A current browser (tested with Safari, Chrome, Microsoft Edge and Firefox on macOS, Windows and Linux)
 
 Tested with: BluOS 4.18.18 on a Bluesound Powernode and Safari, Chrome and Microsoft Edge on macOS.
 

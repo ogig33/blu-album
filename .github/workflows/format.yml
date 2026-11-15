@@ -1,0 +1,60 @@
+# Prettier for the test scripts (tests/**/*.js; blualbum.html keeps its own compact style).
+# Config: .github/lint/prettier.json. Runs only here: Prettier is installed on the runner.
+# Push / PR: checks the formatting. Run by hand with "fix": formats, commits the result and
+# starts the UI tests and the lint check for that commit.
+name: Format
+
+on:
+  push:
+    branches: [main]
+    paths: ["tests/**/*.js", ".github/lint/prettier.json", .github/workflows/format.yml]
+  pull_request:
+    paths: ["tests/**/*.js", ".github/lint/prettier.json", .github/workflows/format.yml]
+  workflow_dispatch:
+    inputs:
+      fix:
+        description: Format the files and commit the result
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: ${{ !inputs.fix }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm install --prefix .github/lint --no-save --no-package-lock prettier@3.10.1
+      - run: .github/lint/node_modules/.bin/prettier --config .github/lint/prettier.json --check "tests/**/*.js"
+
+  fix:
+    if: ${{ inputs.fix }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # commit the formatted files
+      actions: write # start UI tests and lint (a commit pushed by this workflow triggers no workflow)
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm install --prefix .github/lint --no-save --no-package-lock prettier@3.10.1
+      - run: .github/lint/node_modules/.bin/prettier --config .github/lint/prettier.json --write "tests/**/*.js"
+      - name: Commit, start UI tests and lint
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then echo "Already formatted."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Format test scripts with Prettier"
+          git push
+          gh workflow run ui-tests.yml --ref "$GITHUB_REF_NAME"
+          gh workflow run lint.yml --ref "$GITHUB_REF_NAME"

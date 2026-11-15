@@ -125,6 +125,10 @@ Pitfalls:
 - `.github/workflows/lint.yml` – ESLint (recommended rules) for the script in `blualbum.html`,
   `tests/ui` and `tests/tools`; config `.github/lint/eslint.config.mjs`. Runs **only on GitHub**
   (ESLint is installed on the runner with fixed versions); the owner does not lint locally.
+- `.github/workflows/format.yml` – Prettier (`printWidth` 120, config `.github/lint/prettier.json`)
+  for the test scripts `tests/**/*.js` only; `blualbum.html` keeps its compact style (decided
+  2026-11-15). Push / PR: `--check`. Run by hand with input `fix`: formats, commits as
+  github-actions[bot] and starts UI tests and lint for that commit. Only on GitHub, like lint.
 - Workflow for a change: verify unknown API behaviour in Bruno → adapt or add the UI test (and
   the mock) → change the code → all UI tests green → CHANGELOG line under `Unreleased` (only for changes of the app).
 
