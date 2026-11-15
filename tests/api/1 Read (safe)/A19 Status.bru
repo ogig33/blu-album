@@ -49,9 +49,17 @@ tests {
     expect(/<state>/.test(body)).to.equal(true);
     expect(/<volume>/.test(body)).to.equal(true);
   });
+  // Inputs (HDMI ARC, optical, Bluetooth: <inputId>, serviceType AudioInputs) have only title1, no title2 / streamFormat
+  const isInput = /<inputId>/.test(body);
   test("when playing: title1-2, service, serviceType, streamFormat, secs", () => {
-    if (!/<state>(play|stream)<\/state>/.test(body)) return;
+    if (!/<state>(play|stream)<\/state>/.test(body) || isInput) return;
     ["title1", "title2", "service", "serviceType", "streamFormat", "secs"].forEach((k) => expect(new RegExp("<" + k + ">").test(body), k).to.equal(true));
+  });
+  test("when playing an input: title1, service Capture, serviceType AudioInputs, secs", () => {
+    if (!/<state>(play|stream)<\/state>/.test(body) || !isInput) return;
+    ["title1", "secs"].forEach((k) => expect(new RegExp("<" + k + ">").test(body), k).to.equal(true));
+    expect(body).to.match(/<service>Capture<\/service>/);
+    expect(body).to.match(/<serviceType>AudioInputs<\/serviceType>/);
   });
   // Radio streams (with <streamUrl>) may lack title3 (e.g. Radio Paradise); queue playback has all three and totlen
   test("when playing from the queue: title3 and totlen", () => {
