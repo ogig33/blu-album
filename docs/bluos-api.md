@@ -278,6 +278,14 @@ GET /Add?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&genre=<genre>&
 | `shuffle` | `1` = add shuffled, `0` = in order |
 | `listindex`, `nextlist`, `cursor` | used by `autoplayURL` (start at a track, fill the queue with the rest of the album) |
 
+**Response format**
+
+```xml
+<playlist length="18" id="646" modified="1" count="9" shuffle="0" repeat="2"></playlist>
+```
+
+`length` = entries of the queue now, `count` = entries added, `id` = new queue id (= `pid` of `/Status`). Playing an album with `playnow=1` answers without `modified`.
+
 **Notes**
 
 - Which parameters appear depends on the service and the action; [`/Services`](#get-services) lists them per menu entry (play now, shuffle, add next, add last).
@@ -588,7 +596,11 @@ GET /Load?service=<service>&name=<name>&id=<id>
 
 **Response format**
 
-Not documented; the queue id changes (verified).
+```xml
+<loaded service="BluOS"><entries>12</entries></loaded>
+```
+
+`entries` = number of tracks loaded.
 
 **Notes**
 
@@ -893,12 +905,23 @@ GET /Info?service=<svc>&artist=<artist>&album=<album>&title=<title>&category=tec
 | `infourl` | info page of the playing item (compare `<infourl>` in `/Status`) |
 | `url` | info on a radio station or stream |
 
+**Response format**
+
+Depends on the variant (verified):
+
+| Variant | Answer |
+|---|---|
+| `artist`, `album`, `title` (library) | redirect to last.fm; the answer is the last.fm web page (HTML) |
+| `category=technical&filename=…` | empty |
+| `infourl=…` | the info web page itself (HTML, e.g. Wikipedia) |
+| `lyricsid=…` | an HTML page with the lyrics (here from Radio Paradise, with the cover as background) |
+
 **Notes**
 
 - The variants come from the player's description in [`/Services`](#get-services) (menu entries of type `info`).
 - Verified: artist / album / track info of the library redirects to last.fm; `category=technical&filename=…` answered empty.
 - Verified with `infourl` (Radio Paradise, `<infourl>` from `/Status`): answers the info web page itself (here a Wikipedia page, HTML).
-- `lyricsid`: lyrics (`/Info?lyricsid=39888&service=RadioParadise`, "Lyrics" in the now playing screen); `url` not seen yet.
+- `lyricsid`: lyrics (`/Info?lyricsid=39888&service=RadioParadise`, "Lyrics" in the now playing screen), verified; `url` not seen yet.
 
 ### `GET /RadioBrowse`
 
@@ -958,6 +981,12 @@ GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>
 | `album` + `artist` | album of the local library |
 | `albumid` | album of a streaming service |
 
+**Response format**
+
+```xml
+<favourite service="LocalMusic">added</favourite>
+```
+
 **Notes**
 
 - Verified for the library. The current state shows in the context menu (`favourite-add` or `favourite-delete`) and in `isFavourite` of `/library/v1` answers.
@@ -974,6 +1003,12 @@ GET /DeleteFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>
 | `service` | source |
 | `album` + `artist` | album of the local library |
 | `albumid` | album of a streaming service |
+
+**Response format**
+
+```xml
+<favourite service="LocalMusic">deleted</favourite>
+```
 
 **Notes**
 
@@ -1679,6 +1714,10 @@ GET http://<player>:80/apmode?noheader=1
 |---|---|
 | `noheader` | `1` = page without its header |
 
+**Response format**
+
+Not known (not called).
+
 **Notes**
 
 - Linked on the diagnostics page. Presumably switches the player to its own Wi-Fi hotspot (setup mode) – it then leaves the home network. Not opened.
@@ -1762,6 +1801,10 @@ GET http://<player>:80/delete_index?noheader=1
 | Parameter | Meaning |
 |---|---|
 | `noheader` | `1` = page without its header |
+
+**Response format**
+
+Not known (not called).
 
 **Notes**
 
@@ -2249,6 +2292,10 @@ GET http://<player>:80/statistics?enable=<value>
 |---|---|
 | `enable` | value of the switch (On / Off) |
 
+**Response format**
+
+Not known (not called).
+
 **Notes**
 
 - Sent by the diagnostics page when "Statistics collection" (On / Off) changes. Not sent.
@@ -2263,6 +2310,10 @@ GET http://<player>:80/triggercfg?noheader=1&playnum=1
 |---|---|
 | `noheader` | `1` = page without its header |
 | `playnum` | seen as `1`; meaning not known |
+
+**Response format**
+
+An HTML page (the web app "BluOS", the script loads the content).
 
 **Notes**
 
@@ -2352,6 +2403,10 @@ GET http://<player>:80/wificfg?noheader=1
 |---|---|
 | `noheader` | `1` = page without its header |
 
+**Response format**
+
+An HTML page (the web app "BluOS", the script loads the content).
+
 **Notes**
 
 - Setting "WiFi" (`<webview>`) in `/Settings?id=player`.
@@ -2390,7 +2445,7 @@ Action types: `player-link` (send the player request in `URI`), `browse` (load a
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
-| `GET /ui/action` | change a display option of a screen | | ✓ |
+| `GET /ui/action` | change a display option of a screen | | |
 | `GET /ui/browseContext` | header of a browse page (e.g. a playlist with play / shuffle buttons) | | ✓ |
 | `GET /ui/browseGenres` | genre screen of a source | | ✓ |
 | `GET /ui/browseGrouped` | list of a library menu entry with letters / pages | | ✓ |
@@ -2421,7 +2476,7 @@ GET /ui/action?Cstyle=<style>~<type>&CBQ=<true|false>&Cfilter=<url>~<value>
 
 | Parameter | Meaning |
 |---|---|
-| `Cstyle` | display style per object type: `grid~Playlist` or `list~Playlist` |
+| `Cstyle` | display style per object type, e.g. `grid~Playlist` (from the style selector of `/ui/BrowseObjects`) |
 | `CBQ` | `true` / `false`: a BluOS Controller option (switched in the playlist screen; meaning not known) |
 | `Cfilter` | filter of a list, e.g. `https://…/radio/podcasts/charts~it` (podcasts of Italy) |
 
@@ -2432,7 +2487,7 @@ Empty answer.
 **Notes**
 
 - Style selector of `/ui/BrowseObjects`; changes the display.
-- Verified with `Cstyle`: the style selector of [`/ui/BrowseObjects`](#get-uibrowseobjects) (attribute `type` of `styleSelector`) shows the current style and changes with it.
+- `Cstyle` answers empty, but neither `grid~Playlist` nor `list~Playlist` changed the answer of [`/ui/BrowseObjects`](#get-uibrowseobjects): its style selector stayed `<styleSelector text="Display: Grid" type="grid">`. What the call changes is not known.
 
 ### `GET /ui/browseContext`
 
@@ -2604,7 +2659,7 @@ GET /ui/BrowseObjects?service=<svc>&menuGroupId=<id>&type=<type>&browseIndex=<n>
       <action type="browse" URI="/ui/BrowseObjects?…&amp;sort%3Dalpha" resultType="screen" title="Playlists"/>
     </item>
   </sortMenu>
-  <styleSelector text="Display: Grid" type="grid">   <!-- type = current style -->
+  <styleSelector text="Display: Grid" type="grid">
     <action type="player-link" URI="/ui/action?Cstyle=grid~Playlist" refreshScreen="true"/>
   </styleSelector>
   <list>
@@ -2782,6 +2837,10 @@ GET /ui/myPlaylistsRow?service=<svc>
 | Parameter | Meaning |
 |---|---|
 | `service` | `LocalMusic` or the USB id |
+
+**Response format**
+
+Empty when the source has no playlists (verified); with playlists presumably a `<row>` like the playlist rows of [`/ui/Home`](#get-uihome).
 
 **Notes**
 
