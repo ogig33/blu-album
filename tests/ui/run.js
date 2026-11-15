@@ -959,6 +959,8 @@ test("covers: image URLs only on the player or http(s), /Artwork with followRedi
     "image URLs",
   );
   // The image itself is shown as a blob URL (read with fetch, see showImg); data-src is the player URL
+  // data-src is set once the lazy loader reaches the cover (slower on CI runners)
+  await t.page.waitForFunction(() => document.querySelector("#grid .item:not(:first-child) .cov img")?.dataset.src);
   const src = await t.page.$eval("#grid .item:not(:first-child) .cov img", (i) => i.dataset.src);
   ok(src.startsWith(b + "/Artwork?") && src.endsWith("&followRedirects=1"), "grid cover from /Artwork: " + src);
 });
