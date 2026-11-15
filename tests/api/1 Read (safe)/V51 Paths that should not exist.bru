@@ -1,0 +1,56 @@
+meta {
+  name: V51 Paths that should not exist
+  type: http
+  seq: 103
+}
+
+get {
+  url: http://{{host}}:11000/Version
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:post-response {
+  const raw = res.getBody();
+  const body = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? m[1].replace(/&amp;/g, "&") : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file, text) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), text === undefined ? body : text);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  console.log("HTTP " + res.getStatus() + ", " + (res.getHeader("content-type") || "") + "\n" + body.slice(0, 3000));
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const out = [];
+  for (const p of ["/Mute", "/ZoneStatus", "/Players", "/Sources", "/GroupStatus", "/PlayQueue", "/CoverArt", "/RadioDeletePreset", "/Search?service=LocalMusic&expr=a", "/RadioSearch?service=TuneIn&expr=jazz", "/captures", "/ui/reportServiceDuration"]) {
+    try {
+      const r = await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 5000 });
+      out.push(p + " -> HTTP " + r.status + " " + String(r.data || "").slice(0, 80).replace(/\s+/g, " "));
+    } catch (e) { out.push(p + " -> " + e.message); }
+  }
+  bru.setVar("vsMissing", out.join("\n"));
+  saveFixture("verify-missing-paths.txt", out.join("\n"));
+  console.log(out.join("\n"));
+}
+
+tests {
+  const raw = res.getBody();
+  const body = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? m[1].replace(/&amp;/g, "&") : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("all answer 404", () => expect((bru.getVar("vsMissing") || "").split("\n").every((l) => / -> HTTP 404 /.test(l))).to.equal(true));
+}

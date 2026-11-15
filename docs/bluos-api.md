@@ -225,6 +225,7 @@ The text is the level 0–100 (`-1` = fixed volume). When muted: `mute="1"`, plu
 | `GET /Back` | restart the track or previous track | ✓ | ✓ |
 | `GET /Pause` | pause or toggle play / pause | ✓ | ✓ |
 | `GET /Play` | play, resume, seek, play a queue entry, a URL or an input | ✓ | ✓ |
+| `POST /playurl` | play a URL through the web form (port 80) | | ✓ |
 | `GET /Repeat` | repeat queue / track / off | ✓ | ✓ |
 | `GET /Shuffle` | shuffle the queue on / off | ✓ | ✓ |
 | `GET /Skip` | next track | ✓ | ✓ |
@@ -372,6 +373,24 @@ Or `<state>stream</state>` for streams and inputs.
 - `inputIndex`: position in `/Settings?id=capture&schemaVersion=32`. The official example writes `InputId`; the parameter table says `inputIndex`.
 - Radio: `/Play?url=TuneIn:s16252/e113900962/https://…&title1=…` (a stream chosen with `/RadioBrowse?c=selectStream&id=…`), `/Play?url=Airable:radio:https://…&title1=…&image=…`, `/Play?url=RadioParadise:/1:20/Mellow%20Mix&title1=…&image=…`.
 
+### `POST /playurl`
+
+```
+POST http://<player>:80/playurl   (form field url)
+```
+
+| Parameter | Meaning |
+|---|---|
+| `url` | what to play, e.g. `TuneIn:s16252` or a stream URL (form field, URL-encoded) |
+
+**Response format**
+
+An HTML page "Confirmation": "Settings Updated – Playing TuneIn:s16252 – Please wait…", with a refresh to `/` after 3 s.
+
+**Notes**
+
+- Verified with `url=TuneIn:s16252`: the player plays the station. The same as [`/Play?url=`](#get-play) on port 11000, through the old web form of the player.
+
 ### `GET /Repeat`
 
 ```
@@ -385,12 +404,13 @@ GET /Repeat?state=<0|1|2>
 **Response format**
 
 ```xml
-<playlist length="60" id="1764" repeat="1"/>
+<playlist length="17" id="718" modified="1" shuffle="0" repeat="0"></playlist>
 ```
 
 **Notes**
 
 - Repeats never stop by themselves.
+- Verified: the answer is the `playlist` element with the new `repeat`, not a plain number.
 
 ### `GET /Shuffle`
 
@@ -405,13 +425,14 @@ GET /Shuffle?state=<0|1>
 **Response format**
 
 ```xml
-<playlist name="Calm Piano" modified="0" length="160" shuffle="1" id="1051"/>
+<playlist length="10" id="724" name="My Playlist" shuffle="1" repeat="2"></playlist>
 ```
 
 **Notes**
 
 - `1` builds a shuffled copy of the queue (no effect if already shuffled); `0` restores the original order.
 - Changes the queue id (verified).
+- Verified: `/Shuffle` **without** `state` switches shuffle off (it does not read the state); read it from `<shuffle>` in [`/Status`](#get-status) instead.
 
 ### `GET /Skip`
 
@@ -973,6 +994,7 @@ These endpoints appear as `actionURL` values in `/Browse` context menus (also in
 |---|---|:---:|:---:|
 | `GET /AddFavourite` | mark a favourite | | ✓ |
 | `GET /DeleteFavourite` | remove a favourite | | ✓ |
+| `GET /RadioAddPreset` | add a URL favourite (radio) | | ✓ |
 
 ### `GET /AddFavourite`
 
@@ -1018,6 +1040,27 @@ GET /DeleteFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>
 **Notes**
 
 - Verified for the library. Counterpart of [`/AddFavourite`](#get-addfavourite).
+
+### `GET /RadioAddPreset`
+
+```
+GET /RadioAddPreset?service=<service>&name=<name>&url=<url>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `service` | radio service, e.g. `TuneIn` |
+| `name` | name of the favourite |
+| `url` | what it plays, e.g. `TuneIn:s16252` or a stream URL |
+
+**Response format**
+
+Empty answer.
+
+**Notes**
+
+- Verified: adds a favourite of the kind "URL" (BluOS Controller: Favourites › URL) with the given name – not a station favourite like `/Action?…&action=addFavourite&preset_id=…`.
+- No request to delete it is known (`/RadioDeletePreset` answers 404); remove it in the BluOS Controller.
 
 ---
 
@@ -1758,6 +1801,7 @@ No answer body (HTTP 200, empty).
 - Only `bluetoothAutoplay` is official (no answer body). `subwoofer`, `ears`, `volumeLimits`, `replayGainMode` with their values are from the player's own answers to `/Settings?id=audio` and `/Settings?id=capture` (verified read); `mqaDisable`, `fixedVolume`, `channelMode`, `enableClockTrim` only from community projects. Verified with `replayGainMode` (`album` ↔ `track`, read back from `/Settings?id=audio`, restored).
 - The BluOS Controller sends it as **POST** with a JSON body, e.g. `{"replayGainMode":"none"}`; GET with `?<name>=<value>` works as well (verified). Seen: `replayGainMode` (`none`, `track`, `album`, `smart`), `subwoofer` (`withsub`, `default`).
 - More: `{"bluetoothAutoplay":"0"}`, `{"ears":"ON"}`, `{"volumeLimits":"-70,-16"}`.
+- Verified: `/audiomodes` without parameters answers empty – it does not return the current values; read them from `/Settings?id=audio`.
 
 ### `GET /audioPreset`
 
@@ -1826,22 +1870,24 @@ The GET answers an HTML page "Confirmation": "Rebuild index and start re-index?"
 ### `GET /diag`
 
 ```
-GET http://<player>:80/diag?noheader=1&playnum=1
+GET http://<player>:80/diag?noheader=1&playnum=1&print=1
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `noheader` | `1` = page without its header |
 | `playnum` | seen as `1` |
+| `print` | `1` = the full diagnostic report instead of the web app |
 
 **Response format**
 
-An HTML page (the web app "BluOS", the script loads the content).
+An HTML page (the web app "BluOS"). With `print=1`: an HTML page with the diagnostic report as text in `<pre>` – shares (with user name, password hidden), Wi-Fi scan, network, services and more (here about 400 KB).
 
 **Notes**
 
 - Opened through `/redirectToCp?href=/diag&noheader=1`. Web page.
 - Verified.
+- Verified with `print=1`. The report holds personal data (network names, addresses, user names).
 
 ### `GET /diagnostics`
 
@@ -2143,7 +2189,7 @@ No answer body (HTTP 200, empty).
 ### `GET /Settings`
 
 ```
-GET /Settings?id=<menu id>&schemaVersion=<n>&view=web
+GET /Settings?id=<menu id>&schemaVersion=<n>&view=web&expand=1
 ```
 
 | Parameter | Meaning |
@@ -2151,6 +2197,7 @@ GET /Settings?id=<menu id>&schemaVersion=<n>&view=web
 | `id` | menu page (the `id` of a `menuGroup`); without it the top level |
 | `schemaVersion` | schema the client understands; the player reports its own in `/SyncStatus` (`schemaVersion="36"` on the test player). Lower values hide newer menus |
 | `view` | `web`: the page as web view, e.g. `/Settings?view=web&id=sendSupportRequest` (help area of the BluOS Controller) |
+| `expand` | `1` = the whole tree with the content of all menu pages in one answer (verified, about 44 KB) |
 
 **Response format**
 
