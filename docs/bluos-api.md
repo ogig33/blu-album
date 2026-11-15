@@ -1825,8 +1825,8 @@ No known parameters.
 **Notes**
 
 - Verified: answers the listening mode setting in the format of `/Settings`; `value` is the current mode.
-- Change it with [`/alsa_setting?preset=MOVIE`](#get-post-alsa_setting) (the `url` of the answer), with the `name` of one of the `value` elements. Verified (Bruno S41–S47, MUSIC → MOVIE and back): the player answers HTTP 205, `/audioPreset` shows the new mode after about 1 s.
-- `/Status` does not name the listening mode (Bruno E23). A change still ends a `/Status` long poll: new `etag`, and the only changed field is `syncStat` (+1) (Bruno S44). A client can follow the mode by reading `/audioPreset` again when `syncStat` changes.
+- Change it with [`/alsa_setting?preset=MOVIE`](#get-post-alsa_setting) (the `url` of the answer), with the `name` of one of the `value` elements. Verified (MUSIC → MOVIE and back): the player answers HTTP 205, `/audioPreset` shows the new mode after about 1 s.
+- `/Status` does not name the listening mode. A change still ends a `/Status` long poll: new `etag`, and the only changed field is `syncStat` (+1). A client can follow the mode by reading `/audioPreset` again when `syncStat` changes.
 - Only players with listening modes have it; here a fixed home theatre group, whose [`/SyncStatus`](#get-syncstatus) carries `<audioPresetUrl url="/audioPreset"/>`. `/ui/Configuration` lists it as `listeningModesURL="/audioPreset"` of `/ui/presets`.
 
 ### `GET /Dataexport`
