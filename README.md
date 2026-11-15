@@ -45,9 +45,9 @@ Settings such as the last IP address and the design are kept in the browser's lo
 
 ## Requirements
 - A BluOS player with a music library (network share) and/or a USB drive, in the same network
-- A current browser (tested with Safari, Chrome, Microsoft Edge and Firefox on macOS, Windows and Linux)
+- A current browser: Safari, Chrome, Microsoft Edge or Firefox, on macOS, Windows or Linux
 
-Tested with: BluOS 4.18.18 on a Bluesound Powernode and Safari, Chrome and Microsoft Edge on macOS.
+Tested with BluOS 4.18.18 on a Bluesound Powernode. The browsers and systems above are covered by the automated UI tests (see [Development](#development)).
 
 ## Development
 Everything is in [`blualbum.html`](blualbum.html): CSS, HTML and plain JavaScript, no build
@@ -56,9 +56,7 @@ step and no dependencies. The script is split into modules, listed at its top.
 Tests:
 - [`tests/api`](tests/api) – [Bruno](https://www.usebruno.com/) collection with contract tests
   for every player request the app uses (read-only and write tests) and exploration requests.
-- [`tests/ui`](tests/ui) – Playwright tests of the user interface in Chrome, Safari (WebKit)
-  and Edge against a mock player that answers with recorded (and sanitized) player responses.
-  No player needed.
+- [`tests/ui`](tests/ui) – Playwright tests of the user interface in Chrome, Safari (WebKit), Edge and Firefox against a mock player that answers with recorded (and sanitized) player responses. No player needed. GitHub Actions runs them on macOS, Windows and Linux at three window sizes.
 - [`tests/tools/sanitize-fixtures.js`](tests/tools/sanitize-fixtures.js) – copies recorded
   answers to the UI tests and removes personal details.
 
