@@ -19,7 +19,7 @@ Run the **whole collection** in the Runner (or `bru run -r --env Home` in this f
 | Folder | What it does | Effect on the player |
 |---|---|---|
 | **1 Read (safe)** | Every read request of the app (A01–A26), album details and the variants the app uses (E01–E13), the reference endpoints that only read (V01–V47, including the whole settings tree and the app screens `/ui/…`) | none |
-| **2 Write (changes the player)** | Every command of the app (C01–C47), queue and playback commands of the reference (W01–W15), settings, playlist and name commands of the reference (S01–S35) | playback is interrupted; queue, position, pause state, volume, repeat, favourite and every changed setting are restored, test playlists deleted |
+| **2 Write (changes the player)** | Every command of the app (C01–C47), queue and playback commands of the reference (W01–W15), settings, playlist and name commands of the reference (S01–S40) | playback is interrupted; queue, position, pause state, volume, repeat, favourite and every changed setting are restored, test playlists deleted |
 | **3 Manual (run on purpose)** | Doorbell, library rescan, test preset, reboot | skipped unless `runManual = true` |
 
 After a firmware update, compare `23-api-version.xml` and `24-bluos-version.xml` in `fixtures/` with the versions in the reference and look at the failed tests.
@@ -38,7 +38,7 @@ Every request has a unique prefix: **A** app reads, **E** album details / new va
 ### 2 Write (changes the player)
 - **C01–C47** (commands): every command the app uses: favourite, play album, pause, resume, skip, back, play queue entry, seek, add to queue, remove from queue, shuffle on / off, repeat (queue / track / off), volume (level, ±dB), clear, save / load / delete playlist. The queue is saved as `__bluos_album_player_test__` at the start and loaded again at the end; favourite, repeat and volume are restored, the test playlist is deleted. It also checks that the playlist id (`/Playlist` id = `<pid>` of `/Status`) changes after add, remove, shuffle on / off, clear and load – the app reloads the queue only on this change.
 - **W01–W15**: moves the first queue entry and back (`/Move`), stops (`/Stop`), loads the next preset (`/Preset?id=+1`), skips on the radio station if it offers a skip action (`/Action`), returns to the former queue entry and position (`/Play?seek=…&id=…`), pauses again if it was not playing and restores the volume.
-- **S01–S35**: reads a setting, changes it, checks the new value and restores it: indicator brightness (`/setting`), replay gain (`/audiomodes`), balance (`/alsa_setting`), trim of a fixed group member (`/SlaveVolume`, skipped without a fixed group). Reads through `/proxyToSlave`, the playlist backup `/download_playlists_api`, `/redirectToCp`, the web pages `/wificfg` and `/triggercfg` and `/Info?infourl=…` (only when the playing item has an info URL). Saves the queue as test playlist `__bluos_verify__`, adds an album with `/AddToPlaylist` and deletes the playlist; renames the player with `/Name?set=` and back (S31–S35).
+- **S01–S40**: reads a setting, changes it, checks the new value and restores it: indicator brightness (`/setting`), replay gain (`/audiomodes`), balance (`/alsa_setting`), trim of a fixed group member (`/SlaveVolume`, skipped without a fixed group). Reads through `/proxyToSlave`, the playlist backup `/download_playlists_api`, `/redirectToCp`, the web pages `/wificfg` and `/triggercfg` and `/Info?infourl=…` (only when the playing item has an info URL). Saves the queue as test playlist `__bluos_verify__`, adds an album with `/AddToPlaylist` and deletes the playlist; renames the player with `/Name?set=` and back (S31–S35); switches the USB server mode (`/setting?server=`) and back (S36–S40).
 
 ### 3 Manual (run on purpose)
 Every request is skipped unless `runManual = true`. Set it, run the folder (or single requests), set it back.
@@ -46,6 +46,8 @@ Every request is skipped unless `runManual = true`. Set it, run the folder (or s
 - **M02–M03**: library rescan (`/Reindex`); it runs in the background for minutes.
 - **M04–M06**: stores a test preset `__bluos_verify__` (`/SetPreset`). No request to delete a preset is known – remove it in the BluOS app.
 - **M09–M12**: saves a backup of the playlists (`/download_playlists_api`, to `fixtures/verify-playlists-backup.json`), uploads the same backup again (`/upload_playlists_api`) and checks that the playlists are unchanged. Needs `saveFixtures = true`; the upload is skipped without a fresh backup.
+- **M14–M18**: switches the statistics collection (`/statistics?enable=0|1`, port 80) and back, read from the diagnostics page. While it is on, the player may send usage statistics to Bluesound.
+- **M19–M20**: rebuild index (`/delete_index`, port 80) – the library index is deleted and the whole library is scanned again; then `/Status`.
 - **M13**: clears the recent stations (`/ui/clearUsageHistory?stations=1`) – the history is lost.
 - **M07–M08**: soft reboot (`POST` to port 80 `/reboot`), then waits until `/SyncStatus` answers again (at most 5 minutes) and logs how long the restart took.
 

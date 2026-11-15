@@ -116,6 +116,7 @@ GET /Status?timeout=<seconds>&etag=<etag>
 | `image`, `currentImage`, `stationImage` | images |
 | `infourl`, `lyricsid` | values for `/Info` |
 | `fn` | file / item id |
+| `isFavourite` | `1` = the playing track is a favourite |
 | `streamUrl` | present: not playing from the queue (no `song` / shuffle / repeat / skip) |
 | `actions` > `action` (`name`, `url`, `icon`, `text`, `notification`, `state`) | radio actions, see `/Action` |
 | `sleep` | minutes left on the sleep timer |
@@ -1591,7 +1592,7 @@ The text is the new trim in dB.
 | `GET, POST /audiomodes` | audio and Bluetooth modes | ✓ | ✓ |
 | `GET /audioPreset` | current listening mode and its choices | | ✓ |
 | `GET /Dataexport` | export of the player's data (presumably for support) | | ✓ |
-| `GET /delete_index` | web page "Rebuild Index" (port 80) | | |
+| `GET, POST /delete_index` | web page "Rebuild Index": confirmation, then rebuild (port 80) | | ✓ |
 | `GET /diag` | diagnostics page | | ✓ |
 | `GET /diagnostics` | diagnostics page (second view) | | ✓ |
 | `GET /Doorbell` | play the doorbell chime | ✓ | ✓ |
@@ -1611,7 +1612,7 @@ The text is the new trim in dB.
 | `GET /Shares` | network shares of the library (port 80) | | ✓ |
 | `GET /ShowIRCodes` | IR codes learned from a paired remote control | | ✓ |
 | `GET /Sleep` | step the sleep timer | | ✓ |
-| `GET /statistics` | switch the statistics collection (port 80) | | |
+| `GET /statistics` | switch the statistics collection (port 80) | | ✓ |
 | `GET /triggercfg` | web page for learning IR remote codes (port 80) | | ✓ |
 | `GET /update` | purpose unknown (presumably firmware update status) | | ✓ |
 | `GET /upgrade` | redirect to a web page, presumably the firmware upgrade | | ✓ |
@@ -1792,23 +1793,26 @@ Plain text: the system log of the player (here about 2,600 lines / 290 KB, `sysl
 - The BluOS Controller first checks with `HEAD /Dataexport`, then loads it with GET.
 - Verified. The log holds personal data (network, addresses, names).
 
-### `GET /delete_index`
+### `GET, POST /delete_index`
 
 ```
-GET http://<player>:80/delete_index?noheader=1
+GET  http://<player>:80/delete_index?noheader=1
+POST http://<player>:80/delete_index   (form fields noheader=1 and yes or no)
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `noheader` | `1` = page without its header |
+| `yes`, `no` | the button of the confirmation form (POST) |
 
 **Response format**
 
-Not known (not called).
+The GET answers an HTML page "Confirmation": "Rebuild index and start re-index?" with a form (`action="/delete_index" method="POST"`, buttons `yes` and `no`).
 
 **Notes**
 
-- Linked on the diagnostics page. Presumably deletes the library index and rebuilds it – the whole library is scanned again. Not opened.
+- Linked on the diagnostics page ("Rebuild Index"). Verified: the GET only shows the question; nothing is deleted. Answering `no` keeps the index.
+- `yes` presumably deletes the library index and scans the whole library again – not sent.
 
 ### `GET /diag`
 
@@ -1848,7 +1852,7 @@ An HTML page "Diagnostics": network name, signal strength, IP and MAC address, B
 
 **Notes**
 - Verified.
-- The page sends [`/statistics`](#get-statistics), links to [`/delete_index`](#get-delete_index), [`/apmode`](#get-apmode) and `/reboot?noheader=1`.
+- The page sends [`/statistics`](#get-statistics), links to [`/delete_index`](#get-post-delete_index), [`/apmode`](#get-apmode) and `/reboot?noheader=1`.
 
 ### `GET /Doorbell`
 
@@ -2100,14 +2104,14 @@ No answer body (HTTP 200, empty).
 
 **Notes**
 
-- Verified with `ledbrightness` (`dim` ↔ `default`, read back from `/Settings?id=player`, restored). The names, classes and ranges come from the player's `/Settings` tree:
+- Verified with `ledbrightness` (`dim` ↔ `default`, read back from `/Settings?id=player`) and `server` (USB server mode `OFF` ↔ `ON`, read back from `/Settings?id=library`), both restored. The names, classes and ranges come from the player's `/Settings` tree:
 
   | Name | Class | Values | Menu |
   |---|---|---|---|
   | `zonename` | text | room / group name | top level |
   | `amplifierStandby` | boolean | `ON` / `OFF` | top level |
   | `resizeall` | boolean | optimise artwork | `library` |
-  | `server` | boolean | server mode (share the USB drive) | `library` |
+  | `server` | boolean | USB server mode: shares the music of the USB drive with other players (verified) | `library` |
   | `centre` | boolean | centre channel | `audio` |
   | `ledbrightness` | list | `default`, `dim`, `off` | `player`, group members via `/proxyToSlave` |
   | `zoneap-enable` | boolean | Wi-Fi Direct | `player` |
@@ -2285,20 +2289,20 @@ Minutes until the player switches off.
 ### `GET /statistics`
 
 ```
-GET http://<player>:80/statistics?enable=<value>
+GET http://<player>:80/statistics?enable=<0|1>
 ```
 
 | Parameter | Meaning |
 |---|---|
-| `enable` | value of the switch (On / Off) |
+| `enable` | `1` = statistics collection on, `0` = off |
 
 **Response format**
 
-Not known (not called).
+Plain text, e.g. `ENABLED` after `enable=1`.
 
 **Notes**
 
-- Sent by the diagnostics page when "Statistics collection" (On / Off) changes. Not sent.
+- Verified (on and back off). Sent by the diagnostics page when "Statistics collection" changes; the current value is the selected `<option>` of `<select id="statistics">` on [`/diagnostics`](#get-diagnostics). While it is on, the player may send usage statistics to Bluesound.
 
 ### `GET /triggercfg`
 

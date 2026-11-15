@@ -1,0 +1,55 @@
+meta {
+  name: M15 Statistics collection (change)
+  type: http
+  seq: 15
+}
+
+get {
+  url: http://{{host}}:80/statistics
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const H80 = "http://" + bru.getEnvVar("host") + ":80";
+  // Manual requests run only with the environment variable runManual = true
+  if (bru.getEnvVar("runManual") !== "true") { bru.runner.skipRequest(); return; }
+  if (!bru.getVar("vsStats")) { bru.runner.skipRequest(); return; }
+  req.setUrl(H80 + "/statistics?enable=" + bru.getVar("vsStatsNew"));
+}
+
+script:post-response {
+  const raw = res.getBody();
+  const body = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? m[1].replace(/&amp;/g, "&") : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file, text) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), text === undefined ? body : text);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("verify-statistics.txt");
+  console.log("HTTP " + res.getStatus() + ", " + (res.getHeader("content-type") || "") + "\n" + body.slice(0, 3000));
+
+}
+
+tests {
+  const raw = res.getBody();
+  const body = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? m[1].replace(/&amp;/g, "&") : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("no error answer", () => expect(/<error|404 page not found/i.test(body)).to.equal(false));
+}
