@@ -36,7 +36,7 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
   - Long polling (`timeout` + `etag` from the previous answer's root): never two requests for the same resource less than 1 s apart, even when the first returned sooner.
 - **Language:** answers follow the `Accept-Language` header of the request (e.g. `serviceName="Bibliothek"` for German). Browsers send the system language with every request; ask with `Accept-Language: en` to get the answers documented here (see `/Browse` for an album track list that stays empty otherwise).
 - **Grouped players:** many requests sent to a secondary player are proxied to the primary (status, playback, queue, browse).
-- **Response examples** are shortened answers of the test player; `…` and `<!-- … -->` mark left-out parts, `<ip>`, `<share>` and similar placeholders replace personal data.
+- **Response examples** are shortened answers of the test player and well-formed XML; `<!-- … -->` and `…` in text or attribute values mark left-out parts. Personal data is replaced by example values (addresses `192.168.1.x`, share `//nas/Music`, names like "Living Room" or "My Playlist"). In request lines `<…>` stands for a value to fill in.
 
 ---
 
@@ -150,17 +150,17 @@ GET /SyncStatus?timeout=<seconds>&etag=<etag>
 **Response format**
 
 ```xml
-<SyncStatus etag="2230" syncStat="2230" version="4.18.18" id="<ip>:11000" db="-53.7" volume="14"
+<SyncStatus etag="2230" syncStat="2230" version="4.18.18" id="192.168.1.100:11000" db="-53.7" volume="14"
             name="Living Room" model="N331" modelName="Home Theatre Group" class="streamer-amplifier"
             icon="/images/players/ic_fixed_group_surround.png" brand="Bluesound" schemaVersion="36"
             initialized="true" zoneController="true" zone="Living Room" group="Living Room"
-            zoneUngroup="/RemoveSlave?slaves=<ip1>,<ip2>&amp;ports=11000,11000"
-            mac="<mac>" channelMode="front" channelName="Front">
+            zoneUngroup="/RemoveSlave?slaves=192.168.1.101,192.168.1.102&amp;ports=11000,11000"
+            mac="90:56:82:9F:02:78" channelMode="front" channelName="Front">
   <zoneOptions multi="false"/>
-  <zoneSlave id="<ip1>" port="11000" zoneSlave="true" channelMode="side_right" channelName="Right Surround"
+  <zoneSlave id="192.168.1.101" port="11000" zoneSlave="true" channelMode="side_right" channelName="Right Surround"
              distance="1.4" zoneSubnet="true" name="Right" model="P130" modelName="PULSE FLEX"
              icon="/images/players/P130_nt.png"/>
-  <zoneSlave id="<ip2>" port="11000" … channelMode="side_left" channelName="Left Surround" …/>
+  <zoneSlave id="192.168.1.102" port="11000" channelMode="side_left" channelName="Left Surround"/>
   <pairWithSub/>
   <bluetoothOutput/>
   <audioPresetUrl url="/audioPreset"/>
@@ -674,7 +674,7 @@ GET /Playlist?start=<first>&end=<last>&length=1
     <track>1</track>
     <date>1983</date>
     <time>270</time>
-    <fn>/var/mnt/<share>/By Artist/E/Brian Eno/1983_Apollo/01. Under Stars.flac</fn>
+    <fn>/var/mnt/nas-Music/By Artist/E/Brian Eno/1983_Apollo/01. Under Stars.flac</fn>
     <quality>cd</quality>
     <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo…</image>
   </song>
@@ -973,7 +973,7 @@ GET /RadioBrowse?service=<service>&url=<url>&key=<key>&c=<category>&id=<station 
         URL="Capture%3Ahw%3Aimxspdif%2C0%2F1%2F25%2F2%3Fid%3Dinput4" image="/images/capture/ic_tv.png"/>
   <item text="Optical Input 1" id="input2" type="audio" inputType="spdif" typeIndex="spdif-1"
         URL="Capture%3Ahw%3Aimxspdif%2C0%2F1%2F25%2F2%3Fid%3Dinput2" image="/images/capture/ic_opticalinput.png"/>
-  <!-- inputs of a BluOS HUB: <category text="…" icon="…"><remoteitem …/></category> -->
+  <!-- inputs of a BluOS HUB: <category text="…" icon="…"><remoteitem/></category> -->
 </radiotime>
 ```
 
@@ -1277,7 +1277,7 @@ GET /library/v1/Folders?service=<svc>&path=<path>
 ```xml
 <folders id="327705" service="LocalMusic">
   <subfolders>
-    <folder>//<server>/<share></folder>
+    <folder>//nas/Music</folder>
     <!-- one <folder> per sub folder; without path: the shares -->
   </subfolders>
   <!-- with path: also <songs> with the songs of the folder -->
@@ -1367,7 +1367,7 @@ GET /library/v1/Search?service=<svc>&expr=<text>
       <title>#Addicted</title>
       <art>Riverside</art>
       <alb>Love, Fear and the Time Machine</alb>
-      <fn>/var/mnt/<share>/By Artist/R/Riverside/2015_Love, Fear and the Time Machine/03-#Addicted.flac</fn>
+      <fn>/var/mnt/nas-Music/By Artist/R/Riverside/2015_Love, Fear and the Time Machine/03-#Addicted.flac</fn>
       <track>3</track>
       <discno>1</discno>
       <time>294</time>
@@ -1415,7 +1415,7 @@ GET /library/v1/Songs?service=<svc>&album=<album>&artist=<artist>&composer=<comp
     <date>1977</date>
     <time>260</time>
     <quality>cd</quality>
-    <fn>/var/mnt/<share>/By Artist/G/Peter Gabriel/1977_1/01-Moribund The Burgermeister.flac</fn>
+    <fn>/var/mnt/nas-Music/By Artist/G/Peter Gabriel/1977_1/01-Moribund The Burgermeister.flac</fn>
   </song>
   <!-- one <song> per track; depending on the song also discno, composer, compilation, albumartist -->
 </songs>
@@ -1452,7 +1452,7 @@ GET /Songs?service=BluOS&playlist=<name>&offset=<n>
     <track>1</track>
     <date>1988</date>
     <time>173</time>
-    <fn>/var/mnt/<share>/…/01-Good Tradition.flac</fn>
+    <fn>/var/mnt/nas-Music/…/01-Good Tradition.flac</fn>
     <quality>cd</quality>
   </song>
   <!-- 10 songs per page -->
@@ -1814,7 +1814,7 @@ No known parameters.
 **Response format**
 
 ```xml
-<setting id="preset" name="preset" displayName="Listening Mode" url="http://<player>:11000/alsa_setting"
+<setting id="preset" name="preset" displayName="Listening Mode" url="http://192.168.1.100:11000/alsa_setting"
          class="list" value="MUSIC" refresh="true" required="true" style="inline">
   <value displayName="Music" name="MUSIC" icon="/images/settings/icon_music-mode.png" iconActive="…"/>
   <value displayName="Movie" name="MOVIE" icon="/images/settings/icon_movies-mode.png" iconActive="…"/>
@@ -2203,13 +2203,13 @@ GET /Settings?id=<menu id>&schemaVersion=<n>&view=web&expand=1
 
 ```xml
 <settings pageId="audio" schemaVersion="36">
-  <menuGroup id="audio" displayName="Audio" icon="/images/settings/ic_audio.png" url="http://<player>:11000/audiomodes">
-    <setting id="eq-treble" name="eq-treble" displayName="Treble" url="http://<player>:11000/alsa_setting"
+  <menuGroup id="audio" displayName="Audio" icon="/images/settings/ic_audio.png" url="http://192.168.1.100:11000/audiomodes">
+    <setting id="eq-treble" name="eq-treble" displayName="Treble" url="http://192.168.1.100:11000/alsa_setting"
              icon="/images/settings/icon_treble.png" class="range" value="0" hideIfDisabled="true">
       <value min="-6" max="6" step="0.5" units="dB"/>
       <dependsOn name="eq-switch" value="ON"/>
     </setting>
-    <setting id="replayGainMode" name="replayGainMode" displayName="Replay-gain" url="http://<player>:11000/audiomodes"
+    <setting id="replayGainMode" name="replayGainMode" displayName="Replay-gain" url="http://192.168.1.100:11000/audiomodes"
              icon="/images/settings/ic_replaygain.png" class="list" value="album" description="Album gain">
       <value displayName="Disabled" name="none"/>
       <value displayName="Track gain" name="track"/>
@@ -2281,8 +2281,8 @@ No known parameters.
 ```xml
 <shares count="1">
   <share>
-    <sharename>\\<server>\<share></sharename>
-    <username><user name></username>
+    <sharename>\\nas\Music</sharename>
+    <username>music</username>
   </share>
 </shares>
 ```
@@ -2499,9 +2499,9 @@ Common answer structure (verified):
 ```xml
 <screen id="screen-…" screenTitle="…" version="1" refreshOnPlayerChange="true" service="…" navigationTitle="…" navigationIcon="…">
   <refreshOnStatusChange key="prid" value="7"/>       <!-- reload when this /Status value changes (prid, pid, sid) -->
-  <menuAction type="…" text="…"><action …/></menuAction>
-  <sortMenu><item text="…" selected="true"><action …/></item></sortMenu>
-  <styleSelector text="…" type="grid"><action …/></styleSelector>
+  <menuAction type="…" text="…"><action/></menuAction>
+  <sortMenu><item text="…" selected="true"><action/></item></sortMenu>
+  <styleSelector text="…" type="grid"><action/></styleSelector>
   <row id="…" title="…" scrollable="true">            <!-- contains item, source, input, service, teaser, button … -->
     …
   </row>
@@ -2509,7 +2509,7 @@ Common answer structure (verified):
     <item title="…" subTitle="…" subSubTitle="…" image="…" quality="…" duration="…" counter="…">
       <action type="player-link" URI="/Play?id=0" resultType="…" title="…" refreshScreen="true" haptic="true"
               notification="…" notificationIcon="…"/>
-      <playAction …/>
+      <playAction/>
       <contextMenu type="browse" URI="/ui/ContextMenu?…" resultType="contextMenu"/>
       <nowPlayingMatch key="song" value="0"/>
     </item>
@@ -2587,7 +2587,7 @@ GET /ui/browseContext?service=<svc>&type=<type>&title=<title>&url=<encoded brows
     <button text="Play all" backgroundColor="#43a4ce" textColor="#ffffff" icon="/images/ui/btn_play.png">
       <action type="player-link" URI="/Load?service=BluOS&amp;name=My+Playlist&amp;shuffle=0" haptic="true"/>
     </button>
-    <button text="Shuffle" …>
+    <button text="Shuffle">
       <action type="player-link" URI="/Add?playlist=My+Playlist&amp;playnow=1&amp;service=BluOS&amp;shuffle=1" haptic="true"/>
     </button>
   </header>
@@ -2596,7 +2596,7 @@ GET /ui/browseContext?service=<svc>&type=<type>&title=<title>&url=<encoded brows
           subTitle="Tanita Tikaram" quality="cd" duration="2:53">
       <action type="player-link" URI="/Add?playnow=1&amp;file=…" haptic="true"/>
       <contextMenu type="browse" URI="/ui/ContextMenu?album=Ancient+Heart&amp;artist=Tanita+Tikaram&amp;context=Song&amp;filename=…" resultType="contextMenu"/>
-      <nowPlayingMatch key="fn" value="/var/mnt/<share>/…/01-Good Tradition.flac"/>
+      <nowPlayingMatch key="fn" value="/var/mnt/nas-Music/…/01-Good Tradition.flac"/>
     </item>
     <!-- 10 per page -->
     <nextLink>/ui/BrowseObjects?browseIndex=0&amp;listContinuation=10&amp;menuGroupId=BluOS-Playlist&amp;playlist=My+Playlist&amp;service=BluOS&amp;type=Song&amp;url=…</nextLink>
@@ -3038,7 +3038,7 @@ GET /ui/Queue?offset=<n>
   <button text="Save" backgroundColor="#2A2A2A" textColor="#ffffff" icon="/images/ui/btn_save_queue.png">
     <action type="browse" URI="/AddToPlaylistOptions?saveQueue=1" resultType="SaveQueueOptions" title="Save playlist"/>
   </button>
-  <button text="Clear" …>
+  <button text="Clear">
     <action type="player-link" URI="/Clear" refreshScreen="true" haptic="true" notification="Play Queue cleared"/>
   </button>
   <item image="/Artwork?service=LocalMusic&amp;artist=Dire+Straits&amp;album=Brothers+In+Arms" title="The Man&#39;s Too Strong"
