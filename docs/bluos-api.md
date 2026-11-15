@@ -26,7 +26,7 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
 
 ## 1. Basics
 
-- **Requests:** `http://<player>:<port>/<Request>?<parameters>` with the HTTP method given at each endpoint; parameters are URL-encoded name/value pairs (UTF-8). Answers are UTF-8 XML unless the endpoint says otherwise.
+- **Requests:** `http://192.168.1.100:11000/Volume?level=20` – player address, port, request, parameters – with the HTTP method given at each endpoint; parameters are URL-encoded name/value pairs (UTF-8). Answers are UTF-8 XML unless the endpoint says otherwise.
 - **Port:** 11000, the control API of every player. Endpoints on another port show it in their request line.
 - **Errors:** endpoints answer with HTTP errors or with an `<error>` root element instead of the expected one; clients should check the root element name.
 - **Unknown elements:** answers may contain more elements and attributes than shown here; clients should ignore the ones they do not know.
@@ -167,7 +167,7 @@ GET /SyncStatus?timeout=<seconds>&etag=<etag>
 </SyncStatus>
 ```
 
-A normal (not fixed) group shows `<slave id="<ip>" port="11000"/>` per secondary player on the primary, and `<master port="11000">&lt;ip&gt;</master>` on a secondary player. Players with a battery add `<battery level="…" charging="…" icon="…"/>`.
+A normal (not fixed) group shows `<slave id="192.168.1.101" port="11000"/>` per secondary player on the primary, and `<master port="11000">192.168.1.100</master>` on a secondary player. Players with a battery add `<battery level="…" charging="…" icon="…"/>`.
 
 **Notes**
 
@@ -292,7 +292,7 @@ GET /Add?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&genre=<genre>&
 **Notes**
 
 - Which parameters appear depends on the service and the action; [`/Services`](#get-services) lists them per menu entry (play now, shuffle, add next, add last).
-- Verified examples: album play `/Add?playnow=1&service=LocalMusic&album=…&artist=…`; album to the end `/Add?album=…&artist=…&playnow=-1&service=<svc>&where=last`; track `/Add?playnow=1&file=…`.
+- Verified examples: album play `/Add?playnow=1&service=LocalMusic&album=…&artist=…`; album to the end `/Add?album=…&artist=…&playnow=-1&service=LocalMusic&where=last`; track `/Add?playnow=1&file=…`.
 - Changes the queue id.
 - Not documented as a request; appears as `playURL`, `autoplayURL` and `actionURL` in `/Browse` answers (also in the official examples). Take the URLs from the player instead of building them.
 
@@ -368,7 +368,7 @@ Or `<state>stream</state>` for streams and inputs.
 - `/Play` alone starts / resumes the current source (only from `pause`, not from `stop`).
 - `seek` only works when `/Status` has `totlen` / `canSeek=1`. `seek` + `id` (official since v1.6) and `id` alone are verified; `seek` + `id` also returns from a radio stream to the queue (answer `<state>play</state>`).
 - Use `seek` (+ `id`), `id`, `url`, `inputTypeIndex` or `inputIndex`, not several of them.
-- `url` with an input: active inputs only; the only way to select inputs of a BluOS HUB (`Hub%3A%2F%2F<ip>%3A11000%2Finput0`). The source must be connected and not hidden.
+- `url` with an input: active inputs only; the only way to select inputs of a BluOS HUB (`Hub%3A%2F%2F192.168.1.149%3A11000%2Finput0`). The source must be connected and not hidden.
 - `inputTypeIndex`: also works for inactive inputs missing from `/RadioBrowse`; recommended for custom integration. Types: `spdif` (optical), `analog`, `coax`, `bluetooth`, `arc`, `earc`, `phono`, `computer`, `aesebu`, `balanced`, `microphone`; the number starts at 1 per type.
 - `inputIndex`: position in `/Settings?id=capture&schemaVersion=32`. The official example writes `InputId`; the parameter table says `inputIndex`.
 - Radio: `/Play?url=TuneIn:s16252/e113900962/https://…&title1=…` (a stream chosen with `/RadioBrowse?c=selectStream&id=…`), `/Play?url=Airable:radio:https://…&title1=…&image=…`, `/Play?url=RadioParadise:/1:20/Mellow%20Mix&title1=…&image=…`.
@@ -627,7 +627,7 @@ GET /Load?service=<service>&name=<name>&id=<id>
 
 **Notes**
 
-- Replaces the queue with the playlist and plays it. Take the URL from `/Browse` (playlist `playURL`) or from `/Presets` (e.g. `/Load?service=Tidal&id=<uuid>`).
+- Replaces the queue with the playlist and plays it. Take the URL from `/Browse` (playlist `playURL`) or from `/Presets` (e.g. `/Load?service=Tidal&id=fd3f797e-a3e9-4de9-a1e2-b5adb6a57cc7`).
 
 ### `GET /Move`
 
@@ -824,7 +824,7 @@ Like [`/Presets`](#get-presets): the new preset list, with a new `prid`.
 - Without parameters (verified) the answer is the preset list, the same as [`/Presets`](#get-presets).
 - Verified with `name`, `url`, `image` (parameters from [`/Services`](#get-services)): stores the preset in the first free slot (here id 5), answers the new preset list; `prid` changes; `url` is stored URL-encoded and without `volume`.
 - The BluOS Controller edits a preset with `id`, `name`, `volume`, `image`, `encoded_url` and deletes it with `id` alone.
-- Moving a preset to another slot = store it under the new `id`, then `/SetPreset?id=<old>&delete=1`.
+- Moving a preset to another slot = store it under the new `id`, then `/SetPreset?id=7&delete=1` (7 = the old slot).
 
 ---
 
@@ -891,26 +891,26 @@ Some answers group the items in `<category text="…" nextKey="…">`; errors co
 - `browseKey` = can be opened; `playURL` = default play action (usually clear the queue and play); `autoplayURL` = play this track and fill the queue with the rest of its container; `contextMenuKey` = key of the item's context menu; `actionURL` = action of a context menu item. Which of `playURL` / `autoplayURL` is the default should be a user preference.
 - Context menu item types: `favourite-add`, `favourite-delete`, `add-now` (play now), `add-next`, `add-last`, `add-shuffle`, `addAll-now`, `addAll-next`, `addAll-last`, `playRadio`, `delete` (ask the user first).
 - Paging: `nextKey` on `browse` or `category`; the chunk size is fixed by the player.
-- With a German `Accept-Language` (`de-DE,de;q=0.9,en;q=0.8`, as browsers send it), the album key `<svc>:MG/LocalMusic-Album?album=…&artist=…` answers some albums (e.g. "The Wall HiRes") with an empty `<browse type="menu"/>` instead of the tracks; others (e.g. "1", "Autumn (20th Anniversary)") answer normally, and which ones are hit can depend on the exact header value. With `Accept-Language: en` or without the header, the same albums answer their tracks (verified, BluOS 4.18.18).
+- With a German `Accept-Language` (`de-DE,de;q=0.9,en;q=0.8`, as browsers send it), the album key `LocalMusic:MG/LocalMusic-Album?album=…&artist=…` answers some albums (e.g. "The Wall HiRes") with an empty `<browse type="menu"/>` instead of the tracks; others (e.g. "1", "Autumn (20th Anniversary)") answer normally, and which ones are hit can depend on the exact header value. With `Accept-Language: en` or without the header, the same albums answer their tracks (verified, BluOS 4.18.18).
 - Streaming services use keys like `/Albums?service=Tidal&category=masters`; their search answers link to `/Artists|Albums|Songs|Playlists?service=…&expr=…`.
-- Verified keys for the local library (`<svc>` = `LocalMusic` or the USB id):
+- Verified keys for the local library (shown for `LocalMusic`; for the USB drive the keys start with its id instead, e.g. `1A2B_3C4D:`):
 
   | key | Answer | Size |
   |---|---|---:|
   | (none) | `type="menu"` · sources, playlists, inputs, radio (`item` with attributes `browseKey`, `text`, `image`, `type`, `playURL`, `inputType`) | 1.2 KB |
-  | `<svc>:` | 7 `item` elements (Artists, Albums, Songs, Genres, Playlists, Composers, Favourites); USB: 6 | 1.0 KB |
+  | `LocalMusic:` | 7 `item` elements (Artists, Albums, Songs, Genres, Playlists, Composers, Favourites); USB: 6 | 1.0 KB |
   | `…bySection:Album/…` | `type="sections"` · 27 `item` elements with attributes `browseKey`, `text`, `text2` – **`text2` = number of albums in the section**; USB lists only filled sections | 4.4 KB |
   | `…bySection:Artist/…`, `…Song/…`, `…Composer/…` | like Album, with counts | 4–5 KB |
   | `…S:Album/…&section=A` | `type="albums"` · 143 `item` elements with attributes `browseKey`, `contextMenuKey`, `playURL`, `text`, `text2`, `tracks`, `image` + context menus | 204 KB (68 KB without context menus) |
-  | `<svc>:GG/Genres` | `type="genres"` · 34 `item` elements with attributes `browseKey`, `text` | 3.4 KB |
-  | `<svc>:MG/LocalMusic-Genre?genre=…` | empty – genre menus have other keys, take them from the genre list | 0.2 KB |
-  | `<svc>:MG/LocalMusic-Artist?artist=…` | 2 `item` elements (albums, songs of the artist); the "Albums" key `<svc>:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=…&service=<svc>` returns all albums of the artist with URLs and context menus, no paging – but **without favourite state**: no `isFavourite`, no `&isFavourite=1` in `contextMenuKey`, the menu offers `favourite-add` also for favourites (verified 2026-11-15) | 0.4 KB |
-  | `<svc>:Album/%2Flibrary%2Fv1%2FAlbums%3F<filter>&service=<svc>` (built) | the `/library/v1/Albums` request as browse list with URLs, context menus and favourite state: `recent=1` (50 per page, `nextKey` with `count=50&start=50`), `category=FAVOURITES` (all in one answer); `genre=…` answers **empty**, also with `&offset=0` (verified 2026-11-15) | 75 KB (New, 50 albums) |
-  | `<svc>:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fquality=cd&service=<svc>&limit=50&section=A` (built like the section keys) | the quality albums of the section with URLs, context menus and favourite state; same albums as `/library/v1/Albums?quality=cd&section=A` (verified 2026-11-15) | 199 KB (140 albums) |
-  | `<svc>:MG/LocalMusic-Favourites` | 4 `item` elements (favourites by type) | 0.7 KB |
-  | `<svc>:MG/LocalMusic-Album?album=…&artist=…` | `type="tracks"` with `playURL` · 9 `item` elements with attributes `contextMenuKey`, `playURL`, `autoplayURL`, `text`, `duration`, `image` (`type="track"`) | 16.8 KB (7.2 KB without context menus) |
-  | `<svc>:CM/LocalMusic-Album?album=…&artist=…[&isFavourite=1]` | `type="contextMenu"` · 5 `item` elements with attributes `actionURL`, `text`, `type` (`favourite-add/-delete`, `add-now`, `add-shuffle`, `addAll-next`, `addAll-last`) | 1.0 KB |
-  | `<svc>:Search` + `q=love` | `type="menu"` · 4 `item` elements (links to artists, albums, songs, composers); every list returns all hits | 0.7 KB |
+  | `LocalMusic:GG/Genres` | `type="genres"` · 34 `item` elements with attributes `browseKey`, `text` | 3.4 KB |
+  | `LocalMusic:MG/LocalMusic-Genre?genre=…` | empty – genre menus have other keys, take them from the genre list | 0.2 KB |
+  | `LocalMusic:MG/LocalMusic-Artist?artist=…` | 2 `item` elements (albums, songs of the artist); the "Albums" key `LocalMusic:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=…&service=LocalMusic` returns all albums of the artist with URLs and context menus, no paging – but **without favourite state**: no `isFavourite`, no `&isFavourite=1` in `contextMenuKey`, the menu offers `favourite-add` also for favourites (verified 2026-11-15) | 0.4 KB |
+  | `LocalMusic:Album/%2Flibrary%2Fv1%2FAlbums%3Fgenre=Jazz&service=LocalMusic` (built) | the `/library/v1/Albums` request as browse list with URLs, context menus and favourite state: `recent=1` (50 per page, `nextKey` with `count=50&start=50`), `category=FAVOURITES` (all in one answer); `genre=…` answers **empty**, also with `&offset=0` (verified 2026-11-15) | 75 KB (New, 50 albums) |
+  | `LocalMusic:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fquality=cd&service=LocalMusic&limit=50&section=A` (built like the section keys) | the quality albums of the section with URLs, context menus and favourite state; same albums as `/library/v1/Albums?quality=cd&section=A` (verified 2026-11-15) | 199 KB (140 albums) |
+  | `LocalMusic:MG/LocalMusic-Favourites` | 4 `item` elements (favourites by type) | 0.7 KB |
+  | `LocalMusic:MG/LocalMusic-Album?album=…&artist=…` | `type="tracks"` with `playURL` · 9 `item` elements with attributes `contextMenuKey`, `playURL`, `autoplayURL`, `text`, `duration`, `image` (`type="track"`) | 16.8 KB (7.2 KB without context menus) |
+  | `LocalMusic:CM/LocalMusic-Album?album=…&artist=…[&isFavourite=1]` | `type="contextMenu"` · 5 `item` elements with attributes `actionURL`, `text`, `type` (`favourite-add/-delete`, `add-now`, `add-shuffle`, `addAll-next`, `addAll-last`) | 1.0 KB |
+  | `LocalMusic:Search` + `q=love` | `type="menu"` · 4 `item` elements (links to artists, albums, songs, composers); every list returns all hits | 0.7 KB |
   | `LocalMusic:Playlist/…imported=1` | imported playlists (empty here) | 0.2 KB |
 - Errors come as `<error>` root element with one `<message>` and zero or more `<detail>` text nodes.
 - Keys (`browseKey`, `nextKey`, `parentKey`, `contextMenuKey`, `searchKey`) are opaque: pass them unchanged, URL-encoded, as `key=`.
@@ -979,10 +979,10 @@ GET /RadioBrowse?service=<service>&url=<url>&key=<key>&c=<category>&id=<station 
 
 **Notes**
 
-- Verified with `service=Capture`: lists the active inputs (here Bluetooth, HDMI ARC, optical input 1), cloud sources (e.g. Spotify) and HUB inputs. `typeIndex` (e.g. `spdif-1`, `arc-1`) is the value for [`/Play?inputTypeIndex=`](#get-play); play an entry with `/Play?url=<URL>`.
+- Verified with `service=Capture`: lists the active inputs (here Bluetooth, HDMI ARC, optical input 1), cloud sources (e.g. Spotify) and HUB inputs. `typeIndex` (e.g. `spdif-1`, `arc-1`) is the value for [`/Play?inputTypeIndex=`](#get-play); play an entry with `/Play?url=` and its `URL`.
 - The radio variants (`url`, `c`) come from the player's description in [`/Services`](#get-services); not tried yet.
 - `service=Presets`, `service=Alarms` (also `&url=playlists`) and `service=RadioParadise` are used by the BluOS Controller.
-- Browsing radio: `url` takes the full directory URL of the service (TuneIn `https://api.radiotime.com/categories/…`, Airable `https://<id>.airable.io/radio/…`, also podcasts); `service=Airable&url=alarms` lists alarm sources; `c=selectStream&id=s16252&service=TuneIn` lists the streams of a station.
+- Browsing radio: `url` takes the full directory URL of the service (TuneIn `https://api.radiotime.com/categories/…`, Airable `https://7818664144.airable.io/radio/…`, also podcasts); `service=Airable&url=alarms` lists alarm sources; `c=selectStream&id=s16252&service=TuneIn` lists the streams of a station.
 
 ---
 
@@ -1102,7 +1102,7 @@ Parameters: the same as the `/library/v1` endpoint of the same name.
 
 **Response format**
 
-HTTP **302** to `http://<player>:11004/library/v1/<same>?<same parameters>`.
+HTTP **302** to the same request under `/library/v1` on port 11004, e.g. `/Albums?service=LocalMusic&artist=Adele` → `http://192.168.1.100:11004/library/v1/Albums?service=LocalMusic&artist=Adele`.
 
 **Notes**
 
@@ -1270,7 +1270,7 @@ GET /library/v1/Folders?service=<svc>&path=<path>
 | Parameter | Meaning |
 |---|---|
 | `service` | `LocalMusic` or the USB id |
-| `path` | folder to list, e.g. `//<server>/<share>`; without it the list of shares |
+| `path` | folder to list, e.g. `//nas/Music`; without it the list of shares |
 
 **Response format**
 
@@ -1492,7 +1492,7 @@ GET /Artwork?service=<svc>&album=<album>&artist=<artist>&songid=<id>&albumid=<id
 
 **Response format**
 
-The image (200, e.g. `image/jpeg`); without `followRedirects=1` a **301** to `http://<player>:11004/library/v1/Artwork?…` (library).
+The image (200, e.g. `image/jpeg`); without `followRedirects=1` a **301** to `http://192.168.1.100:11004/library/v1/Artwork?…` (library).
 
 **Notes**
 
@@ -1579,7 +1579,7 @@ The answer of the forwarded request, e.g. the `SyncStatus` of the member.
 
 - Seen as `url` of fixed group members in `/Settings` (audio settings of a surround speaker).
 - Verified with `url=%2FSyncStatus`: answers the member's `/SyncStatus` (with `managedZoneSlave="true"`, `pairSlaveOnly`, `master`, `slaveVol`).
-- Changes settings of a group member: the BluOS Controller sends `POST /proxyToSlave?slave=<ip>%3A<port>&url=%2Fsetting` with the JSON body of the setting, e.g. `{"ledbrightness":"dim"}`.
+- Changes settings of a group member: the BluOS Controller sends `POST /proxyToSlave?slave=192.168.1.101%3A11000&url=%2Fsetting` with the JSON body of the setting, e.g. `{"ledbrightness":"dim"}`.
 
 ### `GET /RemoveSlave`
 
@@ -1750,9 +1750,9 @@ No answer body (HTTP 200, empty); with `preset` HTTP 205 (Reset Content, one byt
 **Notes**
 
 - `preset` verified with GET (`MUSIC` ↔ `MOVIE`, read back from [`/audioPreset`](#get-audiopreset), restored): HTTP 205; the change ends a `/Status` long poll with `syncStat` + 1.
-- Names, ranges and dependencies are from the player's own `/Settings?id=audio` answer (verified read); the form `/alsa_setting?<name>=<value>` comes from community projects. Verified with `eq-balance` (0 ↔ 0.5, read back from `/Settings?id=audio`, restored).
+- Names, ranges and dependencies are from the player's own `/Settings?id=audio` answer (verified read); the form `/alsa_setting?eq-balance=0.5` (name = value) comes from community projects. Verified with `eq-balance` (0 ↔ 0.5, read back from `/Settings?id=audio`, restored).
 - Which settings exist depends on the player (DSP, centre, subwoofer).
-- The BluOS Controller sends it as **POST** with a JSON body, e.g. `{"preset":"MOVIE"}`; GET with `?<name>=<value>` works as well (verified). Seen: `preset` (`MUSIC`, `MOVIE`, `TV`).
+- The BluOS Controller sends it as **POST** with a JSON body, e.g. `{"preset":"MOVIE"}`; GET with name and value as query works as well (verified). Seen: `preset` (`MUSIC`, `MOVIE`, `TV`).
 - More: `{"eq-switch":"ON"}`, `{"eq-bass":-1}`, `{"eq-treble":-1.5}`, `{"eq-balance":1.5}`, `{"eq-centre-trim":-2.5}` (numbers without quotes), `{"resetPreset":1}`.
 
 ### `GET /apmode`
@@ -1799,7 +1799,7 @@ No answer body (HTTP 200, empty).
 **Notes**
 
 - Only `bluetoothAutoplay` is official (no answer body). `subwoofer`, `ears`, `volumeLimits`, `replayGainMode` with their values are from the player's own answers to `/Settings?id=audio` and `/Settings?id=capture` (verified read); `mqaDisable`, `fixedVolume`, `channelMode`, `enableClockTrim` only from community projects. Verified with `replayGainMode` (`album` ↔ `track`, read back from `/Settings?id=audio`, restored).
-- The BluOS Controller sends it as **POST** with a JSON body, e.g. `{"replayGainMode":"none"}`; GET with `?<name>=<value>` works as well (verified). Seen: `replayGainMode` (`none`, `track`, `album`, `smart`), `subwoofer` (`withsub`, `default`).
+- The BluOS Controller sends it as **POST** with a JSON body, e.g. `{"replayGainMode":"none"}`; GET with name and value as query works as well (verified). Seen: `replayGainMode` (`none`, `track`, `album`, `smart`), `subwoofer` (`withsub`, `default`).
 - More: `{"bluetoothAutoplay":"0"}`, `{"ears":"ON"}`, `{"volumeLimits":"-70,-16"}`.
 - Verified: `/audiomodes` without parameters answers empty – it does not return the current values; read them from `/Settings?id=audio`.
 
@@ -1825,7 +1825,7 @@ No known parameters.
 **Notes**
 
 - Verified: answers the listening mode setting in the format of `/Settings`; `value` is the current mode.
-- Change it with [`/alsa_setting?preset=<name>`](#get-post-alsa_setting) (the `url` of the answer), using the `name` of a `value` as `<name>`. Verified (Bruno S41–S47, MUSIC → MOVIE and back): the player answers HTTP 205, `/audioPreset` shows the new mode after about 1 s.
+- Change it with [`/alsa_setting?preset=MOVIE`](#get-post-alsa_setting) (the `url` of the answer), with the `name` of one of the `value` elements. Verified (Bruno S41–S47, MUSIC → MOVIE and back): the player answers HTTP 205, `/audioPreset` shows the new mode after about 1 s.
 - `/Status` does not name the listening mode (Bruno E23). A change still ends a `/Status` long poll: new `etag`, and the only changed field is `syncStat` (+1) (Bruno S44). A client can follow the mode by reading `/audioPreset` again when `syncStat` changes.
 - Only players with listening modes have it; here a fixed home theatre group, whose [`/SyncStatus`](#get-syncstatus) carries `<audioPresetUrl url="/audioPreset"/>`. `/ui/Configuration` lists it as `listeningModesURL="/audioPreset"` of `/ui/presets`.
 
@@ -1970,7 +1970,7 @@ GET /error?<counter>&clear=1&counter=<counter>
 | Parameter | Meaning |
 |---|---|
 | `<counter>` | number of the error message to read, e.g. `/error?2` |
-| `clear`, `counter` | `clear=1&counter=<n>` clears that message |
+| `clear`, `counter` | `clear=1&counter=2` clears message 2 |
 
 **Response format**
 
@@ -2053,7 +2053,7 @@ An HTML page "Confirmation": "Settings Updated – Rebooting. Please close this 
 
 **Notes**
 
-- Example: `curl -d yes=1 http://<player>/reboot`.
+- Example: `curl -d yes=1 http://192.168.1.100/reboot`.
 - Verified: the player restarts and answers `/SyncStatus` again after about 20 s (Powernode); playback stops.
 - The diagnostics page links to `/reboot?noheader=1` (the web page with the reboot button).
 
@@ -2150,8 +2150,8 @@ POST /setting   (JSON body {"<name>":"<value>"})
 
 | Parameter | Meaning |
 |---|---|
-| `<name>` | `name` of a setting whose `url` (or its menu's `url`) is `/setting`, see the table below |
-| `<value>` | new value; booleans use `ON` / `OFF` |
+| name | `name` of a setting whose `url` (or its menu's `url`) is `/setting`, see the table below |
+| value | new value; booleans use `ON` / `OFF` |
 
 **Response format**
 
@@ -2174,17 +2174,17 @@ No answer body (HTTP 200, empty).
   | `proximity_timeout` | range | 2 … 10 s | `proximity` |
   | `bluos_remote_enable` | boolean | BluOS IR remote | `bluos_remote` |
   | `bluos_remote_channel` | list | IR channel `0` … `7` | `bluos_remote` |
-  | `capture-input<n>-name` | text | name of input `n` | `capture-input<n>` |
-  | `capture-input<n>-icon` | iconlist | an `/images/capture/ic_….png` path | `capture-input<n>` |
-  | `capture-input<n>-preset` | list | listening mode of the input (e.g. `MUSIC`, `TV`) | `capture-input<n>` |
-  | `capture-input<n>-autosense`, `…-autosenseUngroup` | boolean | switch to the input on signal, ungroup then | `capture-input<n>` |
-  | `capture-input<n>-lowLatency` | boolean | A/V mode | `capture-input<n>` |
-  | `capture-input<n>-latency` | range | lip-sync delay 50 … 150 ms, steps of 10 | `capture-input<n>` |
-  | `capture-input<n>-groupCompress` | boolean | compressed audio to grouped players | `capture-input<n>` |
-  | `capture-input<n>-isMqaSource` | boolean | MQA pass-through (optical inputs) | `capture-input<n>` |
-  | `capture-input<n>-hide` | boolean | hide the source | `capture-input<n>` |
-- The BluOS Controller sends it as **POST** with a JSON body, e.g. `{"capture-input0-hide":"OFF"}`; GET with `?<name>=<value>` works as well (verified). Names: `capture-input<n>-hide`, `centre`, `amplifierStandby`, `proximity_enable`.
-- More names: `capture-input<n>-name`, `-icon`, `-preset`, `-autosense`, `-autosenseUngroup`, `-lowLatency`, `-latency` (number, e.g. `{"capture-input6-latency":80}`), `-groupCompress`; `ledbrightness`, `proximity_timeout` (number), `bluos_remote_channel`, `bluos_remote_enable`.
+  | `capture-inputN-name` | text | name of input `n` | `capture-inputN` |
+  | `capture-inputN-icon` | iconlist | an `/images/capture/ic_….png` path | `capture-inputN` |
+  | `capture-inputN-preset` | list | listening mode of the input (e.g. `MUSIC`, `TV`) | `capture-inputN` |
+  | `capture-inputN-autosense`, `…-autosenseUngroup` | boolean | switch to the input on signal, ungroup then | `capture-inputN` |
+  | `capture-inputN-lowLatency` | boolean | A/V mode | `capture-inputN` |
+  | `capture-inputN-latency` | range | lip-sync delay 50 … 150 ms, steps of 10 | `capture-inputN` |
+  | `capture-inputN-groupCompress` | boolean | compressed audio to grouped players | `capture-inputN` |
+  | `capture-inputN-isMqaSource` | boolean | MQA pass-through (optical inputs) | `capture-inputN` |
+  | `capture-inputN-hide` | boolean | hide the source | `capture-inputN` |
+- The BluOS Controller sends it as **POST** with a JSON body, e.g. `{"capture-input0-hide":"OFF"}`; GET with name and value as query works as well (verified). Names: `capture-inputN-hide`, `centre`, `amplifierStandby`, `proximity_enable`.
+- More names: `capture-inputN-name`, `-icon`, `-preset`, `-autosense`, `-autosenseUngroup`, `-lowLatency`, `-latency` (number, e.g. `{"capture-input6-latency":80}`), `-groupCompress`; `ledbrightness`, `proximity_timeout` (number), `bluos_remote_channel`, `bluos_remote_enable`.
 
 ### `GET /Settings`
 
@@ -2221,13 +2221,13 @@ GET /Settings?id=<menu id>&schemaVersion=<n>&view=web&expand=1
 </settings>
 ```
 
-A setting that opens a web page has `<webview url="http://<player>:80/…"/>` instead of `value` elements.
+A setting that opens a web page has `<webview url="http://192.168.1.100:80/sharecfg?noheader=1"/>` instead of `value` elements.
 
 **Notes**
 
 - The settings tree the BluOS Controller shows. `class` tells the control: `text`, `boolean`, `list`, `range`, `dual-range`, `iconlist`, `button`, `download`, `upload`, `alarms`, `sleep`.
 - `url` is the endpoint that changes the setting; a setting without `url` uses the `url` of its `menuGroup`. Seen: [`/setting`](#get-post-setting), [`/audiomodes`](#get-post-audiomodes), [`/alsa_setting`](#get-post-alsa_setting), [`/SlaveVolume`](#get-post-slavevolume), [`/proxyToSlave`](#get-post-proxytoslave), [`/Reindex`](#get-reindex), [`/RemoveSlave`](#get-removeslave), and on port 80 [`/sharecfg`](#get-sharecfg), [`/wificfg`](#get-wificfg), [`/triggercfg`](#get-triggercfg), [`/download_playlists_api`](#get-download_playlists_api), [`/upload_playlists_api`](#post-upload_playlists_api).
-- Verified with schema 36, all menu pages read: top level (alarms, sleep timer, room name, amplifier standby, fixed group, library, playlists), `audio`, `audioPreset`, `zone`, `zone_player-<ip><port>` (per group member), `player` (Wi-Fi, indicator brightness, Wi-Fi Direct), `proximity`, `ir_remote`, `bluos_remote`, `library`, `managePlaylists`, `capture`, `capture-input<n>` (per input).
+- Verified with schema 36, all menu pages read: top level (alarms, sleep timer, room name, amplifier standby, fixed group, library, playlists), `audio`, `audioPreset`, `zone`, `zone_player-192168110111000` (per group member: address and port without dots, here 192.168.1.101:11000), `player` (Wi-Fi, indicator brightness, Wi-Fi Direct), `proximity`, `ir_remote`, `bluos_remote`, `library`, `managePlaylists`, `capture`, `capture-inputN` (per input).
 - `/Settings?view=web&id=sendSupportRequest` answers an empty page `<settings pageId="sendSupportRequest" schemaVersion="28"></settings>` (verified).
 
 ### `GET /settings/sendSupportRequest`
@@ -2517,7 +2517,7 @@ Common answer structure (verified):
 </screen>
 ```
 
-Action types: `player-link` (send the player request in `URI`), `browse` (load another `/ui` screen or a context menu), `context-browse`, `webpage` (open a web page, e.g. `/redirectToCp?…`), `setting` (open `/Settings?id=…`), `confirmation` (ask first, then send `URI`), `deep-link` (navigation inside the BluOS Controller, e.g. `/settings`, `/add-preset`, `/edit-queue`, `/reorder-presets`, `/customise-screen`, `/music-service/<svc>` – not player endpoints), `reorder`, `add`.
+Action types: `player-link` (send the player request in `URI`), `browse` (load another `/ui` screen or a context menu), `context-browse`, `webpage` (open a web page, e.g. `/redirectToCp?…`), `setting` (open `/Settings?id=…`), `confirmation` (ask first, then send `URI`), `deep-link` (navigation inside the BluOS Controller, e.g. `/settings`, `/add-preset`, `/edit-queue`, `/reorder-presets`, `/customise-screen`, `/music-service/LocalMusic` – not player endpoints), `reorder`, `add`.
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
@@ -2677,7 +2677,7 @@ GET /ui/browseGrouped?service=<svc>&menuGroupId=<id>&browseIndex=<n>&title=<titl
 
 - Artists, albums, songs and composers of the library; the BluOS Controller loads pages of 30 with `offset`.
 - Verified (628 artists): the letter index gives the offset of every letter, the BluOS Controller loads the pages it needs with `offset`.
-- Albums of a genre (verified 2026-11-15, as the BluOS Controller asks them): `/ui/browseGrouped?browseIndex=2&menuGroupId=Genres&service=<svc>&title=Albums&type=Album&url=<encoded /library/v1/Albums?genre=…&service=<svc>>`. Answer: `<list offset="0" total="165">`, letter index, 30 `item` elements per page with `title` (album), `subTitle` (artist), `subSubTitle` ("12 Tracks"), `image`, `<action URI="/Albums?service=…&album=…&artist=…">`, `<playAction URI="/Add?playnow=1&service=…&album=…&artist=…">`, `<contextMenu URI="/ui/ContextMenu?…context=Album…">` (no favourite state, no add-to-queue URL); next page via `<nextLink>` (`…&listContinuation=30…`); sort menu with `&sort=alpha|recent|year|decade` in the url. 27 KB per page.
+- Albums of a genre (verified 2026-11-15, as the BluOS Controller asks them): `/ui/browseGrouped?browseIndex=2&menuGroupId=Genres&service=LocalMusic&title=Albums&type=Album&url=<encoded /library/v1/Albums?genre=…&service=LocalMusic>`. Answer: `<list offset="0" total="165">`, letter index, 30 `item` elements per page with `title` (album), `subTitle` (artist), `subSubTitle` ("12 Tracks"), `image`, `<action URI="/Albums?service=…&album=…&artist=…">`, `<playAction URI="/Add?playnow=1&service=…&album=…&artist=…">`, `<contextMenu URI="/ui/ContextMenu?…context=Album…">` (no favourite state, no add-to-queue URL); next page via `<nextLink>` (`…&listContinuation=30…`); sort menu with `&sort=alpha|recent|year|decade` in the url. 27 KB per page.
 
 ### `GET /ui/browseMenuGroup`
 
@@ -3162,7 +3162,7 @@ GET /ui/Search?q=<text>&forService=<svc>&service=<svc>&CsearchService=<svc>
 **Notes**
 
 - The BluOS Controller sends a new request while the text is typed; results open with `/ui/browseContext` (e.g. `type=Artist&url=/Artists?…`).
-- Verified (library). The source selector uses `service=<svc>` as well.
+- Verified (library). The source selector uses `service=LocalMusic` as well.
 
 ### `GET /ui/Sources`
 
