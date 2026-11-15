@@ -5,6 +5,8 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 ## Unreleased
 - Code cleanup after ESLint (no change in behaviour).
 - Fix: artist view shows favourites with a filled heart.
+- Fix: album popup track list empty in browsers set to a language other than English.
+- Fix: no album covers in Firefox.
 
 ## 0.8.1
 - Security: cover image URLs from the player are checked.

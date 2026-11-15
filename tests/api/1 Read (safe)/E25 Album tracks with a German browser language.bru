@@ -1,0 +1,42 @@
+meta {
+  name: E25 Album tracks with a German browser language
+  type: http
+  seq: 98
+}
+
+get {
+  url: http://{{host}}:11000/
+  body: none
+  auth: none
+}
+
+headers {
+  Accept-Language: de-DE,de;q=0.9,en;q=0.8
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Browsers send Accept-Language with every request (the system language), Bruno does not.
+  // With a German Accept-Language the player answers the track list of some albums with an empty
+  // <browse type="menu"/> (seen for "The Wall HiRes"; others, e.g. "1", answer normally). Which albums
+  // are hit differs, so this request only records the answer for the first favourite (track count in the console).
+  // Album: the first favourite (A12), key in the player's form encoding like in its own lists.
+  const album = bru.getVar("favAlbum") || "", artist = bru.getVar("favArtist") || "";
+  if (!album) { bru.runner.skipRequest(); return; }
+  const enc = (v) => encodeURIComponent(v).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g, "+");
+  const key = "LocalMusic:MG/LocalMusic-Album?album=" + enc(album) + "&artist=" + enc(artist);
+  req.setUrl("http://" + bru.getEnvVar("host") + ":11000/Browse?withContextMenuItems=0&key=" + encodeURIComponent(key));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const n = (body.match(/<item\b[^>]*\stype="track"/g) || []).length;
+  console.log("German answer: " + n + " tracks, " + body.length + " bytes: " + body.slice(0, 300));
+}
+
+tests {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+}

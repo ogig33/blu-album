@@ -1,0 +1,42 @@
+meta {
+  name: E26 Album tracks with Accept-Language en
+  type: http
+  seq: 99
+}
+
+get {
+  url: http://{{host}}:11000/
+  body: none
+  auth: none
+}
+
+headers {
+  Accept-Language: en
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Browsers send Accept-Language with every request (the system language), Bruno does not.
+  // The app asks the player in English (UI language), so the album answers the tracks (see E25).
+  // Album: the first favourite (A12), key in the player's form encoding like in its own lists.
+  const album = bru.getVar("favAlbum") || "", artist = bru.getVar("favArtist") || "";
+  if (!album) { bru.runner.skipRequest(); return; }
+  const enc = (v) => encodeURIComponent(v).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g, "+");
+  const key = "LocalMusic:MG/LocalMusic-Album?album=" + enc(album) + "&artist=" + enc(artist);
+  req.setUrl("http://" + bru.getEnvVar("host") + ":11000/Browse?withContextMenuItems=0&key=" + encodeURIComponent(key));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  console.log(body.length + " bytes: " + body.slice(0, 300));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const tracks = (body.match(/<item\b[^>]*>/g) || []).filter((t) => /\stype="track"/.test(t));
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("album has tracks", () => expect(tracks.length).to.be.above(0));
+}

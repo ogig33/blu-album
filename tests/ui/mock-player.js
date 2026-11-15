@@ -39,7 +39,7 @@ function createPlayer(opts = {}) {
     pid: 485,
   };
   const QUEUE_CHANGES = /^\/(Add|Delete\?id=|Shuffle|Clear)/;
-  const browse = (key) => {
+  const browse = (key, lang) => {
     if (!key) {
       let top = fx("01");
       if (!state.usb) top = top.replace(/\s*<item browseKey="1A2B_3C4D:"[^>]*><\/item>/, "");
@@ -84,7 +84,12 @@ function createPlayer(opts = {}) {
           : "",
       );
     }
-    if (/MG\/LocalMusic-Album/.test(key)) return fx("08");
+    // Like the real player (Bruno E25 / E26): with a non-English Accept-Language (e.g. a German browser)
+    // the track list of an album is an empty menu.
+    if (/MG\/LocalMusic-Album/.test(key))
+      return /^en\b/i.test(lang)
+        ? fx("08")
+        : '<browse serviceIcon="/images/LibraryIcon.png" serviceName="Bibliothek" searchKey="LocalMusic:Search" type="menu"></browse>';
     if (/CM\/LocalMusic-Album/.test(key)) {
       // Library albums: favourite state follows the isFavourite flag of the key; USB albums: no favourites
       if (key.startsWith(USB)) return fx("09").replace(/\s*<item[^>]*favourite-delete[^>]*><\/item>/, "");
@@ -112,7 +117,7 @@ function createPlayer(opts = {}) {
     }
     return "<albums></albums>";
   };
-  const answer = (u) => {
+  const answer = (u, lang) => {
     const url = new URL(u),
       p = url.pathname,
       q = url.searchParams,
@@ -121,7 +126,7 @@ function createPlayer(opts = {}) {
     if (COMMANDS.test(pq) && !/^\/Volume$/.test(p)) state.commands.push(decodeURIComponent(pq));
     if (QUEUE_CHANGES.test(pq)) state.pid++;
     if (p === "/Artwork") return { type: "image/png", body: PNG };
-    if (p === "/Browse") return browse(q.get("key"));
+    if (p === "/Browse") return browse(q.get("key"), lang);
     if (p === "/library/v1/Albums") return library(q);
     if (p === "/library/v1/Songs") {
       let x = q.get("service") === USB ? fx("26") : fx("25");
@@ -165,7 +170,7 @@ function createPlayer(opts = {}) {
   };
   // Playwright route handler for http://<ip>:11000/**
   const route = async (r) => {
-    const a = answer(r.request().url());
+    const a = answer(r.request().url(), r.request().headers()["accept-language"] || "");
     const res = typeof a === "string" ? { type: "text/xml", body: a } : a;
     // /Status long polling: answer the follow-up requests (with etag) slowly, like a real player
     if (/\/Status\?.*etag=/.test(r.request().url())) await new Promise((z) => setTimeout(z, 1500));

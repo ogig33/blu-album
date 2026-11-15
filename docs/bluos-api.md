@@ -34,6 +34,7 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
 - **Polling rules:**
   - Without long polling: at most one request every 30 s.
   - Long polling (`timeout` + `etag` from the previous answer's root): never two requests for the same resource less than 1 s apart, even when the first returned sooner.
+- **Language:** answers follow the `Accept-Language` header of the request (e.g. `serviceName="Bibliothek"` for German). Browsers send the system language with every request; ask with `Accept-Language: en` to get the answers documented here (see `/Browse` for an album track list that stays empty otherwise).
 - **Grouped players:** many requests sent to a secondary player are proxied to the primary (status, playback, queue, browse).
 - **Response examples** are shortened answers of the test player; `…` and `<!-- … -->` mark left-out parts, `<ip>`, `<share>` and similar placeholders replace personal data.
 
@@ -869,6 +870,7 @@ Some answers group the items in `<category text="…" nextKey="…">`; errors co
 - `browseKey` = can be opened; `playURL` = default play action (usually clear the queue and play); `autoplayURL` = play this track and fill the queue with the rest of its container; `contextMenuKey` = key of the item's context menu; `actionURL` = action of a context menu item. Which of `playURL` / `autoplayURL` is the default should be a user preference.
 - Context menu item types: `favourite-add`, `favourite-delete`, `add-now` (play now), `add-next`, `add-last`, `add-shuffle`, `addAll-now`, `addAll-next`, `addAll-last`, `playRadio`, `delete` (ask the user first).
 - Paging: `nextKey` on `browse` or `category`; the chunk size is fixed by the player.
+- With a German `Accept-Language` (`de-DE,de;q=0.9,en;q=0.8`, as browsers send it), the album key `<svc>:MG/LocalMusic-Album?album=…&artist=…` answers some albums (e.g. "The Wall HiRes") with an empty `<browse type="menu"/>` instead of the tracks; others (e.g. "1", "Autumn (20th Anniversary)") answer normally, and which ones are hit can depend on the exact header value. With `Accept-Language: en` or without the header, the same albums answer their tracks (verified, BluOS 4.18.18).
 - Streaming services use keys like `/Albums?service=Tidal&category=masters`; their search answers link to `/Artists|Albums|Songs|Playlists?service=…&expr=…`.
 - Verified keys for the local library (`<svc>` = `LocalMusic` or the USB id):
 
@@ -1452,6 +1454,7 @@ The image (200, e.g. `image/jpeg`); without `followRedirects=1` a **301** to `ht
 **Notes**
 
 - Which identifying parameters appear depends on the service; take the URL from the `image` attribute of an answer and append `followRedirects=1` (official since v1.7, verified).
+- The image answer carries `Access-Control-Allow-Origin: *` (also for `Origin: null`, a page opened as a file), so a web page can read it with `fetch()` (verified). Firefox upgrades `<img src="http://…">` on a `file://` page to https (mixed content), which the player does not offer; `fetch()` is not upgraded.
 - Other image paths in answers (`/images/…`, `/Sources/images/…`) are static files on the player; they also take `width`, `height` and `style` (e.g. `Bluesound`).
 
 ### `GET /library/v1/Artwork`

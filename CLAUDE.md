@@ -91,6 +91,8 @@ Pitfalls:
 - All albums of a genre without sections only via `/ui/browseGrouped` (30 per page, no add-to-queue URL, no favourite state); `/library/v1/Albums?genre=…` without `section` and the browse key `Album/…genre=…` answer empty (Bruno E14).
 - Quality is `hd` in `/Status` but `hr` in the library filter; both are shown as "HD".
   MP3 files report their **bitrate** as `quality` – recognise MP3 by `atype` / `streamFormat`.
+- Every request sends `Accept-Language: en` (`PLAYER_HEADERS` in `api()` / `apiRaw()`): with the browser's language, e.g. German, `/Browse` answers the track list of some albums with an empty menu (Bruno E25 / E26).
+- Covers are read with `fetch()` and shown as blob URLs (`showImg()`): Firefox upgrades `<img src="http://…">` on a `file://` page to https (mixed content); `/Artwork` allows `fetch()` (`Access-Control-Allow-Origin: *`, Bruno E24).
 - `/Playlists` names carry an `image` attribute: `<name image="…">X</name>`.
 - `/Info?…` (album / track info) redirects to last.fm – not usable.
   `/Info?category=technical&filename=…` answered empty.
@@ -114,7 +116,7 @@ Pitfalls:
   chasing a "bug".
 
 ## Tests
-- `tests/api` – Bruno collection, environment "Home" (`host` = player IP, `saveFixtures`, `runManual`). Three folders, the whole collection is the suite to run after a firmware update: "1 Read (safe)" only reads (app requests A01–A26, album details and new variants E01–E21, reference endpoints V01–V47); "2 Write (changes the player)" sends every command of the app (C01–C47) and of the reference (W01–W15, S01–S40) and restores queue, position, volume, settings etc. afterwards; "3 Manual (run on purpose)" (M01–M21: doorbell, reindex, test preset, reboot, playlist restore, clear history, statistics, rebuild index, UpdateDNS) is skipped unless `runManual = true`. Fixtures go to `tests/api/fixtures/` (git-ignored, personal data).
+- `tests/api` – Bruno collection, environment "Home" (`host` = player IP, `saveFixtures`, `runManual`). Three folders, the whole collection is the suite to run after a firmware update: "1 Read (safe)" only reads (app requests A01–A26, album details and new variants E01–E21, E24–E26, reference endpoints V01–V47); "2 Write (changes the player)" sends every command of the app (C01–C47) and of the reference (W01–W15, S01–S40) and restores queue, position, volume, settings etc. afterwards; "3 Manual (run on purpose)" (M01–M21: doorbell, reindex, test preset, reboot, playlist restore, clear history, statistics, rebuild index, UpdateDNS) is skipped unless `runManual = true`. Fixtures go to `tests/api/fixtures/` (git-ignored, personal data).
 - `tests/tools/sanitize-fixtures.js` – copies fixtures to `tests/ui/fixtures` without IPs,
   room name, share / mount paths and USB ids.
 - `tests/ui` – Playwright tests (`npm test` in `tests/ui`) of the app against `mock-player.js`,

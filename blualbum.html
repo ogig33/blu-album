@@ -1817,6 +1817,39 @@ function imgUrl(p) {
   if (p.startsWith("/") && u.origin !== new URL(base).origin) return "";
   return u.pathname === "/Artwork" ? u.href + (u.search ? "&" : "?") + "followRedirects=1" : u.href;
 }
+// Shows an image URL from imgUrl() in an <img> ("" removes the image). Images of the player are read
+// with fetch() and shown as a blob URL: Firefox upgrades <img src="http://…"> on a file:// page to https
+// (mixed content) and the player has no https; fetch() is not upgraded and the player allows it
+// (Access-Control-Allow-Origin: *, Bruno E24). URLs of other hosts (now playing) are set directly.
+// The blob URL is released once the image is decoded. A failed load fires the element's "error" event.
+async function showImg(el, url) {
+  el.dataset.src = url;
+  if (!url) {
+    el.removeAttribute("src");
+    return;
+  }
+  if (new URL(url).origin !== new URL(base).origin) {
+    el.src = url;
+    return;
+  }
+  let blob = null;
+  try {
+    const r = await fetch(url);
+    if (r.ok) blob = await r.blob();
+  } catch { // network error: handled below like an HTTP error
+  }
+  if (el.dataset.src !== url) return; // another image was set meanwhile
+  if (!blob) {
+    el.removeAttribute("src");
+    el.dispatchEvent(new Event("error"));
+    return;
+  }
+  const o = URL.createObjectURL(blob);
+  const done = () => URL.revokeObjectURL(o);
+  el.addEventListener("load", done, { once: true });
+  el.addEventListener("error", done, { once: true });
+  el.src = o;
+}
 
 /* ---------- State ---------- */
 // All mutable state of the app, declared in one place.
@@ -1831,8 +1864,8 @@ let base = "", cache = {}, shown = [], activeKey = "", activeBtn = null;
 // secs} (secs: promise of the album sections, see albumSections()).
 // epoch increases on every connect / source change so late async results can be ignored (see ctx()).
 let sources = [], srcs = [], epoch = 0;
-// Album grid: lazy rendering observer and a token that cancels an older render.
-let lazyObs = null, lazyTok = 0;
+// Album grid: lazy rendering observer, a token that cancels an older render, observer that loads the covers.
+let lazyObs = null, lazyTok = 0, coverObs = null;
 // Saved playlists. playlistsKey: browse key ("" if the player has none), plSeq: request counter,
 // plChips: chip elements (re-added after the genre chips are rebuilt), plCount: number for the stats (null = unknown),
 // playlists: [{name, url}], plLoaded: the playlist loaded last (chip click or name reported with the queue).
@@ -1886,10 +1919,13 @@ const ctx = () => base + "|" + epoch;
 /* ---------- Player API ---------- */
 // Requests to the player (HTTP GET on port 11000, XML answers).
 
-// All requests go through api() or apiRaw().
+// All requests go through api() or apiRaw(); they ask for English answers (the UI language): with the
+// browser's own Accept-Language, e.g. German, the player answers the track list of some albums with an
+// empty menu (Bruno E25 / E26).
+const PLAYER_HEADERS = { "Accept-Language": "en" };
 // api(): parsed XML answer; throws on network errors (TypeError, see errMsg), HTTP errors and player errors (<e>).
 async function api(path, init) {
-  const r = await fetch(base + path, init);
+  const r = await fetch(base + path, { ...init, headers: PLAYER_HEADERS });
   if (!r.ok) throw new Error("Player responded with " + r.status);
   const d = new DOMParser().parseFromString(await r.text(), "text/xml");
   if (d.documentElement.tagName === "e") throw new Error(d.querySelector("message")?.textContent || "Player error");
@@ -1898,7 +1934,7 @@ async function api(path, init) {
 // apiRaw(): {ok, status, body} without throwing; used where the raw answer is shown to the user.
 async function apiRaw(path) {
   try {
-    const r = await fetch(base + path);
+    const r = await fetch(base + path, { headers: PLAYER_HEADERS });
     return { ok: r.ok, status: r.status + " " + r.statusText, body: await r.text() };
   } catch (e) {
     return { ok: false, status: "Request failed", body: String(e && e.message || e) };
@@ -2396,6 +2432,10 @@ function render(list, noRandom) {
     lazyObs.disconnect();
     lazyObs = null;
   }
+  if (coverObs) {
+    coverObs.disconnect();
+    coverObs = null;
+  }
   const tok = ++lazyTok, STEP = 60;
   let at = 0;
   const sentinel = document.createElement("div");
@@ -2424,6 +2464,12 @@ function render(list, noRandom) {
     lazyObs = new IntersectionObserver((e) => {
       if (e.some((x) => x.isIntersecting)) more();
     }, { rootMargin: "800px 0px" });
+    // Covers are loaded when they come near the visible area (showImg() fetches, so <img loading="lazy"> does not apply)
+    coverObs = new IntersectionObserver((e) => e.forEach((x) => {
+      if (!x.isIntersecting) return;
+      coverObs.unobserve(x.target);
+      showImg(x.target, x.target.dataset.url);
+    }), { rootMargin: "800px 0px" });
     more();
   } else list.forEach(addItem);
   // One grid tile: cover (opens details) with play / add-to-queue buttons, title, artist link.
@@ -2438,13 +2484,14 @@ function render(list, noRandom) {
     const cov = document.createElement("div");
     cov.className = "cov";
     const im = document.createElement("img");
-    im.loading = "lazy";
     im.alt = "";
     const isrc = imgUrl(a.img);
     if (isrc) {
-      im.src = isrc;
+      im.dataset.url = isrc;
       im.onerror = () => im.remove();
       cov.append(im);
+      if (coverObs) coverObs.observe(im);
+      else showImg(im, isrc);
     }
     cb.append(cov);
     cb.onclick = () => openAlbum(a);
@@ -2604,9 +2651,7 @@ async function toggleFav(a) {
 // Opens the album popup: details and the track list.
 // Play, add to queue and the favourite heart are on the cover in the grid, not in the popup.
 async function openAlbum(a) {
-  const dsrc = imgUrl(a.img);
-  if (dsrc) $("#dimg").src = dsrc;
-  else $("#dimg").removeAttribute("src");
+  showImg($("#dimg"), imgUrl(a.img));
   $("#dt").textContent = a.t;
   const da = $("#da");
   da.textContent = "";
@@ -3009,21 +3054,15 @@ function showNow(d) {
   const im = t1 ? g("image") : "", cv = $("#cov");
   const src = imgUrl(im);
   if (cv.dataset.src !== src) {
-    cv.dataset.src = src;
-    if (src) {
-      cv.src = src;
-      cv.hidden = false;
-    } else {
-      cv.hidden = true;
-      cv.removeAttribute("src");
-    }
+    cv.hidden = !src;
+    showImg(cv, src);
   }
   // Full-screen view: title1-3 are the three now-playing lines the API asks UIs to use
   $("#ft1").textContent = t1;
   $("#ft2").textContent = t1 ? g("title2") : "";
   $("#ft3").textContent = t1 ? g("title3") : "";
   const fi = $("#fimg");
-  if ((fi.getAttribute("src") || "") !== src) src ? fi.src = src : fi.removeAttribute("src");
+  if ((fi.dataset.src || "") !== src) showImg(fi, src);
   if (!t1) showFull(false);
   // MP3 has a bitrate as quality (e.g. 184000); it is recognised by the stream format ("MP3 184 kb/s").
   const ql = !t1 ? "" : /^MP3\b/i.test(g("streamFormat")) ? "MP3" : qLabel(g("quality")), q = $("#nq");

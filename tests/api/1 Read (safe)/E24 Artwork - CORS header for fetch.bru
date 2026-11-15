@@ -1,0 +1,38 @@
+meta {
+  name: E24 Artwork - CORS header for fetch
+  type: http
+  seq: 97
+}
+
+get {
+  url: http://{{host}}:11000/Artwork
+  body: none
+  auth: none
+}
+
+headers {
+  Origin: null
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Firefox upgrades <img src="http://…"> on a file:// page to https (mixed content), so the covers
+  // would have to be read with fetch() like the XML answers. fetch() from a file:// page (Origin: null)
+  // only works if the player allows it with an Access-Control-Allow-Origin header on the image too.
+  const img = bru.getVar("albumImage");
+  if (!img) { bru.runner.skipRequest(); return; }
+  req.setUrl("http://" + bru.getEnvVar("host") + ":11000" + img + "&followRedirects=1");
+}
+
+script:post-response {
+  console.log("Access-Control-Allow-Origin: " + res.getHeader("access-control-allow-origin"));
+}
+
+tests {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("returns an image", () => expect(String(res.getHeader("content-type"))).to.match(/^image\//));
+  test("allows fetch() from any origin", () => expect(String(res.getHeader("access-control-allow-origin"))).to.equal("*"));
+}

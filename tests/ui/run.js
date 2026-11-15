@@ -77,6 +77,7 @@ async function start(browser, opts = {}) {
     viewport: { width: VIEWPORT.width, height: VIEWPORT.height },
     deviceScaleFactor: VIEWPORT.scale,
     colorScheme: opts.colorScheme || "light",
+    locale: opts.locale,
   });
   const page = await ctx.newPage();
   const errors = [];
@@ -335,6 +336,22 @@ test("popup: details and source line, no buttons", async (t) => {
   ok(tr.length > 0 && tr.every((x) => /withContextMenuItems=0/.test(x)), "track list without context menus");
 });
 
+// Browsers send the system language as Accept-Language; with German the player answers the track list
+// of an album with an empty menu (Bruno E25), so the app asks in English (E26).
+test(
+  "popup: track list also in a browser set to German",
+  async (t) => {
+    await t.chip("All");
+    await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
+    await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic"))));
+    await t.page.waitForFunction(() => !/Loading/.test(document.querySelector("#tracks").textContent));
+    const rows = await t.page.$$eval("#tracks li button", (b) => b.map((x) => x.getBoundingClientRect().height));
+    ok(rows.length > 0 && rows.every((h) => h > 0), `visible track rows: ${JSON.stringify(rows)}`);
+    ok(/^\d+ tracks? \u00B7 \d+:\d\d$/.test(await t.page.textContent("#dsum")), "track count above the tracks");
+  },
+  { locale: "de-DE" },
+);
+
 test("popup: year, quality tag and technical data from /library/v1/Songs", async (t) => {
   await t.chip("All");
   await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
@@ -386,6 +403,24 @@ test("popup: artist per track only where it differs from the album artist", asyn
   await t.page.waitForSelector("#tracks li button");
   eq(await t.page.$$eval("#tracks .ta", (e) => e.map((x) => x.textContent)), ["Kate Bush"], "one track artist");
   ok((await t.page.textContent("#tracks li:nth-child(2)")).includes("Kate Bush"), "on track 2");
+});
+
+// Firefox upgrades <img src="http://…"> on a file:// page to https (mixed content); the player has no https,
+// so covers set as plain http image URLs stay empty there.
+test("covers: grid, popup and now playing show the player's images", async (t) => {
+  const loaded = (sel) =>
+    t.page.waitForFunction((s) => {
+      const i = document.querySelector(s);
+      return i && i.complete && i.naturalWidth > 0;
+    }, sel);
+  await loaded("#grid .item .cov img");
+  await loaded("#cov");
+  await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic"))));
+  await loaded("#dimg");
+  ok(
+    t.player.state.requests.some((r) => /^\/Artwork\?.*followRedirects=1/.test(r)),
+    "covers come from /Artwork with followRedirects=1",
+  );
 });
 
 test("cover heart: favourite album filled, toggles via the player (no local storage)", async (t) => {
@@ -865,7 +900,8 @@ test("covers: image URLs only on the player or http(s), /Artwork with followRedi
     ],
     "image URLs",
   );
-  const src = await t.page.$eval("#grid .item:not(:first-child) .cov img", (i) => i.getAttribute("src"));
+  // The image itself is shown as a blob URL (read with fetch, see showImg); data-src is the player URL
+  const src = await t.page.$eval("#grid .item:not(:first-child) .cov img", (i) => i.dataset.src);
   ok(src.startsWith(b + "/Artwork?") && src.endsWith("&followRedirects=1"), "grid cover from /Artwork: " + src);
 });
 
