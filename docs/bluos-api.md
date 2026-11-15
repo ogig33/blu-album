@@ -43,7 +43,7 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
   - Without long polling: at most one request every 30 s.
   - Long polling (`timeout` + `etag` from the previous answer's root): never two requests for the same resource less than 1 s apart, even when the first returned sooner.
 - **Grouped players:** many requests sent to a secondary player are proxied to the primary (status, playback, queue, browse).
-- **Notation of answer structures:** `element ×n @attribute = "sample text"`; indentation = nesting.
+- **Response examples** are shortened answers of the test player; `…` and `<!-- … -->` mark left-out parts, `<ip>`, `<share>` and similar placeholders replace personal data.
 
 ---
 
@@ -67,30 +67,69 @@ GET /Status?timeout=<seconds>&etag=<etag>
 
 **Response format**
 
+```xml
+<status etag="4e266c9fbfba6d13d1a4d6ff4bd2e1e6">
+  <actions>
+    <action name="back"/>
+    <action name="skip" url="/Action?service=RadioParadise&amp;next=2960598"/>
+  </actions>
+  <album>Ambient Explorations 04</album>
+  <artist>Rule 42</artist>
+  <canSeek>0</canSeek>
+  <image>https://img.radioparadise.com/covers/l/19334.jpg</image>
+  <infourl>https://en.wikipedia.org/wiki/</infourl>
+  <lyricsid>893</lyricsid>
+  <name>3C 273</name>
+  <pid>615</pid>
+  <prid>2</prid>
+  <quality>cd</quality>
+  <repeat>2</repeat>
+  <secs>39</secs>
+  <service>RadioParadise</service>
+  <serviceName>Radio Paradise</serviceName>
+  <serviceType>RadioService</serviceType>
+  <shuffle>0</shuffle>
+  <sleep>10</sleep>
+  <song>0</song>
+  <state>stream</state>
+  <streamFormat>FLAC 16/44.1</streamFormat>
+  <streamUrl>RadioParadise:/42:4/Serenity</streamUrl>
+  <syncStat>44</syncStat>
+  <title1>Serenity</title1>
+  <title2>3C 273</title2>
+  <title3>Rule 42 • Ambient Explorations 04</title3>
+  <totlen>877</totlen>
+  <volume>14</volume>
+  <!-- more elements, see the table -->
+</status>
 ```
-status @etag
-  title1, title2, title3        three lines of now-playing text (MUST be used for 3-line UIs)
-  twoline_title1, twoline_title2 (if present: MUST be used for 2-line UIs)
-  album, artist, name           raw metadata (do not use for display)
-  state                         play | pause | stop | stream | connecting | …
-  secs, totlen                  position and length in s; secs does not change the etag
-  canSeek                       1 = /Play?seek= possible
-  song                          position of the current track in the queue
-  pid                           queue id (= @id of /Playlist); changes with every queue change
-  prid                          preset id (= @prid of /Presets)
-  syncStat                      changes whenever /SyncStatus changes
-  shuffle (0|1), repeat (0 queue | 1 track | 2 off)
-  volume (0–100, -1 fixed), db, mute, muteVolume, muteDb
-  quality                       cd | hd | dolbyAudio | mqa | mqaAuthored | bitrate number (lossy)
-  streamFormat                  e.g. "MP3 320 kb/s", "FLAC 44.1kHz/16bit"
-  service, serviceName, serviceType, serviceIcon, image, currentImage, stationImage, infourl, lyricsid, fn
-  streamUrl                     present: not playing from the queue (no song / shuffle / repeat / skip)
-  actions > action @name @url @icon @text @notification @state   (see /Action)
-  sleep                         minutes left on the sleep timer
-  groupName, groupVolume        only on the primary player of a group
-  battery @level @charging @icon
-  alarmsecondsremaining, notifyurl, canMovePlayback, indexing, mid, mode, sid, cursor
-```
+
+| Element | Meaning |
+|---|---|
+| `title1`, `title2`, `title3` | three lines of now-playing text (MUST be used for 3-line UIs) |
+| `twoline_title1`, `twoline_title2` | if present: MUST be used for 2-line UIs |
+| `album`, `artist`, `name` | raw metadata (do not use for display) |
+| `state` | `play`, `pause`, `stop`, `stream`, `connecting`, … |
+| `secs`, `totlen` | position and length in seconds; `secs` does not change the `etag` |
+| `canSeek` | `1` = `/Play?seek=` possible |
+| `song` | position of the current track in the queue |
+| `pid` | queue id (= `id` of `/Playlist`); changes with every queue change |
+| `prid` | preset id (= `prid` of `/Presets`) |
+| `syncStat` | changes whenever `/SyncStatus` changes |
+| `shuffle`, `repeat` | `0` / `1`; repeat `0` = queue, `1` = track, `2` = off |
+| `volume`, `db`, `mute`, `muteVolume`, `muteDb` | volume 0–100 (`-1` = fixed), in dB, mute state |
+| `quality` | `cd`, `hd`, `dolbyAudio`, `mqa`, `mqaAuthored` or the bitrate (lossy) |
+| `streamFormat` | e.g. `MP3 320 kb/s`, `FLAC 16/44.1` |
+| `service`, `serviceName`, `serviceType`, `serviceIcon` | source of the playing item |
+| `image`, `currentImage`, `stationImage` | images |
+| `infourl`, `lyricsid` | values for `/Info` |
+| `fn` | file / item id |
+| `streamUrl` | present: not playing from the queue (no `song` / shuffle / repeat / skip) |
+| `actions` > `action` (`name`, `url`, `icon`, `text`, `notification`, `state`) | radio actions, see `/Action` |
+| `sleep` | minutes left on the sleep timer |
+| `groupName`, `groupVolume` | only on the primary player of a group |
+| `battery` (`level`, `charging`, `icon`) | players with a battery |
+| `alarmsecondsremaining`, `notifyurl`, `canMovePlayback`, `indexing`, `mid`, `mode`, `sid`, `cursor` | further elements |
 
 **Notes**
 
@@ -116,19 +155,25 @@ GET /SyncStatus?timeout=<seconds>&etag=<etag>
 
 **Response format**
 
+```xml
+<SyncStatus etag="2230" syncStat="2230" version="4.18.18" id="<ip>:11000" db="-53.7" volume="14"
+            name="Living Room" model="N331" modelName="Home Theatre Group" class="streamer-amplifier"
+            icon="/images/players/ic_fixed_group_surround.png" brand="Bluesound" schemaVersion="36"
+            initialized="true" zoneController="true" zone="Living Room" group="Living Room"
+            zoneUngroup="/RemoveSlave?slaves=<ip1>,<ip2>&amp;ports=11000,11000"
+            mac="<mac>" channelMode="front" channelName="Front">
+  <zoneOptions multi="false"/>
+  <zoneSlave id="<ip1>" port="11000" zoneSlave="true" channelMode="side_right" channelName="Right Surround"
+             distance="1.4" zoneSubnet="true" name="Right" model="P130" modelName="PULSE FLEX"
+             icon="/images/players/P130_nt.png"/>
+  <zoneSlave id="<ip2>" port="11000" … channelMode="side_left" channelName="Left Surround" …/>
+  <pairWithSub/>
+  <bluetoothOutput/>
+  <audioPresetUrl url="/audioPreset"/>
+</SyncStatus>
 ```
-SyncStatus @etag @syncStat @id="<ip>:<port>" @name @brand @model @modelName @class @icon @mac @version
-           @volume (0–100, -1 fixed) @db @mute @muteVolume @muteDb @group @initialized @schemaVersion
-           @zone @zoneController @zoneMaster @zoneSlave @zoneUngroup @channelMode @channelName @distance @outlevel
-  master @port @reconnecting = "<ip>"     only on a secondary player
-  slave ×n @id @port                      only on the primary player of a normal group
-  zoneSlave ×n @id @port @name @model @modelName @icon @channelMode @channelName @distance @zoneSubnet
-                                          members of a fixed group (home theatre, stereo pair)
-  zoneOptions @multi
-  pairWithSub, bluetoothOutput
-  audioPresetUrl @url="/audioPreset"
-  battery @level @charging @icon
-```
+
+A normal (not fixed) group shows `<slave id="<ip>" port="11000"/>` per secondary player on the primary, and `<master port="11000">&lt;ip&gt;</master>` on a secondary player. Players with a battery add `<battery level="…" charging="…" icon="…"/>`.
 
 **Notes**
 
@@ -161,9 +206,11 @@ GET /Volume?level=<0–100>&abs_db=<dB>&db=<±dB>&mute=<0|1>&tell_slaves=<0|1>&t
 
 **Response format**
 
+```xml
+<volume db="-50.9" offsetDb="0" mute="0" etag="672e82cf69c0bc0cc6dcf3bbcba6131a" source="">16</volume>
 ```
-volume @db @mute @offsetDb @etag [@muteDb @muteVolume] [@source] = "16"   (level 0–100, -1 fixed)
-```
+
+The text is the level 0–100 (`-1` = fixed volume). When muted: `mute="1"`, plus `muteDb` and `muteVolume` (the level before muting).
 
 **Notes**
 
@@ -204,13 +251,15 @@ GET /Action?service=<service>&skip=<id>&next=<id>&back=<id>&love=<id>&ban=<id>&a
 
 **Response format**
 
+```xml
+<skip>1</skip>
 ```
-skip [= "1"]  |  back  |  love = "1"  |  love @skip="1" = "0"  (ban)  |  response = "<notification>"
-```
+
+Other answers: `<back/>`, `<love>1</love>`, ban: `<love skip="1">0</love>`, or `<response>…</response>` with a notification for the user.
 
 **Notes**
 
-- Streaming radio (e.g. Slacker, Radio Paradise, Amazon stations) does not use the queue. `/Status` then lists `<actions><action @name="back|skip|love|ban" @url @icon @text @notification @state/>`.
+- Streaming radio (e.g. Slacker, Radio Paradise, Amazon stations) does not use the queue. `/Status` then lists `<actions><action name="back|skip|love|ban" url="…" icon="…" text="…" notification="…" state="…"/></actions>`.
 - Invoke the `url` exactly as given; it is usually `/Action?…`, but any URI is possible. An action without `url` is not available.
 - Verified with Radio Paradise: `/Status` offered `<action name="back"/>` (no url, not available) and `<action name="skip" url="/Action?service=RadioParadise&next=55833"/>`; the skip answered `<skip>1</skip>`.
 - If the root is `<response>`, its text is a notification for the user; otherwise show the action's `notification`.
@@ -254,9 +303,11 @@ No parameters.
 
 **Response format**
 
+```xml
+<id>19</id>
 ```
-id = "19"     (new queue position)
-```
+
+The new queue position.
 
 **Notes**
 
@@ -275,9 +326,11 @@ GET /Pause?toggle=1
 
 **Response format**
 
+```xml
+<state>pause</state>
 ```
-state = "pause"     (with toggle: the new state)
-```
+
+With `toggle=1` the new state (`pause` or `play`).
 
 **Notes**
 
@@ -301,9 +354,11 @@ GET /Play?seek=<seconds>&id=<n>&url=<encoded URL>&title=<name>&title1=<name>&ima
 
 **Response format**
 
+```xml
+<state>play</state>
 ```
-state = "play" | "stream"
-```
+
+Or `<state>stream</state>` for streams and inputs.
 
 **Notes**
 
@@ -327,8 +382,8 @@ GET /Repeat?state=<0|1|2>
 
 **Response format**
 
-```
-playlist @length @id @repeat
+```xml
+<playlist length="60" id="1764" repeat="1"/>
 ```
 
 **Notes**
@@ -347,8 +402,8 @@ GET /Shuffle?state=<0|1>
 
 **Response format**
 
-```
-playlist @name @modified @length @shuffle @id
+```xml
+<playlist name="Calm Piano" modified="0" length="160" shuffle="1" id="1051"/>
 ```
 
 **Notes**
@@ -366,9 +421,11 @@ No parameters.
 
 **Response format**
 
+```xml
+<id>21</id>
 ```
-id = "21"     (new queue position)
-```
+
+The new queue position.
 
 **Notes**
 
@@ -385,8 +442,8 @@ No parameters.
 
 **Response format**
 
-```
-state = "stop"
+```xml
+<state>stop</state>
 ```
 
 **Notes**
@@ -425,8 +482,8 @@ GET /AddToPlaylist?service=<svc>&sourceService=<svc>&album=<album>&artist=<artis
 
 **Response format**
 
-```
-addToPlaylist @service="BluOS"
+```xml
+<addToPlaylist service="BluOS"></addToPlaylist>
 ```
 
 **Notes**
@@ -450,12 +507,35 @@ GET /AddToPlaylistOptions?service=<svc>&album=<album>&artist=<artist>&songid=<id
 
 **Response format**
 
+```xml
+<addToPlaylistOptions service="LocalMusic">
+  <urlPath>/AddToPlaylist</urlPath>
+  <requestParameter>sourceService=LocalMusic</requestParameter>
+  <requestParameter>album=Kosmopolites</requestParameter>
+  <requestParameter>artist=Paolo+Fresu</requestParameter>
+  <playlists service="LocalMusic" create="1" serviceName="BluOS" serviceIcon="/images/BluOSIcon.png">
+    <name image="/Artwork?service=LocalMusic&amp;fn=…">My Playlist</name>
+    <name image="/Artwork?service=LocalMusic&amp;fn=…">Party</name>
+  </playlists>
+</addToPlaylistOptions>
 ```
-addToPlaylistOptions @service
-  urlPath = "/AddToPlaylist"
-  requestParameter ×n = "sourceService=LocalMusic" | "album=…" | "artist=…"
-  playlists @service @create="1" @serviceName="BluOS" @serviceIcon
-    name ×n @image = "<playlist name>"
+
+With `saveQueue=1`:
+
+```xml
+<saveQueueOptions service="LocalMusic">
+  <urlPath>/Save</urlPath>
+  <name>My Playlist</name>
+  <overwrite name="My Playlist" service="BluOS">
+    <requestParameter>service=BluOS</requestParameter>
+    <requestParameter>name=My Playlist</requestParameter>
+  </overwrite>
+  <explanation>Songs from Library can only be saved in a BluOS playlist</explanation>
+  <playlists create="0" disable="1" service="LocalMusic" serviceName="Library" serviceIcon="/images/LibraryIcon.png"/>
+  <playlists service="BluOS" create="1" serviceName="BluOS" serviceIcon="/images/BluOSIcon.png">
+    <name image="/Artwork?…">My Playlist</name>
+  </playlists>
+</saveQueueOptions>
 ```
 
 **Notes**
@@ -474,8 +554,8 @@ No parameters.
 
 **Response format**
 
-```
-playlist @modified @length="0" @id
+```xml
+<playlist modified="0" length="0" id="1056"/>
 ```
 
 ### `GET /Delete`
@@ -492,9 +572,11 @@ GET /Delete?id=<n>&service=BluOS&name=<name>
 
 **Response format**
 
+```xml
+<deleted>9</deleted>
 ```
-deleted = "9"          (queue entry)
-```
+
+For a queue entry; deleting a saved playlist answers without this element.
 
 **Notes**
 
@@ -533,8 +615,8 @@ GET /Move?new=<to>&old=<from>
 
 **Response format**
 
-```
-moved = "moved"
+```xml
+<moved>moved</moved>
 ```
 
 **Notes**
@@ -556,11 +638,24 @@ GET /Playlist?start=<first>&end=<last>&length=1
 
 **Response format**
 
+```xml
+<playlist name="My Playlist" modified="0" shuffle="0" repeat="2" length="12" id="485">
+  <song service="LocalMusic" id="0">
+    <art>Brian Eno</art>
+    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
+    <title>Under Stars</title>
+    <track>1</track>
+    <date>1983</date>
+    <time>270</time>
+    <fn>/var/mnt/<share>/By Artist/E/Brian Eno/1983_Apollo/01. Under Stars.flac</fn>
+    <quality>cd</quality>
+    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo…</image>
+  </song>
+  <!-- one <song> per entry; id = queue position (= song of /Status) -->
+</playlist>
 ```
-playlist @name @modified (0|1) @length @id (= pid of /Status) [@shuffle]
-  song ×n @id (queue position = song of /Status) @service @albumid @artistid @songid
-    title, art, alb, fn
-```
+
+`id` of `playlist` = `pid` of `/Status`. Streaming services add `albumid`, `artistid`, `songid` to `song`. With `length=1` only the attributes, no songs.
 
 **Notes**
 
@@ -579,9 +674,11 @@ GET /Playlists?service=BluOS
 
 **Response format**
 
-```
-playlists @service="BluOS"
-  name ×n @image = "<playlist name>"
+```xml
+<playlists service="BluOS">
+  <name image="/Artwork?service=LocalMusic&amp;fn=…">My Playlist</name>
+  <name image="/Artwork?service=LocalMusic&amp;fn=…">Party</name>
+</playlists>
 ```
 
 **Notes**
@@ -603,8 +700,10 @@ GET /Save?name=<name>&service=BluOS&create=1
 
 **Response format**
 
-```
-saved > entries = "126"
+```xml
+<saved>
+  <entries>126</entries>
+</saved>
 ```
 
 **Notes**
@@ -636,10 +735,11 @@ GET /Preset?id=<id|+1|-1>
 
 **Response format**
 
+```xml
+<state>stream</state>
 ```
-loaded @service > entries = "60"      (list of tracks)
-state = "stream"                      (radio)
-```
+
+For a radio preset. A preset with a list of tracks answers `<loaded service="Deezer"><entries>60</entries></loaded>`.
 
 **Notes**
 
@@ -657,9 +757,13 @@ No parameters.
 
 **Response format**
 
-```
-presets @prid (= prid of /Status; changes when presets change)
-  preset ×n @id @name @url @image @volume
+```xml
+<presets prid="0">
+  <preset id="1" name="Mellow Mix" url="/Play?url=RadioParadise:/1:4/Mellow Mix"
+          image="https://img.radioparadise.com/channels/0/1/cover_512x512/0.jpg" volume="16"/>
+  <preset id="6" name="Radio Köln" url="/Play?url=TuneIn:s16252"
+          image="http://cdn-profiles.tunein.com/s16252/images/logog.png" volume="16"/>
+</presets>
 ```
 
 **Notes**
@@ -686,10 +790,7 @@ GET /SetPreset?id=<slot>&name=<name>&url=<url>&encoded_url=<url>&image=<image ur
 
 **Response format**
 
-```
-presets @prid
-  preset ×n @id @name @url @image @volume
-```
+Like [`/Presets`](#get-presets): the new preset list, with a new `prid`.
 
 **Notes**
 
@@ -722,13 +823,39 @@ GET /Browse?key=<key>&q=<text>&withContextMenuItems=<0|1>
 
 **Response format**
 
+Album list of a library section (with `withContextMenuItems=1`):
+
+```xml
+<browse serviceIcon="/images/LibraryIcon.png" serviceName="Library" searchKey="LocalMusic:Search" type="albums">
+  <item browseKey="LocalMusic:MG/LocalMusic-Album?album=1&amp;artist=Peter+Gabriel"
+        contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=1&amp;artist=Peter+Gabriel&amp;isFavourite=1"
+        playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=1&amp;artist=Peter+Gabriel"
+        text="1" text2="Peter Gabriel" tracks="9" isFavourite="true"
+        image="/Artwork?service=LocalMusic&amp;album=1&amp;artist=Peter+Gabriel" type="album">
+    <contextMenu>
+      <item actionURL="/DeleteFavourite?album=1&amp;artist=Peter+Gabriel&amp;service=LocalMusic" text="Remove favourite" type="favourite-delete"/>
+      <item actionURL="/Add?album=1&amp;artist=Peter+Gabriel&amp;clear=0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=nextAlbum" text="Play now" type="add-now"/>
+      <!-- add-shuffle, addAll-next, addAll-last -->
+    </contextMenu>
+  </item>
+  <!-- one <item> per album; nextKey on <browse> when there are more pages -->
+</browse>
 ```
-browse @type @sid @service @serviceName @serviceIcon @searchKey @nextKey @parentKey [@playURL]
-  item ×n @type @text @text2 @image @browseKey @playURL @autoplayURL @contextMenuKey @actionURL
-          [@inputType @duration @tracks]
-    contextMenu > item ×n @type @text @actionURL        (with withContextMenuItems=1)
-  category ×n @text @nextKey @parentKey > item ×n        (some answers group the items)
+
+Tracks of an album (`type="tracks"`):
+
+```xml
+<browse serviceName="Library" searchKey="LocalMusic:Search" type="tracks"
+        playURL="/Add?service=LocalMusic&amp;album=1&amp;artist=Peter+Gabriel&amp;playnow=1">
+  <item text="1. Moribund The Burgermeister" duration="260" type="track"
+        playURL="/Add?playnow=1&amp;file=%2Fvar%2Fmnt%2F…flac"
+        autoplayURL="/Add?service=LocalMusic&amp;listindex=0&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;album=1&amp;artist=Peter+Gabriel"
+        contextMenuKey="LocalMusic:CM/LocalMusic-Song?album=1&amp;artist=Peter+Gabriel&amp;filename=…&amp;title=…"
+        image="/Artwork?service=LocalMusic&amp;artist=Peter+Gabriel&amp;album=1"/>
+</browse>
 ```
+
+Some answers group the items in `<category text="…" nextKey="…">`; errors come as `<error><message>…</message></error>`.
 
 **Notes**
 
@@ -742,18 +869,18 @@ browse @type @sid @service @serviceName @serviceIcon @searchKey @nextKey @parent
 
   | key | Answer | Size |
   |---|---|---:|
-  | (none) | `@type="menu"` · sources, playlists, inputs, radio (`item @browseKey @text @image @type @playURL @inputType`) | 1.2 KB |
-  | `<svc>:` | `item ×7` (Artists, Albums, Songs, Genres, Playlists, Composers, Favourites); USB: 6 | 1.0 KB |
-  | `…bySection:Album/…` | `@type="sections"` · `item ×27 @browseKey @text @text2` – **`text2` = number of albums in the section**; USB lists only filled sections | 4.4 KB |
+  | (none) | `type="menu"` · sources, playlists, inputs, radio (`item` with attributes `browseKey`, `text`, `image`, `type`, `playURL`, `inputType`) | 1.2 KB |
+  | `<svc>:` | 7 `item` elements (Artists, Albums, Songs, Genres, Playlists, Composers, Favourites); USB: 6 | 1.0 KB |
+  | `…bySection:Album/…` | `type="sections"` · 27 `item` elements with attributes `browseKey`, `text`, `text2` – **`text2` = number of albums in the section**; USB lists only filled sections | 4.4 KB |
   | `…bySection:Artist/…`, `…Song/…`, `…Composer/…` | like Album, with counts | 4–5 KB |
-  | `…S:Album/…&section=A` | `@type="albums"` · `item ×143 @browseKey @contextMenuKey @playURL @text @text2 @tracks @image` + context menus | 204 KB (68 KB without context menus) |
-  | `<svc>:GG/Genres` | `@type="genres"` · `item ×34 @browseKey @text` | 3.4 KB |
+  | `…S:Album/…&section=A` | `type="albums"` · 143 `item` elements with attributes `browseKey`, `contextMenuKey`, `playURL`, `text`, `text2`, `tracks`, `image` + context menus | 204 KB (68 KB without context menus) |
+  | `<svc>:GG/Genres` | `type="genres"` · 34 `item` elements with attributes `browseKey`, `text` | 3.4 KB |
   | `<svc>:MG/LocalMusic-Genre?genre=…` | empty – genre menus have other keys, take them from the genre list | 0.2 KB |
-  | `<svc>:MG/LocalMusic-Artist?artist=…` | `item ×2` (albums, songs of the artist); the "Albums" key `<svc>:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=…&service=<svc>` returns all albums of the artist with URLs and context menus, no paging | 0.4 KB |
-  | `<svc>:MG/LocalMusic-Favourites` | `item ×4` (favourites by type) | 0.7 KB |
-  | `<svc>:MG/LocalMusic-Album?album=…&artist=…` | `@type="tracks" @playURL` · `item ×9 @contextMenuKey @playURL @autoplayURL @text @duration @image` (`type="track"`) | 16.8 KB (7.2 KB without context menus) |
-  | `<svc>:CM/LocalMusic-Album?album=…&artist=…[&isFavourite=1]` | `@type="contextMenu"` · `item ×5 @actionURL @text @type` (`favourite-add/-delete`, `add-now`, `add-shuffle`, `addAll-next`, `addAll-last`) | 1.0 KB |
-  | `<svc>:Search` + `q=love` | `@type="menu"` · `item ×4` (links to artists, albums, songs, composers); every list returns all hits | 0.7 KB |
+  | `<svc>:MG/LocalMusic-Artist?artist=…` | 2 `item` elements (albums, songs of the artist); the "Albums" key `<svc>:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=…&service=<svc>` returns all albums of the artist with URLs and context menus, no paging | 0.4 KB |
+  | `<svc>:MG/LocalMusic-Favourites` | 4 `item` elements (favourites by type) | 0.7 KB |
+  | `<svc>:MG/LocalMusic-Album?album=…&artist=…` | `type="tracks"` with `playURL` · 9 `item` elements with attributes `contextMenuKey`, `playURL`, `autoplayURL`, `text`, `duration`, `image` (`type="track"`) | 16.8 KB (7.2 KB without context menus) |
+  | `<svc>:CM/LocalMusic-Album?album=…&artist=…[&isFavourite=1]` | `type="contextMenu"` · 5 `item` elements with attributes `actionURL`, `text`, `type` (`favourite-add/-delete`, `add-now`, `add-shuffle`, `addAll-next`, `addAll-last`) | 1.0 KB |
+  | `<svc>:Search` + `q=love` | `type="menu"` · 4 `item` elements (links to artists, albums, songs, composers); every list returns all hits | 0.7 KB |
   | `LocalMusic:Playlist/…imported=1` | imported playlists (empty here) | 0.2 KB |
 - Errors come as `<error>` root element with one `<message>` and zero or more `<detail>` text nodes.
 - Keys (`browseKey`, `nextKey`, `parentKey`, `contextMenuKey`, `searchKey`) are opaque: pass them unchanged, URL-encoded, as `key=`.
@@ -797,10 +924,16 @@ GET /RadioBrowse?service=<service>&url=<url>&key=<key>&c=<category>&id=<station 
 
 **Response format**
 
-```
-radiotime @service="Capture"
-  item ×n @text @id @type="audio" @inputType @typeIndex @URL @image [@playerName @serviceType]
-  category @text @icon > remoteitem ×n …     (inputs of a BluOS HUB)
+```xml
+<radiotime service="Capture">
+  <item text="Bluetooth" id="bluetooth" type="audio" inputType="bluetooth"
+        URL="Capture%3Abluez%3Abluetooth" image="/images/BluetoothIcon.png"/>
+  <item text="HDMI ARC" id="input4" type="audio" inputType="arc" typeIndex="arc-1"
+        URL="Capture%3Ahw%3Aimxspdif%2C0%2F1%2F25%2F2%3Fid%3Dinput4" image="/images/capture/ic_tv.png"/>
+  <item text="Optical Input 1" id="input2" type="audio" inputType="spdif" typeIndex="spdif-1"
+        URL="Capture%3Ahw%3Aimxspdif%2C0%2F1%2F25%2F2%3Fid%3Dinput2" image="/images/capture/ic_opticalinput.png"/>
+  <!-- inputs of a BluOS HUB: <category text="…" icon="…"><remoteitem …/></category> -->
+</radiotime>
 ```
 
 **Notes**
@@ -835,7 +968,7 @@ GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>
 
 **Notes**
 
-- Verified for the library. The current state shows in the context menu (`favourite-add` or `favourite-delete`) and in `@isFavourite` of `/library/v1` answers.
+- Verified for the library. The current state shows in the context menu (`favourite-add` or `favourite-delete`) and in `isFavourite` of `/library/v1` answers.
 - USB albums have no favourite actions (verified).
 
 ### `GET /DeleteFavourite`
@@ -923,23 +1056,60 @@ GET /library/v1/Albums?service=<svc>&section=<letter>&recent=1&category=FAVOURIT
 
 **Response format**
 
+`section` (also with `quality` or `genre`):
+
+```xml
+<albums limit="500" quality="cd" section="A" id="327701" service="LocalMusic">
+  <sections>
+    <section name="A">
+      <album tracks="10" date="1982">
+        <title>A Broken Frame</title>
+        <art>Depeche Mode</art>
+      </album>
+      <!-- one <album> per album of the section; isFavourite="1" on favourites -->
+    </section>
+  </sections>
+</albums>
 ```
-albums @section @id @service                     (section, quality, genre)
-  sections > section @name
-    album ×n @tracks @date @isFavourite
-      title, art
 
-albums @recent @id @service                      (recent, category)
-  album ×50 @isFavourite
-    alb, art
-  nextlink = "/library/v1/Albums?count=50&recent=1&service=LocalMusic&start=50"
+`recent=1` and `category=FAVOURITES`:
 
-albums @artist @id @service                      (artist)
-  artist @name > album ×n @tracks @date @isFavourite = "<title>"
+```xml
+<albums recent="1" id="327701" service="LocalMusic">
+  <album>
+    <alb>Wish You Were Here (50th Anniversary)</alb>
+    <art>Pink Floyd</art>
+  </album>
+  <album isFavourite="1">
+    <alb>The Wall HiRes</alb>
+    <art>Pink Floyd</art>
+  </album>
+  <!-- 50 per page -->
+  <nextlink>/library/v1/Albums?count=50&amp;recent=1&amp;service=LocalMusic&amp;start=50</nextlink>
+</albums>
+```
 
-albums @album @artist @id @service               (album+artist, composer)
-  album @tracks @date @isFavourite
-    title, art, cover = "/Artwork?service=…&album=…&artist=…"
+`artist`:
+
+```xml
+<albums artist="Dire Straits" id="327701" service="LocalMusic">
+  <artist name="Dire Straits">
+    <album tracks="9" date="1985">Brothers In Arms</album>
+    <album tracks="6" date="1984">Alchemy</album>
+  </artist>
+</albums>
+```
+
+`album` + `artist` (also `composer`):
+
+```xml
+<albums album="Brothers In Arms" artist="Dire Straits" id="327701" service="LocalMusic">
+  <album tracks="9" date="1985">
+    <title>Brothers In Arms</title>
+    <art>Dire Straits</art>
+    <cover>/Artwork?service=LocalMusic&amp;album=Brothers+In+Arms&amp;artist=Dire+Straits</cover>
+  </album>
+</albums>
 ```
 
 **Notes**
@@ -965,11 +1135,19 @@ GET /library/v1/Artists?service=<svc>&section=<letter>&category=FAVOURITES&genre
 
 **Response format**
 
+```xml
+<artists section="A" id="327701" service="LocalMusic">
+  <sections>
+    <section name="A">
+      <art>AC-DC</art>
+      <art isFavourite="1">Al Di Meola</art>
+      <!-- one <art> per artist -->
+    </section>
+  </sections>
+</artists>
 ```
-artists @id @service
-  sections > section @name > art ×n @isFavourite     (section)
-  art @isFavourite                                   (category)
-```
+
+With `category=FAVOURITES` the `<art isFavourite="1">` elements follow directly.
 
 **Notes**
 
@@ -990,11 +1168,16 @@ GET /library/v1/Composers?service=<svc>&section=<letter>&genre=<genre>
 
 **Response format**
 
+```xml
+<composers id="327701" service="LocalMusic">
+  <composer>Andrea Bocelli</composer>
+  <composer>Ennio Morricone</composer>
+  <!-- 51 per page without a filter -->
+  <nextlink>/library/v1/Composers?…</nextlink>
+</composers>
 ```
-composers @id @service
-  composer ×51                                       (no filter, + nextlink)
-  sections > section > composer ×n                   (section)
-```
+
+With `section` the composers are grouped in `<sections><section name="…">`.
 
 **Notes**
 
@@ -1013,9 +1196,15 @@ GET /library/v1/Folders?service=<svc>&path=<path>
 
 **Response format**
 
-```
-folders > subfolders > folder ×n
-  songs > song ×n                                    (with path)
+```xml
+<folders id="327701" service="LocalMusic">
+  <subfolders>
+    <folder …/>   <!-- one per sub folder -->
+  </subfolders>
+  <songs>
+    <song …/>     <!-- with path: the songs of the folder -->
+  </songs>
+</folders>
 ```
 
 ### `GET /library/v1/Genres`
@@ -1030,9 +1219,12 @@ GET /library/v1/Genres?service=<svc>
 
 **Response format**
 
-```
-genres @id @service @length="34"
-  genre ×34 = "Alternative Rock"
+```xml
+<genres id="327701" service="LocalMusic" length="34">
+  <genre>Alternative Rock</genre>
+  <genre>Audiobook</genre>
+  <!-- one <genre> per genre -->
+</genres>
 ```
 
 **Notes**
@@ -1054,10 +1246,11 @@ GET /library/v1/Playlists?service=<svc>&imported=1&category=FAVOURITES
 
 **Response format**
 
+```xml
+<playlists imported="1" id="983063" service="LocalMusic"></playlists>
 ```
-playlists @imported | @category @id @service
-  (entries not seen yet)
-```
+
+Entries not seen yet (no imported or favourite playlists on the test player).
 
 **Notes**
 
@@ -1076,11 +1269,30 @@ GET /library/v1/Search?service=<svc>&expr=<text>
 
 **Response format**
 
-```
-search @expr @id @service
-  artists > artist ×≤25 > name
-  albums  > album ×≤25 @tracks > title, art, cover
-  songs   > song ×≤25 > title, art, alb, fn, track, time, date, quality, …
+```xml
+<search expr="love" id="327701" service="LocalMusic">
+  <artists expr="love" id="327701" service="LocalMusic">
+    <artist><name>Courtney Love</name></artist>
+  </artists>
+  <albums expr="love" id="327701" service="LocalMusic">
+    <album tracks="12">
+      <title>Love Over Gold</title>
+      <art>Dire Straits</art>
+      <cover>/Artwork?service=LocalMusic&amp;album=Love+Over+Gold&amp;artist=Dire+Straits</cover>
+    </album>
+  </albums>
+  <songs expr="love" id="327701" service="LocalMusic">
+    <song>
+      <title>I Love You</title>
+      <art>Tanita Tikaram</art>
+      <alb>Ancient Heart</alb>
+      <fn>/var/mnt/<share>/…/04-I Love You.flac</fn>
+      <track>4</track>
+      <time>165</time>
+    </song>
+  </songs>
+  <!-- at most 25 per type -->
+</search>
 ```
 
 **Notes**
@@ -1108,13 +1320,24 @@ GET /library/v1/Songs?service=<svc>&album=<album>&artist=<artist>&composer=<comp
 
 **Response format**
 
+```xml
+<songs album="1" artist="Peter Gabriel" id="262167" service="LocalMusic">
+  <song samplerate="44100" samplebits="16" channels="2" bitrate="821635" atype="flc">
+    <songID>78ed48dc0154344fb2be50e925ba0e74</songID>
+    <art>Peter Gabriel</art>
+    <alb>1</alb>
+    <title>Moribund The Burgermeister</title>
+    <track>1</track>
+    <date>1977</date>
+    <time>260</time>
+    <quality>cd</quality>
+    <fn>/var/mnt/<share>/By Artist/G/Peter Gabriel/1977_1/01-Moribund The Burgermeister.flac</fn>
+  </song>
+  <!-- one <song> per track; depending on the song also discno, composer, compilation, albumartist -->
+</songs>
 ```
-songs @album @artist @id @service
-  song ×n @samplerate @samplebits @channels @bitrate @atype
-    songID, art, alb, title, track, date, time, quality, fn
-    (depending on the song also: discno, composer, compilation, albumartist)
-  nextlink                                           (paged lists)
-```
+
+Paged lists (`section`, `genre`, `all`) have `<nextlink>` and lack the technical attributes and `songID`, `track`, `date`, `time`.
 
 **Notes**
 
@@ -1136,11 +1359,21 @@ GET /Songs?service=BluOS&playlist=<name>&offset=<n>
 
 **Response format**
 
-```
-songs @service="BluOS" @playlist
-  song ×10 @service
-    art, alb, title, track, date, time, fn, quality
-  nextlink = "/Songs?playlist=…&offset=10"
+```xml
+<songs service="BluOS" playlist="My Playlist">
+  <song service="LocalMusic">
+    <art>Tanita Tikaram</art>
+    <alb>Ancient Heart</alb>
+    <title>Good Tradition</title>
+    <track>1</track>
+    <date>1988</date>
+    <time>173</time>
+    <fn>/var/mnt/<share>/…/01-Good Tradition.flac</fn>
+    <quality>cd</quality>
+  </song>
+  <!-- 10 songs per page -->
+  <nextlink>/Songs?playlist=My+Playlist&amp;offset=10</nextlink>
+</songs>
 ```
 
 **Notes**
@@ -1230,9 +1463,11 @@ GET /AddSlave?slave=<ip>&port=<port>&group=<name>&slaves=<ip1>,<ip2>&ports=<p1>,
 
 **Response format**
 
-```
-addSlave
-  slave ×n @id @port
+```xml
+<addSlave>
+  <slave port="11000" id="192.168.1.153"/>
+  <slave port="11000" id="192.168.1.120"/>
+</addSlave>
 ```
 
 **Notes**
@@ -1297,9 +1532,11 @@ POST /SlaveVolume?slave=<ip>:<port>   (JSON body {"db":<dB>})
 
 **Response format**
 
+```xml
+<slaveVolume min="-30" max="30" step="1" isBalance="false">1</slaveVolume>
 ```
-slaveVolume @min="-30" @max="30" @step="1" @isBalance="false" = "1"     (new trim in dB)
-```
+
+The text is the new trim in dB.
 
 **Notes**
 
@@ -1370,11 +1607,16 @@ GET /Alarms?tz=<time zone>&id=<id>&enable=<0|1>&days=<flags>&hour=<HH>&minute=<M
 
 **Response format**
 
+```xml
+<alarms supportsEndTime="true">
+  <alarm id="1" enable="1" hour="8" minute="0" days="0000001" duration="60" end="0900"
+         volume="25" voldb="-40.8" fadein="1" source="Mellow Mix"
+         url="/Play?url=RadioParadise:/1:4/Mellow Mix"
+         image="https://img.radioparadise.com/channels/0/1/cover_512x512/0.jpg" useBackup="false"/>
+</alarms>
 ```
-alarms @supportsEndTime="true"
-  alarm ×n @id @enable @hour @minute @days @duration @end @volume @voldb @fadein
-           @source @url @image @useBackup
-```
+
+Without alarms: `<alarms supportsEndTime="true"></alarms>`.
 
 **Notes**
 
@@ -1395,8 +1637,8 @@ alarms @supportsEndTime="true"
   | `source`, `url`, `image` | what plays: name, play request (e.g. `/Play?url=RadioParadise:/1:4/Mellow Mix`), image |
   | `useBackup` | presumably a fallback sound when the source is not available |
 
-- `@supportsEndTime`: alarms can have an end time; while an alarm plays, `/Status` shows the rest in `alarmsecondsremaining`.
-- `/Settings` shows the alarms as a setting of class `alarms` with `@count` and `@enabled`.
+- `supportsEndTime`: alarms can have an end time; while an alarm plays, `/Status` shows the rest in `alarmsecondsremaining`.
+- `/Settings` shows the alarms as a setting of class `alarms` with `count` and `enabled`.
 
 ### `GET, POST /alsa_setting`
 
@@ -1480,16 +1722,19 @@ No known parameters.
 
 **Response format**
 
-```
-setting @id="preset" @name="preset" @displayName="Listening Mode" @url="http://<player>:11000/alsa_setting"
-        @class="list" @value="MUSIC" @refresh @required @style
-  value ×n @name @displayName @icon @iconActive        (e.g. MUSIC, MOVIE, TV)
+```xml
+<setting id="preset" name="preset" displayName="Listening Mode" url="http://<player>:11000/alsa_setting"
+         class="list" value="MUSIC" refresh="true" required="true" style="inline">
+  <value displayName="Music" name="MUSIC" icon="/images/settings/icon_music-mode.png" iconActive="…"/>
+  <value displayName="Movie" name="MOVIE" icon="/images/settings/icon_movies-mode.png" iconActive="…"/>
+  <value displayName="TV" name="TV" icon="/images/settings/icon_tv-mode.png" iconActive="…"/>
+</setting>
 ```
 
 **Notes**
 
-- Verified: answers the listening mode setting in the format of `/Settings`; `@value` is the current mode.
-- Change it with [`/alsa_setting?preset=<name>`](#get-post-alsa_setting) (the `@url` of the answer), using a `value@name` as `<name>`.
+- Verified: answers the listening mode setting in the format of `/Settings`; `value` is the current mode.
+- Change it with [`/alsa_setting?preset=<name>`](#get-post-alsa_setting) (the `url` of the answer), using the `name` of a `value` as `<name>`.
 
 ### `GET /Dataexport`
 
@@ -1574,9 +1819,11 @@ GET /Doorbell?play=1
 
 **Response format**
 
+```xml
+<status enable="1" volume="38" chime="Doorbell:audio/chime_1.mp3"/>
 ```
-status @enable @volume @chime="Doorbell:audio/chime_1.mp3"
-```
+
+Players without a doorbell chime answer `<error>Not supported</error>`.
 
 **Notes**
 - Verified on the Powernode: `<error>Not supported</error>` – the doorbell chime depends on the player model.
@@ -1591,9 +1838,19 @@ No known parameters.
 
 **Response format**
 
-```
-[ { "name": "<playlist>", "ctime": <unix time>, "shuffle": false, "repeat": 1,
-    "files": [ "<32 hex digits>", … ] }, … ]
+```json
+[
+  {
+    "name": "My Playlist",
+    "ctime": 1794689542,
+    "shuffle": true,
+    "repeat": 2,
+    "files": [
+      "f402aa2aa3c531adcf42329b901f0b1e",
+      "57865cfd238783825168750831efb847"
+    ]
+  }
+]
 ```
 
 `files` are ids of the tracks (hashes), not paths.
@@ -1615,8 +1872,8 @@ GET /error?<counter>&clear=1&counter=<counter>
 
 **Response format**
 
-```
-notification = "no errors"
+```xml
+<notification>no errors</notification>
 ```
 
 **Notes**
@@ -1634,8 +1891,8 @@ No parameters.
 
 **Response format**
 
-```
-version = "4.18.18"
+```xml
+<version>4.18.18</version>
 ```
 
 ### `GET /LastScanCode`
@@ -1648,8 +1905,8 @@ No known parameters.
 
 **Response format**
 
-```
-lastscancode = "-1465131975"
+```xml
+<lastscancode>-1465131975</lastscancode>
 ```
 
 **Notes**
@@ -1669,13 +1926,13 @@ GET /Name?set=<name>
 
 **Response format**
 
-```
-name = "Living Room"
+```xml
+<name>Living Room</name>
 ```
 
 **Notes**
 
-- Without parameters (verified): the player name, the same as `@name` of [`/SyncStatus`](#get-syncstatus).
+- Without parameters (verified): the player name, the same as `name` of [`/SyncStatus`](#get-syncstatus).
 - `set` renames the player ("Room name" in the BluOS Controller); verified.
 
 ### `POST /reboot`
@@ -1714,7 +1971,7 @@ An HTTP redirect to that page (HTML).
 
 **Notes**
 
-- Seen as `@url` of the root of [`/Services`](#get-services) (link to the music services page); "Cp" presumably means control panel.
+- Seen as `url` of the root of [`/Services`](#get-services) (link to the music services page); "Cp" presumably means control panel.
 - Verified with `href=%2Fservices%3Fnoheader%3D1%26schemaVersion%3D0`: ends on the HTML page "Configure Music Services" (port 80).
 - Also `href=/diag&noheader=1` (diagnostics page, help area of the BluOS Controller).
 
@@ -1728,8 +1985,8 @@ No parameters.
 
 **Response format**
 
-```
-indexing = "1"
+```xml
+<indexing>1</indexing>
 ```
 
 **Notes**
@@ -1750,13 +2007,31 @@ GET /Services?schemaVersion=<n>
 
 **Response format**
 
-```
-services @schemaVersion @sid @url="/redirectToCp?href=…"
-  service ×n @name @type @displayname @icon
-    menu > menuGroup / menuEntry @displayName
-      browseRequest | request | contextRequest | artworkRequest @url @type @subtype @resultType
-        requestItemParameter @name [@source @optional], requestParameter = "<name>=<value>"
-      sort, filter, search, genreItemParameter, enableOnAttribute, disableOnAttribute, confirmAction
+```xml
+<services schemaVersion="36" sid="12" url="/redirectToCp?href=%2Fservices%3Fnoheader%3D1%26schemaVersion%3D0">
+  <service name="BluOS" type="BluOSPlaylists" displayname="BluOS" icon="/images/BluOSIcon.png" hasStableBrowse="true">
+    <menu>
+      <menuEntry displayName="Playlists" inlineRows="5">
+        <sort name="sort" default="alpha">
+          <value name="recent" displayName="Date added"/>
+          <value name="alpha" displayName="A → Z"/>
+        </sort>
+        <browseRequest url="/Playlists" resultType="Playlist" myPlaylistsFilter="myPlaylists=1"/>
+      </menuEntry>
+      <menuGroup context="Playlist">
+        <menuEntry displayName="Play now">
+          <request url="/Add" type="add" subtype="now">
+            <requestItemParameter name="playlist"/>
+            <requestParameter>playnow=1</requestParameter>
+            <requestParameter>clear=0</requestParameter>
+          </request>
+        </menuEntry>
+        <!-- Shuffle, Add next, Add last, Delete … -->
+      </menuGroup>
+    </menu>
+  </service>
+  <!-- Capture, Alarms, LocalMusic, <USB id>, TuneIn, RadioParadise, Airable … -->
+</services>
 ```
 
 **Notes**
@@ -1773,7 +2048,7 @@ POST /setting   (JSON body {"<name>":"<value>"})
 
 | Parameter | Meaning |
 |---|---|
-| `<name>` | `@name` of a setting whose `@url` (or its menu's `@url`) is `/setting`, see the table below |
+| `<name>` | `name` of a setting whose `url` (or its menu's `url`) is `/setting`, see the table below |
 | `<value>` | new value; booleans use `ON` / `OFF` |
 
 **Response format**
@@ -1817,27 +2092,40 @@ GET /Settings?id=<menu id>&schemaVersion=<n>&view=web
 
 | Parameter | Meaning |
 |---|---|
-| `id` | menu page (the `@id` of a `menuGroup`); without it the top level |
+| `id` | menu page (the `id` of a `menuGroup`); without it the top level |
 | `schemaVersion` | schema the client understands; the player reports its own in `/SyncStatus` (`schemaVersion="36"` on the test player). Lower values hide newer menus |
 | `view` | `web`: the page as web view, e.g. `/Settings?view=web&id=sendSupportRequest` (help area of the BluOS Controller) |
 
 **Response format**
 
+```xml
+<settings pageId="audio" schemaVersion="36">
+  <menuGroup id="audio" displayName="Audio" icon="/images/settings/ic_audio.png" url="http://<player>:11000/audiomodes">
+    <setting id="eq-treble" name="eq-treble" displayName="Treble" url="http://<player>:11000/alsa_setting"
+             icon="/images/settings/icon_treble.png" class="range" value="0" hideIfDisabled="true">
+      <value min="-6" max="6" step="0.5" units="dB"/>
+      <dependsOn name="eq-switch" value="ON"/>
+    </setting>
+    <setting id="replayGainMode" name="replayGainMode" displayName="Replay-gain" url="http://<player>:11000/audiomodes"
+             icon="/images/settings/ic_replaygain.png" class="list" value="album" description="Album gain">
+      <value displayName="Disabled" name="none"/>
+      <value displayName="Track gain" name="track"/>
+      <value displayName="Album gain" name="album"/>
+      <value displayName="Smart gain" name="smart"/>
+    </setting>
+    <!-- more settings -->
+  </menuGroup>
+</settings>
 ```
-settings @pageId @schemaVersion
-  setting @id @name @displayName @class @value @url @icon [@description @explanation @pattern @refresh @hideIfDisabled …]
-    value ×n @name @displayName [@min @max @step @units @minRange]    (choices or range)
-    dependsOn @name @value                                            (shown only when that setting has that value)
-    webview @url                                                      (setting opens a web page)
-  menuGroup @id @displayName @url @icon [@inline @description] > setting ×n, menuGroup ×n
-```
+
+A setting that opens a web page has `<webview url="http://<player>:80/…"/>` instead of `value` elements.
 
 **Notes**
 
-- The settings tree the BluOS Controller shows. `@class` tells the control: `text`, `boolean`, `list`, `range`, `dual-range`, `iconlist`, `button`, `download`, `upload`, `alarms`, `sleep`.
-- `@url` is the endpoint that changes the setting; a setting without `@url` uses the `@url` of its `menuGroup`. Seen: [`/setting`](#get-post-setting), [`/audiomodes`](#get-post-audiomodes), [`/alsa_setting`](#get-post-alsa_setting), [`/SlaveVolume`](#get-post-slavevolume), [`/proxyToSlave`](#get-post-proxytoslave), [`/Reindex`](#get-reindex), [`/RemoveSlave`](#get-removeslave), and on port 80 [`/sharecfg`](#get-sharecfg), [`/wificfg`](#get-wificfg), [`/triggercfg`](#get-triggercfg), [`/download_playlists_api`](#get-download_playlists_api), [`/upload_playlists_api`](#post-upload_playlists_api).
+- The settings tree the BluOS Controller shows. `class` tells the control: `text`, `boolean`, `list`, `range`, `dual-range`, `iconlist`, `button`, `download`, `upload`, `alarms`, `sleep`.
+- `url` is the endpoint that changes the setting; a setting without `url` uses the `url` of its `menuGroup`. Seen: [`/setting`](#get-post-setting), [`/audiomodes`](#get-post-audiomodes), [`/alsa_setting`](#get-post-alsa_setting), [`/SlaveVolume`](#get-post-slavevolume), [`/proxyToSlave`](#get-post-proxytoslave), [`/Reindex`](#get-reindex), [`/RemoveSlave`](#get-removeslave), and on port 80 [`/sharecfg`](#get-sharecfg), [`/wificfg`](#get-wificfg), [`/triggercfg`](#get-triggercfg), [`/download_playlists_api`](#get-download_playlists_api), [`/upload_playlists_api`](#post-upload_playlists_api).
 - Verified with schema 36, all menu pages read: top level (alarms, sleep timer, room name, amplifier standby, fixed group, library, playlists), `audio`, `audioPreset`, `zone`, `zone_player-<ip><port>` (per group member), `player` (Wi-Fi, indicator brightness, Wi-Fi Direct), `proximity`, `ir_remote`, `bluos_remote`, `library`, `managePlaylists`, `capture`, `capture-input<n>` (per input).
-- `/Settings?view=web&id=sendSupportRequest` answers an empty page `settings @pageId="sendSupportRequest"` (verified).
+- `/Settings?view=web&id=sendSupportRequest` answers an empty page `<settings pageId="sendSupportRequest" schemaVersion="28"></settings>` (verified).
 
 ### `GET /settings/sendSupportRequest`
 
@@ -1887,11 +2175,13 @@ No known parameters.
 
 **Response format**
 
-```
-shares @count
-  share ×n
-    sharename = "\\<server>\<share>"
-    username  = "<user name>"
+```xml
+<shares count="1">
+  <share>
+    <sharename>\\<server>\<share></sharename>
+    <username><user name></username>
+  </share>
+</shares>
 ```
 
 **Notes**
@@ -1908,11 +2198,18 @@ No known parameters.
 
 **Response format**
 
-```
-IRCodes @test
-  code ×n
-    key   = "KEY_PLAY"
-    value = "0x8fe633c"
+```xml
+<IRCodes test="test">
+  <code>
+    <key>KEY_PLAY</key>
+    <value>0x8fe633c</value>
+  </code>
+  <code>
+    <key>KEY_VOLUMEDOWN</key>
+    <value>0xa8abdc39</value>
+  </code>
+  <!-- one <code> per learned button -->
+</IRCodes>
 ```
 
 **Notes**
@@ -1931,9 +2228,11 @@ No parameters.
 
 **Response format**
 
+```xml
+<sleep>30</sleep>
 ```
-sleep = "30"     (minutes until the player switches off)
-```
+
+Minutes until the player switches off.
 
 **Notes**
 
@@ -1980,8 +2279,8 @@ No known parameters.
 
 **Response format**
 
-```
-update = "no message"
+```xml
+<update>no message</update>
 ```
 
 **Notes**
@@ -2020,8 +2319,8 @@ POST http://<player>:80/upload_playlists_api   (multipart/form-data, field file)
 
 **Response format**
 
-```
-message = "Successfully restored Playlists"
+```xml
+<message>Successfully restored Playlists</message>
 ```
 
 **Notes**
@@ -2039,8 +2338,8 @@ No parameters.
 
 **Response format**
 
-```
-version = "v0.5.43"
+```xml
+<version>v0.5.43</version>
 ```
 
 ### `GET /wificfg`
@@ -2066,15 +2365,25 @@ Screens and menus of the BluOS Controller (BluOS 4): the BluOS Controller asks t
 
 Common answer structure (verified):
 
-```
-screen @id @screenTitle @version @refreshOnPlayerChange [@service @navigationTitle @navigationIcon]
-  refreshOnStatusChange @key @value          (reload when this /Status value changes, e.g. prid, pid, sid)
-  menuAction @type @text > action
-  sortMenu > item @text @selected > action   styleSelector @text @type > action
-  row @id @title @scrollable > item | source | input | service | teaser | button …
-  list > item @title @subTitle @subSubTitle @image @quality @duration @counter
-           action, playAction, contextMenu, nowPlayingMatch @key @value
-action @type @URI [@resultType @title @refreshScreen @haptic @notification @notificationIcon]
+```xml
+<screen id="screen-…" screenTitle="…" version="1" refreshOnPlayerChange="true" service="…" navigationTitle="…" navigationIcon="…">
+  <refreshOnStatusChange key="prid" value="7"/>       <!-- reload when this /Status value changes (prid, pid, sid) -->
+  <menuAction type="…" text="…"><action …/></menuAction>
+  <sortMenu><item text="…" selected="true"><action …/></item></sortMenu>
+  <styleSelector text="…" type="grid"><action …/></styleSelector>
+  <row id="…" title="…" scrollable="true">            <!-- contains item, source, input, service, teaser, button … -->
+    …
+  </row>
+  <list>
+    <item title="…" subTitle="…" subSubTitle="…" image="…" quality="…" duration="…" counter="…">
+      <action type="player-link" URI="/Play?id=0" resultType="…" title="…" refreshScreen="true" haptic="true"
+              notification="…" notificationIcon="…"/>
+      <playAction …/>
+      <contextMenu type="browse" URI="/ui/ContextMenu?…" resultType="contextMenu"/>
+      <nowPlayingMatch key="song" value="0"/>
+    </item>
+  </list>
+</screen>
 ```
 
 Action types: `player-link` (send the player request in `URI`), `browse` (load another `/ui` screen or a context menu), `context-browse`, `webpage` (open a web page, e.g. `/redirectToCp?…`), `setting` (open `/Settings?id=…`), `confirmation` (ask first, then send `URI`), `deep-link` (navigation inside the BluOS Controller, e.g. `/settings`, `/add-preset`, `/edit-queue`, `/reorder-presets`, `/customise-screen`, `/music-service/<svc>` – not player endpoints), `reorder`, `add`.
@@ -2123,7 +2432,7 @@ Empty answer.
 **Notes**
 
 - Style selector of `/ui/BrowseObjects`; changes the display.
-- Verified with `Cstyle`: the style selector of [`/ui/BrowseObjects`](#get-uibrowseobjects) (`styleSelector @type`) shows the current style and changes with it.
+- Verified with `Cstyle`: the style selector of [`/ui/BrowseObjects`](#get-uibrowseobjects) (attribute `type` of `styleSelector`) shows the current style and changes with it.
 
 ### `GET /ui/browseContext`
 
@@ -2140,12 +2449,28 @@ GET /ui/browseContext?service=<svc>&type=<type>&title=<title>&url=<encoded brows
 
 **Response format**
 
-```
-screen @id="screen-BluOS-Playlist" @service
-  contextMenu (/ui/ContextMenu?context=Playlist&…)
-  header @title @image > button "Play all" (/Load?service=BluOS&name=…&shuffle=0), button "Shuffle" (/Add?playlist=…&shuffle=1)
-  list > item ×n @title @subTitle @quality @duration > action (/Add?playnow=1&file=…), contextMenu (context=Song), nowPlayingMatch @key="fn"
-    nextLink = "/ui/BrowseObjects?…&listContinuation=10&…"
+```xml
+<screen version="1" id="screen-BluOS-Playlist" service="BluOS" navigationIcon="/images/BluOSIcon.png?style=Default" navigationTitle="BluOS">
+  <contextMenu type="browse" URI="/ui/ContextMenu?context=Playlist&amp;playlist=My+Playlist&amp;service=BluOS&amp;sourceContext=Playlist&amp;title=My+Playlist" resultType="contextMenu"/>
+  <header image="/Artwork?service=LocalMusic&amp;fn=…" title="My Playlist">
+    <button text="Play all" backgroundColor="#43a4ce" textColor="#ffffff" icon="/images/ui/btn_play.png">
+      <action type="player-link" URI="/Load?service=BluOS&amp;name=My+Playlist&amp;shuffle=0" haptic="true"/>
+    </button>
+    <button text="Shuffle" …>
+      <action type="player-link" URI="/Add?playlist=My+Playlist&amp;playnow=1&amp;service=BluOS&amp;shuffle=1" haptic="true"/>
+    </button>
+  </header>
+  <list>
+    <item image="/Artwork?service=LocalMusic&amp;artist=Tanita+Tikaram&amp;album=Ancient+Heart" title="Good Tradition"
+          subTitle="Tanita Tikaram" quality="cd" duration="2:53">
+      <action type="player-link" URI="/Add?playnow=1&amp;file=…" haptic="true"/>
+      <contextMenu type="browse" URI="/ui/ContextMenu?album=Ancient+Heart&amp;artist=Tanita+Tikaram&amp;context=Song&amp;filename=…" resultType="contextMenu"/>
+      <nowPlayingMatch key="fn" value="/var/mnt/<share>/…/01-Good Tradition.flac"/>
+    </item>
+    <!-- 10 per page -->
+    <nextLink>/ui/BrowseObjects?browseIndex=0&amp;listContinuation=10&amp;menuGroupId=BluOS-Playlist&amp;playlist=My+Playlist&amp;service=BluOS&amp;type=Song&amp;url=…</nextLink>
+  </list>
+</screen>
 ```
 
 **Notes**
@@ -2167,9 +2492,16 @@ GET /ui/browseGenres?service=<svc>&genreGroupId=Genres&title=<title>&url=<encode
 
 **Response format**
 
-```
-screen @id="screen-<svc>-Genres" @screenTitle
-  list > item ×n @title > action (/ui/browseGenres?genre=…&withGenre=1), contextMenu (/ui/ContextMenu?context=Genre&genre=…)
+```xml
+<screen version="1" screenTitle="Genres" id="screen-LocalMusic-Genres" service="LocalMusic" navigationTitle="Library">
+  <list>
+    <item title="Alternative Rock">
+      <action type="browse" URI="/ui/browseGenres?genre=Alternative+Rock&amp;genreGroupId=Genres&amp;service=LocalMusic&amp;title=Alternative+Rock&amp;withGenre=1" resultType="screen" title="Alternative Rock" service="LocalMusic"/>
+      <contextMenu type="browse" URI="/ui/ContextMenu?context=Genre&amp;genre=Alternative+Rock&amp;service=LocalMusic&amp;title=Alternative+Rock" resultType="contextMenu"/>
+    </item>
+    <!-- one <item> per genre -->
+  </list>
+</screen>
 ```
 
 **Notes**
@@ -2193,11 +2525,21 @@ GET /ui/browseGrouped?service=<svc>&menuGroupId=<id>&browseIndex=<n>&title=<titl
 
 **Response format**
 
-```
-screen @id @screenTitle @service
-  list @offset @total
-    index @revision > item ×n @key ("A", "B", …) @offset @length      (letter index of the whole list)
-    item ×n @title > action, contextMenu                             (30 entries per page)
+```xml
+<screen version="1" screenTitle="Artists" id="screen-LocalMusic-0" service="LocalMusic" navigationTitle="Library">
+  <list offset="0" total="628">
+    <index revision="196633">
+      <item key="A" offset="0" length="43"/>
+      <item key="B" offset="43" length="43"/>
+      <!-- one <item> per letter -->
+    </index>
+    <item title="AC-DC">
+      <action type="context-browse" URI="/Artists?service=LocalMusic&amp;artist=AC-DC" resultType="Artist" title="AC-DC"/>
+      <contextMenu type="browse" URI="/ui/ContextMenu?artist=AC-DC&amp;context=Artist&amp;service=LocalMusic&amp;title=AC-DC" resultType="contextMenu"/>
+    </item>
+    <!-- 30 entries per page -->
+  </list>
+</screen>
 ```
 
 **Notes**
@@ -2218,9 +2560,16 @@ GET /ui/browseMenuGroup?service=<svc>&menuGroupId=<id>&title=<title>
 
 **Response format**
 
-```
-screen @id="screen-<svc>" @service @navigationTitle
-  row ×n @id @title (Artists, Albums, Songs, Genres, Playlists, Composers, Folders, Favourites, New …) > action (/ui/browseGrouped | /ui/browseGenres | /ui/BrowseObjects …)
+```xml
+<screen version="1" id="screen-LocalMusic" service="LocalMusic" navigationIcon="/images/LibraryIcon.png?style=Default" navigationTitle="Library">
+  <row id="LocalMusic-0" title="Artists" solidBackground="false">
+    <action type="browse" URI="/ui/browseGrouped?browseIndex=0&amp;menuGroupId=LocalMusic&amp;service=LocalMusic&amp;title=Artists&amp;type=Artist&amp;url=%2Flibrary%2Fv1%2FArtists%3Fservice%3DLocalMusic" resultType="screen" title="Artists"/>
+  </row>
+  <row id="LocalMusic-1" title="Albums" solidBackground="false">
+    <action type="browse" URI="/ui/browseGrouped?browseIndex=1&amp;…&amp;type=Album&amp;url=%2Flibrary%2Fv1%2FAlbums%3Fservice%3DLocalMusic" resultType="screen" title="Albums"/>
+  </row>
+  <!-- Songs, Genres, Playlists, Composers, Folders, Favourites, New … -->
+</screen>
 ```
 
 **Notes**
@@ -2245,10 +2594,26 @@ GET /ui/BrowseObjects?service=<svc>&menuGroupId=<id>&type=<type>&browseIndex=<n>
 
 **Response format**
 
-```
-screen @id @screenTitle @service @navigationTitle @navigationIcon
-  sortMenu > item (sort=recent | alpha), styleSelector @type (current style: grid | list) > action (/ui/action?Cstyle=…)
-  list > item ×n @title @image > action @type="context-browse" (/Playlists?service=BluOS&playlist=…), contextMenu
+```xml
+<screen version="1" screenTitle="Playlists" id="screen-BluOS-0" service="BluOS" navigationIcon="/images/BluOSIcon.png?style=Default" navigationTitle="BluOS">
+  <sortMenu text="Sort" menuTitle="Sort" replaceScreen="true">
+    <item text="Date added">
+      <action type="browse" URI="/ui/BrowseObjects?…&amp;url=%2FPlaylists%3FmyPlaylists%3D1%26service%3DBluOS%26sort%3Drecent" resultType="screen" title="Playlists"/>
+    </item>
+    <item text="A → Z" selected="true">
+      <action type="browse" URI="/ui/BrowseObjects?…&amp;sort%3Dalpha" resultType="screen" title="Playlists"/>
+    </item>
+  </sortMenu>
+  <styleSelector text="Display: Grid" type="grid">   <!-- type = current style -->
+    <action type="player-link" URI="/ui/action?Cstyle=grid~Playlist" refreshScreen="true"/>
+  </styleSelector>
+  <list>
+    <item image="/Artwork?service=LocalMusic&amp;fn=…" title="My Playlist">
+      <action type="context-browse" URI="/Playlists?service=BluOS&amp;playlist=My+Playlist&amp;playlistid=" resultType="Playlist" title="My Playlist"/>
+      <contextMenu type="browse" URI="/ui/ContextMenu?context=Playlist&amp;playlist=My+Playlist&amp;service=BluOS&amp;title=My+Playlist" resultType="contextMenu"/>
+    </item>
+  </list>
+</screen>
 ```
 
 **Notes**
@@ -2285,13 +2650,20 @@ No known parameters.
 
 **Response format**
 
-```
-configuration
-  item ×n @id @URI [@resultType @listeningModesURL]
-    home → /ui/Home, recentlyPlayed → /ui/RecentlyPlayed, news → /ui/News, favourites → /ui/Favourites,
-    sources → /ui/Sources, search → /ui/Search, nowPlayingContextMenu → /ui/nowPlayingCM,
-    queueItemContextMenu → /ui/queueItemCM, resolveSoviURL → /ui/resolveSoviURL, queue → /ui/Queue,
-    presets → /ui/presets (listeningModesURL="/audioPreset")
+```xml
+<configuration>
+  <item id="home" URI="/ui/Home"/>
+  <item id="recentlyPlayed" URI="/ui/RecentlyPlayed"/>
+  <item id="news" URI="/ui/News"/>
+  <item id="favourites" URI="/ui/Favourites"/>
+  <item id="sources" URI="/ui/Sources"/>
+  <item id="search" URI="/ui/Search"/>
+  <item id="nowPlayingContextMenu" URI="/ui/nowPlayingCM" resultType="contextMenu"/>
+  <item id="queueItemContextMenu" URI="/ui/queueItemCM" resultType="contextMenu"/>
+  <item id="resolveSoviURL" URI="/ui/resolveSoviURL"/>
+  <item id="queue" URI="/ui/Queue" resultType="queue"/>
+  <item id="presets" URI="/ui/presets" listeningModesURL="/audioPreset"/>
+</configuration>
 ```
 
 **Notes**
@@ -2314,9 +2686,21 @@ GET /ui/ContextMenu?context=<context>&sourceContext=<context>&service=<svc>&type
 
 **Response format**
 
-```
-contextMenu @title
-  item ×n @text @icon > action @type="player-link" | "confirmation" @URI @notification
+```xml
+<contextMenu title="My Playlist" version="1">
+  <item icon="/images/ui/cm_add_now.png" text="Play now">
+    <action type="player-link" URI="/Add?clear=0&amp;playlist=My+Playlist&amp;playnow=1&amp;service=BluOS&amp;shuffle=0" haptic="true"/>
+  </item>
+  <item icon="/images/ui/cm_add_next.png" text="Add next">
+    <action type="player-link" URI="/Add?playlist=My+Playlist&amp;playnow=-1&amp;service=BluOS&amp;where=next" haptic="true"
+            notification="Added next to queue" notificationIcon="/images/ui/ic_notification_pq_next.png"/>
+  </item>
+  <item icon="/images/ui/cm_delete.png" text="Delete">
+    <action type="confirmation" URI="/Delete?name=My+Playlist&amp;service=BluOS" title="Delete playlist: My Playlist?"
+            refreshScreen="true" haptic="true" notification="Deleted &#34;My Playlist&#34;"/>
+  </item>
+  <!-- Shuffle, Add last … -->
+</contextMenu>
 ```
 
 **Notes**
@@ -2338,9 +2722,19 @@ GET /ui/Favourites?service=<svc>&singleService=1&title=<title>
 
 **Response format**
 
-```
-screen @id="screen-<svc>-Favourites" @screenTitle
-  row ×n @title (Artists, Albums, …) > action (/ui/BrowseObjects?…&url=/library/v1/…?category=FAVOURITES…), list > item ×n
+```xml
+<screen version="1" screenTitle="My Favourites" id="screen-LocalMusic-Favourites" service="LocalMusic" navigationTitle="Library">
+  <row id="LocalMusic-Favourites-0" title="Artists" solidBackground="true">
+    <action type="browse" URI="/ui/BrowseObjects?browseIndex=0&amp;menuGroupId=LocalMusic-Favourites&amp;service=LocalMusic&amp;title=Artists&amp;type=Artist&amp;url=%2Flibrary%2Fv1%2FArtists%3Fcategory%3DFAVOURITES%26service%3DLocalMusic" resultType="screen" title="Artists"/>
+    <list>
+      <item title="AC-DC">
+        <action type="context-browse" URI="/Artists?service=LocalMusic&amp;artist=AC-DC" resultType="Artist" title="AC-DC"/>
+        <contextMenu type="browse" URI="/ui/ContextMenu?artist=AC-DC&amp;context=Artist&amp;isFavourite=1&amp;service=LocalMusic&amp;title=AC-DC" resultType="contextMenu"/>
+      </item>
+    </list>
+  </row>
+  <!-- Albums, Songs … -->
+</screen>
 ```
 
 **Notes**
@@ -2357,9 +2751,22 @@ No known parameters.
 
 **Response format**
 
-```
-screen @id="screen-home" @screenTitle="Home"
-  row ×n @id   (teaser, mostUsed, presets, recent-stations, recent, <svc>-myPlaylists)
+```xml
+<screen version="1" screenTitle="Home" id="screen-home" refreshOnPlayerChange="true">
+  <refreshOnStatusChange key="prid" value="7"/>
+  <menuAction type="settings">
+    <action type="deep-link" URI="/settings"/>
+  </menuAction>
+  <row id="mostUsed" title="Most Used" scrollable="true" solidBackground="false">
+    <source icon="/images/capture/ic_tv.png" title="HDMI ARC" accessibleTitle="HDMI ARC">
+      <button text="Play" backgroundColor="#43a4ce" textColor="#ffffff">
+        <action type="player-link" URI="/Play?url=Capture%3Ahw%3Aimxspdif%2C0%2F1%2F25%2F2%3Fid%3Dinput4" haptic="true"/>
+      </button>
+    </source>
+  </row>
+  <row id="presets" title="Presets" solidBackground="true"> … </row>
+  <!-- teaser, recent-stations, recent, BluOS-myPlaylists -->
+</screen>
 ```
 
 **Notes**
@@ -2390,9 +2797,10 @@ Parameters not known.
 
 **Response format**
 
-```
-screen @id="screen-news" @screenTitle="News & Updates"
-  list @id="news" > item ×n
+```xml
+<screen version="1" screenTitle="News &amp; Updates" id="screen-news" refreshOnPlayerChange="true">
+  <list id="news"></list>
+</screen>
 ```
 
 **Notes**
@@ -2408,9 +2816,16 @@ No known parameters.
 
 **Response format**
 
-```
-contextMenu @title @subTitle @image
-  item ×n @text @icon > action   (Favourite, Add to playlist…, Go to album, Go to artist, Info, Technical info)
+```xml
+<contextMenu image="/Artwork?service=LocalMusic&amp;fn=…" subTitle="Mike Oldfield • Tubular Bells" title="Part One" version="1">
+  <item icon="/images/ui/cm_favourite_add.png" text="Favourite">
+    <action type="player-link" URI="/ui/prf?cgsc=1&amp;u=%2FAddFavourite%3Ffn%3D…" refreshScreen="true" haptic="true" notification="Added to favourites"/>
+  </item>
+  <item icon="/images/ui/cm_addtoplaylist.png" text="Add to playlist…">
+    <action type="browse" URI="/AddToPlaylistOptions?service=LocalMusic&amp;songid=…" resultType="AddToPlaylistOptions" title="Add to playlist…"/>
+  </item>
+  <!-- Go to album, Go to artist, Info, Technical info -->
+</contextMenu>
 ```
 
 **Notes**
@@ -2428,10 +2843,19 @@ No known parameters.
 
 **Response format**
 
-```
-screen @id="screen-presets" @screenTitle="Presets"
-  menuAction @type="add"
-  list > item ×n @title @image @counter > action (/Preset?id=<id>), contextMenu (/ui/ContextMenu?…&type=preset)
+```xml
+<screen version="1" screenTitle="Presets" id="screen-presets" refreshOnPlayerChange="true">
+  <refreshOnStatusChange key="prid" value="2"/>
+  <menuAction type="add">
+    <action type="deep-link" URI="/add-preset" refreshScreen="true"/>
+  </menuAction>
+  <list>
+    <item image="https://img.radioparadise.com/channels/0/1/cover_512x512/0.jpg" title="Mellow Mix" counter="1" solidBackground="true">
+      <action type="player-link" URI="/Preset?id=1" haptic="true"/>
+      <contextMenu type="browse" URI="/ui/ContextMenu?id=1&amp;image=…&amp;name=Mellow+Mix&amp;type=preset&amp;url=…&amp;volume=16" resultType="contextMenu" title="Mellow Mix"/>
+    </item>
+  </list>
+</screen>
 ```
 
 **Notes**
@@ -2453,7 +2877,7 @@ GET /ui/prf?u=<encoded request>&a=<encoded parameters>&t=1&cgsc=1
 
 **Response format**
 
-The answer of the passed request, e.g. `volume @db @mute … = "16"` for `u=%2FVolume`.
+The answer of the passed request, e.g. `<volume db="-54.2" offsetDb="0" mute="0" …>16</volume>` for `u=%2FVolume`.
 
 **Notes**
 
@@ -2472,11 +2896,23 @@ GET /ui/Queue?offset=<n>
 
 **Response format**
 
-```
-queue @offset @total @id (= pid) @modified @name
-  button ×n (Save → /AddToPlaylistOptions?saveQueue=1, Edit, Clear → /Clear)
-  item ×n @title @subTitle @subSubTitle @image @quality @duration
-    action (/Play?id=<n>), contextMenu (/ui/queueItemCM?id=<n>), nowPlayingMatch @key="song"
+```xml
+<queue offset="0" total="20" id="615" modified="false" name="My Playlist">
+  <refreshOnStatusChange key="pid" value="615"/>
+  <button text="Save" backgroundColor="#2A2A2A" textColor="#ffffff" icon="/images/ui/btn_save_queue.png">
+    <action type="browse" URI="/AddToPlaylistOptions?saveQueue=1" resultType="SaveQueueOptions" title="Save playlist"/>
+  </button>
+  <button text="Clear" …>
+    <action type="player-link" URI="/Clear" refreshScreen="true" haptic="true" notification="Play Queue cleared"/>
+  </button>
+  <item image="/Artwork?service=LocalMusic&amp;artist=Dire+Straits&amp;album=Brothers+In+Arms" title="The Man&#39;s Too Strong"
+        subTitle="Dire Straits" subSubTitle="Brothers In Arms" quality="cd" duration="4:40">
+    <action type="player-link" URI="/Play?id=0" haptic="true"/>
+    <contextMenu type="browse" URI="/ui/queueItemCM?id=0" resultType="contextMenu"/>
+    <nowPlayingMatch key="song" value="0"/>
+  </item>
+  <!-- one <item> per entry; button "Edit" as deep-link /edit-queue -->
+</queue>
 ```
 
 **Notes**
@@ -2495,9 +2931,16 @@ GET /ui/queueItemCM?id=<n>
 
 **Response format**
 
-```
-contextMenu @title @subTitle @image
-  item ×n @text @icon > action @type @URI
+```xml
+<contextMenu image="/Artwork?…" subTitle="Dire Straits • Brothers In Arms" title="The Man&#39;s Too Strong" version="1">
+  <item icon="/images/ui/cm_favourite_add.png" text="Favourite">
+    <action type="player-link" URI="/ui/prf?cgsc=1&amp;u=%2FAddFavourite%3Ffn%3D…" refreshScreen="true" haptic="true"/>
+  </item>
+  <item icon="/images/ui/cm_addtoplaylist.png" text="Add to playlist…">
+    <action type="browse" URI="/AddToPlaylistOptions?service=LocalMusic&amp;songid=…" resultType="AddToPlaylistOptions"/>
+  </item>
+  <!-- more entries -->
+</contextMenu>
 ```
 
 **Notes**
@@ -2514,10 +2957,19 @@ No known parameters.
 
 **Response format**
 
-```
-screen @id="screen-recentlyPlayed"
-  menuAction "Clear" (/ui/clearUsageHistory?queued=1)
-  list @id="recent" > item ×n @title @image @icon @objectType (playlist | album | …) > action, contextMenu
+```xml
+<screen version="1" screenTitle="Recently Played" id="screen-recentlyPlayed" refreshOnPlayerChange="true">
+  <menuAction text="Clear">
+    <action type="player-link" URI="/ui/clearUsageHistory?queued=1" refreshScreen="true" closeScreen="true" haptic="true"/>
+  </menuAction>
+  <list id="recent">
+    <item image="/Artwork?…" objectType="playlist" icon="/images/BluOSIcon.png?style=Default" title="My Playlist">
+      <action type="context-browse" URI="/Playlists?service=BluOS&amp;playlist=My+Playlist&amp;playlistid=" resultType="Playlist" title="My Playlist"/>
+      <contextMenu type="browse" URI="/ui/ContextMenu?context=Playlist&amp;playlist=My+Playlist&amp;service=BluOS&amp;title=My+Playlist&amp;noFavCMItems=1" resultType="contextMenu"/>
+    </item>
+    <!-- playlists, albums, stations … -->
+  </list>
+</screen>
 ```
 
 **Notes**
@@ -2554,11 +3006,21 @@ GET /ui/Search?q=<text>&forService=<svc>&service=<svc>&CsearchService=<svc>
 
 **Response format**
 
-```
-screen @id="screen-<svc>-Search" @screenTitle="Search" @service
-  selectorMenu > item ×n @text @icon @selected > action (/ui/Search?service=<svc>&q=…)   (Library, Radio, TuneIn, USB)
-  search @value @prompt @parameterName="q" @URI="/ui/Search?forService=<svc>"
-  list ×n @title (Artists, Albums, Songs, Composers) > item ×n … , "View All"
+```xml
+<screen version="1" screenTitle="Search" id="screen-LocalMusic-Search" service="LocalMusic">
+  <selectorMenu replaceScreen="true">
+    <item icon="/images/LibraryIcon.png?style=Default" text="Library" selected="true">
+      <action type="browse" URI="/ui/Search?service=LocalMusic&amp;q=a" resultType="screen" title="Search"/>
+    </item>
+    <!-- Radio, TuneIn, USB -->
+  </selectorMenu>
+  <search value="a" prompt="Search..." parameterName="q" type="browse" URI="/ui/Search?forService=LocalMusic" resultType="screen" title="Search" service="LocalMusic"/>
+  <list title="Artists">
+    <item title="The 5th Dimension"> … </item>
+    <!-- "View All" -->
+  </list>
+  <!-- Albums, Songs, Composers -->
+</screen>
 ```
 
 **Notes**
@@ -2576,12 +3038,26 @@ No known parameters.
 
 **Response format**
 
-```
-screen @id="screen-sources" @screenTitle="Music Sources"
-  row @id="inputs" > input ×n @title @icon > action (/Play?url=…&title=…&image=…), nowPlayingMatch @key="inputId"
-  row … > service ×n                    (library, USB, radio services → /ui/BrowseObjects …)
+```xml
+<screen version="1" screenTitle="Music Sources" id="screen-sources" refreshOnPlayerChange="true">
+  <refreshOnStatusChange key="sid" value="19"/>
+  <menuAction type="add">
+    <action type="webpage" URI="/redirectToCp?href=%2Fservices%3Fnoheader%3D1%26schemaVersion%3D36" title="Music Services" refreshScreen="true"/>
+  </menuAction>
+  <row id="inputs" title="Inputs" scrollable="true" solidBackground="false">
+    <menuAction text="Customise">
+      <action type="setting" URI="/Settings?id=capture" title="Inputs" refreshScreen="true"/>
+    </menuAction>
+    <input title="Bluetooth" icon="/images/BluetoothIcon.png">
+      <action type="player-link" URI="/Play?url=Capture%3Abluez%3Abluetooth&amp;title=Bluetooth&amp;image=%2Fimages%2FBluetoothIcon.png" haptic="true"/>
+      <nowPlayingMatch key="inputId" value="bluetooth"/>
+    </input>
+  </row>
+  <!-- rows with the music sources (library, USB, radio services) -->
+</screen>
 ```
 
 **Notes**
 
 - Verified. Inputs with their play requests, music sources with their browse screens.
+
