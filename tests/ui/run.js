@@ -691,23 +691,64 @@ test("settings: source switch off -> only the other source", async (t) => {
   ok(!(await t.tiles()).includes("Hellboy II: The Golden Army"), "no USB album");
 });
 
-test("settings: cover size S / M / L", async (t) => {
-  await t.page.click("#gear");
-  const w = () => t.page.$eval("#grid .item", (e) => e.getBoundingClientRect().width);
-  await t.page.click('#sizes [data-size="s"]');
-  const s = await w();
-  await t.page.click('#sizes [data-size="l"]');
-  const l = await w();
-  ok(l > s * 1.5, `L (${l}) much wider than S (${s})`);
-});
+// Layout of the album wall for one cover size and design: tile width, no horizontal scrolling,
+// background brightness of the design and contrast of the album titles (WCAG AA: 4.5).
+const wallLayout = (page) =>
+  page.evaluate(() => {
+    const rgb = (c) => (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+    const lum = (c) => {
+      const [r, g, b] = rgb(c).map((v) => {
+        v /= 255;
+        return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const bg = getComputedStyle(document.body).backgroundColor;
+    const titles = [...document.querySelectorAll("#grid .item b")].slice(0, 12);
+    const contrast = Math.min(
+      ...titles.map((e) => {
+        const [a, b] = [lum(getComputedStyle(e).color), lum(bg)].sort((x, y) => y - x);
+        return (a + 0.05) / (b + 0.05);
+      }),
+    );
+    return {
+      tile: document.querySelector("#grid .item:not(:first-child)").getBoundingClientRect().width,
+      overflow: document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth,
+      dark: lum(bg) < 0.2,
+      contrast: Math.round(contrast * 10) / 10,
+    };
+  });
 
-test("settings: design day / night", async (t) => {
-  await t.page.click("#gear");
-  await t.page.click('#themes [data-theme="dark"]');
-  const dark = await t.page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  await t.page.click('#themes [data-theme="light"]');
-  const light = await t.page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  ok(dark !== light, "background changes");
+// Designs: Day and Night set data-theme, System follows the colour scheme of the system
+const DESIGNS = [
+  { theme: "light", scheme: "dark", dark: false },
+  { theme: "dark", scheme: "light", dark: true },
+  { theme: "system", scheme: "light", dark: false },
+  { theme: "system", scheme: "dark", dark: true },
+];
+
+test("settings: every cover size in every design, no horizontal scrolling, readable titles", async (t) => {
+  await t.chip("All");
+  await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
+  for (const d of DESIGNS) {
+    await t.page.emulateMedia({ colorScheme: d.scheme });
+    const widths = [];
+    for (const size of ["s", "m", "l"]) {
+      await t.page.click("#gear");
+      await t.page.click(`#themes [data-theme="${d.theme}"]`);
+      await t.page.click(`#sizes [data-size="${size}"]`);
+      await t.page.keyboard.press("Escape");
+      await t.settle(300);
+      const l = await wallLayout(t.page);
+      const at = `${d.theme} (system ${d.scheme}), ${size.toUpperCase()}`;
+      ok(l.overflow <= 0, `${at}: no horizontal scrolling (${l.overflow} px too wide)`);
+      eq(l.dark, d.dark, `${at}: dark background`);
+      ok(l.contrast >= 4.5, `${at}: title contrast ${l.contrast} (at least 4.5)`);
+      widths.push(l.tile);
+    }
+    ok(widths[0] < widths[1] && widths[1] < widths[2], `${d.theme}: S < M < L (${widths.join(" / ")} px)`);
+  }
+  eq(await t.page.evaluate(() => [localStorage.getItem("theme"), localStorage.getItem("tile")]), ["system", "l"], "stored");
 });
 
 test("about: popup with name, version, copyright, GitHub link, player info and stats", async (t) => {
@@ -804,32 +845,42 @@ async function views(t) {
   const dir = path.join(RESULTS, "views");
   fs.mkdirSync(dir, { recursive: true });
   const shot = (name) => t.page.screenshot({ path: path.join(dir, `${t.key}-${VP_ARG}-${name}.png`) });
-  await t.settle(800); // covers
-  await shot("1-favourites");
+  const setting = async (...sels) => {
+    await t.page.click("#gear");
+    for (const sel of sels) await t.page.click(sel);
+    await t.page.keyboard.press("Escape");
+    await t.settle(500);
+  };
   await t.chip("All");
   await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
-  await t.settle(800);
-  await shot("2-all-albums");
-  await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic") && a.t === "1")));
-  await t.page.waitForSelector("#tracks li button");
-  await t.settle(500);
-  await shot("3-album-popup");
-  await t.page.click("#close");
-  await t.page.click("#qbtn");
-  await t.page.waitForSelector("#qlist li");
-  await t.settle(500);
-  await shot("4-queue");
-  await t.page.click("#gear");
-  await t.settle(500);
-  await shot("5-settings");
-  await t.page.click('#themes [data-theme="dark"]');
-  await t.page.keyboard.press("Escape");
-  await t.settle(500);
-  await shot("6-dark");
-  await t.page.click("#cvb");
-  await t.page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height * 0.4);
-  await t.settle(800);
-  await shot("7-full-screen");
+  for (const theme of ["light", "dark"]) {
+    // album wall in every cover size
+    for (const size of ["s", "m", "l"]) {
+      await setting(`#themes [data-theme="${theme}"]`, `#sizes [data-size="${size}"]`);
+      await t.settle(300); // covers
+      await shot(`${theme}-1-albums-${size}`);
+    }
+    await setting('#sizes [data-size="m"]');
+    await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic") && a.t === "1")));
+    await t.page.waitForSelector("#tracks li button");
+    await t.settle(500);
+    await shot(`${theme}-2-album-popup`);
+    await t.page.click("#close");
+    await t.page.click("#qbtn");
+    await t.page.waitForSelector("#qlist li");
+    await t.settle(500);
+    await shot(`${theme}-3-queue`);
+    await t.page.click("#qbtn");
+    await t.page.click("#gear");
+    await t.settle(500);
+    await shot(`${theme}-4-settings`);
+    await t.page.keyboard.press("Escape");
+    await t.page.click("#cvb");
+    await t.page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height * 0.4);
+    await t.settle(800);
+    await shot(`${theme}-5-full-screen`);
+    await t.page.keyboard.press("Escape");
+  }
 }
 if (SHOTS) test("views: screenshots of the main views", views);
 
