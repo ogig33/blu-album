@@ -27,15 +27,7 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
 ## 1. Basics
 
 - **Requests:** `http://<player>:<port>/<Request>?<parameters>` with the HTTP method given at each endpoint; parameters are URL-encoded name/value pairs (UTF-8). Answers are UTF-8 XML unless the endpoint says otherwise.
-- **Ports:**
-
-  | Port | Use |
-  |---|---|
-  | 11000 | control API of every player |
-  | 11010, 11020, 11030 | nodes 2–4 of an NAD CI580 (node 1 = 11000); discover via mDNS |
-  | 11004 | library server; the short library endpoints (`/Albums`, `/Artwork`, …) redirect here. The same `/library/v1/…` requests also answer on 11000 |
-  | 80 | web pages of the player: `/reboot`, `/sharecfg`, `/Shares`, `/diag`, `/diagnostics`, `/Dataexport`, `/apmode`, `/delete_index`, `/statistics`, `/wificfg`, `/triggercfg`, `/download_playlists_api`, `/upload_playlists_api` |
-
+- **Port:** 11000, the control API of every player. Endpoints on another port show it in their request line.
 - **Errors:** endpoints answer with HTTP errors or with an `<error>` root element instead of the expected one; clients should check the root element name.
 - **Unknown elements** in answers are to be ignored; the official documentation lists only part of them.
 - **Relative URIs** in answers (`playURL`, `actionURL`, `image`, …) have an absolute path and are resolved against the player address (RFC 3986). Invoke them as they are; do not parse or build them.
@@ -1482,7 +1474,6 @@ GET /AddSlave?slave=<ip>&port=<port>&group=<name>&slaves=<ip1>,<ip2>&ports=<p1>,
 **Notes**
 
 - Send to the primary player. Use `slave` + `port` or `slaves` + `ports`.
-- An NAD CI580 needs the node port.
 
 ### `GET, POST /proxyToSlave`
 
