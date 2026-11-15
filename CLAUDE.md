@@ -27,6 +27,7 @@ Out of scope (do not build, suggest the alternative):
 
 ## Rules
 - **One file.** No extra files (favicon, logo, fonts, libraries). Icons are inline SVG constants.
+- **API reference for development: `docs/bluos-api.md`.** Before using or changing a player request in the app, look up the endpoint there (parameters, answer format, verified or not); prefer verified endpoints. When the app needs an endpoint or variant that is missing or not verified, verify it with Bruno first and then add or update it in the reference.
 - **No fallbacks: one implementation per feature.** Variants of an API call are checked first
   against the real player with the Bruno collection (`tests/api`, folder "1 Read", E requests); only the
   verified variant is implemented.
