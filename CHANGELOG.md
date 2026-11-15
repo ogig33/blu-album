@@ -3,6 +3,8 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+
+## 0.9.0
 - Code cleanup after ESLint (no change in behaviour).
 - Fix: artist view shows favourites with a filled heart.
 - Player bar shows the listening mode (e.g. Music, Movie, TV) next to the volume controls.
