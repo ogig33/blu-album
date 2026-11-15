@@ -45,9 +45,10 @@ Settings such as the last IP address and the design are kept in the browser's lo
 
 ## Requirements
 - A BluOS player with a music library (network share) and/or a USB drive, in the same network
-- A current browser: Safari, Chrome, Microsoft Edge or Firefox, on macOS, Windows or Linux
+- A tagged music library: albums are built from the album and artist tags, ideally with cover art
+- A current browser
 
-Tested with BluOS 4.18.18 on a Bluesound Powernode. The browsers and systems above are covered by the automated UI tests (see [Development](#development)).
+Tested with BluOS 4.18.18 on a Bluesound Powernode, and with Safari, Chrome, Microsoft Edge and Firefox on macOS, Windows and Linux (automated UI tests, see [Development](#development)).
 
 ## Development
 Everything is in [`blualbum.html`](blualbum.html): CSS, HTML and plain JavaScript, no build
