@@ -2347,10 +2347,22 @@ const loadFavourites = (btn) => loadLibView("__fav", btn, "category=FAVOURITES",
 const loadQuality = (btn, q, name) => loadLibView("__q:" + q, btn, "quality=" + q, 0, name + " albums", "in " + name + " quality", "No " + name + " albums.", true);
 // Albums of an artist on one source: the artist's browse menu (key <svc>:MG/LocalMusic-Artist?artist=…)
 // links to all albums of the artist, with the player's play URLs and context menus (2 requests).
+// This list does not mark favourites (Bruno E17), so for the library the player's favourites are read
+// in parallel (1 request) and the context menu of each favourite is read with &isFavourite=1, which
+// gives the player's URL for removing it (1 request per favourite of the artist).
 async function artistAlbums(x, name) {
+  const favP = x.svc === SVC_LIBRARY ? libAlbums(x.svc, "category=FAVOURITES", 5000).catch(() => []) : null;
   const menu = items(await browse(x.svc + ":MG/LocalMusic-Artist?artist=" + formEnc(name)));
   const link = menu.find((i) => attr(i, "type") === "link" && /:Album\//.test(attr(i, "browseKey")));
-  return link ? fetchAlbums(attr(link, "browseKey")) : [];
+  const albums = link ? await fetchAlbums(attr(link, "browseKey")) : [];
+  if (!favP || !albums.length) return albums;
+  const favs = new Set((await favP).map((f) => f.t + "\n" + f.a));
+  await Promise.all(albums.filter((a) => a.cm && favs.has(a.t + "\n" + a.a) && !/[?&]isFavourite=1/.test(a.cm)).map(async (a) => {
+    const cm = a.cm;
+    a.cm += "&isFavourite=1";
+    if (!await refreshFav(a)) a.cm = cm;
+  }));
+  return albums;
 }
 // Clicking an artist name: shows all albums of that artist from every enabled source (session cache).
 async function showArtist(name) {

@@ -1,0 +1,46 @@
+meta {
+  name: E15 USB - genres
+  type: http
+  seq: 41
+}
+
+get {
+  url: http://{{host}}:11000/
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Genre list of the USB drive (key from A03), for E16 (skipped without a USB drive).
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+
+  const key = bru.getVar("usbGenresKey") || "";
+  if (!key) { bru.runner.skipRequest(); return; }
+  req.setUrl(H + "/Browse?withContextMenuItems=1&key=" + encodeURIComponent(key));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const g = tags("item").find((t) => attr(t, "type") === "genre");
+  bru.setVar("usbGenre", g ? (attr(g, "browseKey").match(/[?&]genre=([^&]*)/) || [])[1] || "" : "");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const genres = tags("item").filter((t) => attr(t, "type") === "genre");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("genres with a genre= key", () => {
+    expect(genres.length).to.be.above(0);
+    expect(genres.every((t) => /[?&]genre=/.test(attr(t, "browseKey")))).to.equal(true);
+  });
+}

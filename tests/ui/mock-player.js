@@ -71,8 +71,17 @@ function createPlayer(opts = {}) {
     if (/:Album\/%2Flibrary%2Fv1%2FAlbums%3Fartist=/.test(key)) {
       if (key.startsWith(USB)) return '<browse type="albums"></browse>';
       const name = decodeURIComponent(art.replace(/\+/g, " "));
+      // Like the real player (Bruno E17), the artist list does not mark favourites: no isFavourite,
+      // no &isFavourite=1 in the context menu key, favourite-add also for favourites.
       return fx("07").replace(/\s*<item [^>]*type="album">[\s\S]*?<\/contextMenu>\s*<\/item>/g, (it) =>
-        (it.match(/ text2="([^"]*)"/) || [])[1]?.replace(/&amp;/g, "&") === name ? it : "",
+        (it.match(/ text2="([^"]*)"/) || [])[1]?.replace(/&amp;/g, "&") === name
+          ? it
+              .replace(/ isFavourite="true"/, "")
+              .replace(/&amp;isFavourite=1/, "")
+              .replace("/DeleteFavourite", "/AddFavourite")
+              .replace("favourite-delete", "favourite-add")
+              .replace("Remove favourite", "Favourite")
+          : "",
       );
     }
     if (/MG\/LocalMusic-Album/.test(key)) return fx("08");

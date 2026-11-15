@@ -1,0 +1,73 @@
+meta {
+  name: E18 Album list without context menus
+  type: http
+  seq: 44
+}
+
+get {
+  url: http://{{host}}:11000/
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Candidate for All, genre and search lists: albums without the inline context menus (about a
+  // third of the data). The grid needs playURL (play), browseKey (popup), contextMenuKey (menu on
+  // demand for add to queue / favourite) and the favourite state for the heart.
+  // List: the album section of the first favourite (A12); its key is the first section key of A06
+  // with the section letter of the favourite (section lists mark favourites, see E21).
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+
+  const key = bru.getVar("sectionKey") || "", t = bru.getVar("favAlbum") || "";
+  if (!key || !t) { bru.runner.skipRequest(); return; }
+  const c = t.charAt(0).toUpperCase(), letter = /[A-Z]/.test(c) ? c : "%23";
+  req.setUrl(H + "/Browse?withContextMenuItems=0&key=" + encodeURIComponent(key.replace(/section=[^&]*/, "section=" + letter)));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("explore-18-album-list-no-cm.xml");
+
+  const albums = tags("item").filter((t) => attr(t, "type") === "album");
+  const favs = albums.filter((t) => /[?&]isFavourite=1/.test(attr(t, "contextMenuKey")));
+  console.log("section of " + bru.getVar("favAlbum") + ": " + albums.length + " albums, " + favs.length + " favourites, " + body.length + " bytes");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const albums = tags("item").filter((t) => attr(t, "type") === "album");
+  const favKey = (t) => /[?&]isFavourite=1/.test(attr(t, "contextMenuKey"));
+  const fav = albums.find((t) => attr(t, "text") === bru.getVar("favAlbum"));
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("albums have browseKey, playURL, contextMenuKey, image", () => {
+    expect(albums.length).to.be.above(0);
+    expect(albums.every((t) => attr(t, "browseKey") && attr(t, "playURL") && attr(t, "contextMenuKey") && attr(t, "image"))).to.equal(true);
+  });
+  test("no context menus", () => expect(/<contextMenu\b/.test(body)).to.equal(false));
+  test("section contains the favourite album", () => expect(!!fav).to.equal(true));
+  test("favourite stays marked without context menus", () => expect(favKey(fav) && attr(fav, "isFavourite") === "true").to.equal(true));
+  test("isFavourite attribute matches the context menu key", () => expect(albums.every((t) => (attr(t, "isFavourite") === "true") === favKey(t))).to.equal(true));
+}

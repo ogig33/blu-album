@@ -881,7 +881,9 @@ Some answers group the items in `<category text="…" nextKey="…">`; errors co
   | `…S:Album/…&section=A` | `type="albums"` · 143 `item` elements with attributes `browseKey`, `contextMenuKey`, `playURL`, `text`, `text2`, `tracks`, `image` + context menus | 204 KB (68 KB without context menus) |
   | `<svc>:GG/Genres` | `type="genres"` · 34 `item` elements with attributes `browseKey`, `text` | 3.4 KB |
   | `<svc>:MG/LocalMusic-Genre?genre=…` | empty – genre menus have other keys, take them from the genre list | 0.2 KB |
-  | `<svc>:MG/LocalMusic-Artist?artist=…` | 2 `item` elements (albums, songs of the artist); the "Albums" key `<svc>:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=…&service=<svc>` returns all albums of the artist with URLs and context menus, no paging | 0.4 KB |
+  | `<svc>:MG/LocalMusic-Artist?artist=…` | 2 `item` elements (albums, songs of the artist); the "Albums" key `<svc>:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=…&service=<svc>` returns all albums of the artist with URLs and context menus, no paging – but **without favourite state**: no `isFavourite`, no `&isFavourite=1` in `contextMenuKey`, the menu offers `favourite-add` also for favourites (verified 2026-11-15) | 0.4 KB |
+  | `<svc>:Album/%2Flibrary%2Fv1%2FAlbums%3F<filter>&service=<svc>` (built) | the `/library/v1/Albums` request as browse list with URLs, context menus and favourite state: `recent=1` (50 per page, `nextKey` with `count=50&start=50`), `category=FAVOURITES` (all in one answer); `genre=…` answers **empty**, also with `&offset=0` (verified 2026-11-15) | 75 KB (New, 50 albums) |
+  | `<svc>:S:Album/%2Flibrary%2Fv1%2FAlbums%3Fquality=cd&service=<svc>&limit=50&section=A` (built like the section keys) | the quality albums of the section with URLs, context menus and favourite state; same albums as `/library/v1/Albums?quality=cd&section=A` (verified 2026-11-15) | 199 KB (140 albums) |
   | `<svc>:MG/LocalMusic-Favourites` | 4 `item` elements (favourites by type) | 0.7 KB |
   | `<svc>:MG/LocalMusic-Album?album=…&artist=…` | `type="tracks"` with `playURL` · 9 `item` elements with attributes `contextMenuKey`, `playURL`, `autoplayURL`, `text`, `duration`, `image` (`type="track"`) | 16.8 KB (7.2 KB without context menus) |
   | `<svc>:CM/LocalMusic-Album?album=…&artist=…[&isFavourite=1]` | `type="contextMenu"` · 5 `item` elements with attributes `actionURL`, `text`, `type` (`favourite-add/-delete`, `add-now`, `add-shuffle`, `addAll-next`, `addAll-last`) | 1.0 KB |
@@ -1075,7 +1077,7 @@ GET /library/v1/Albums?service=<svc>&section=<letter>&recent=1&category=FAVOURIT
 | `recent` | `1` = newest albums (50 per page + `nextlink`) |
 | `category` | `FAVOURITES` = favourite albums, one request |
 | `quality` | `hr` (HD), `cd`, `mqa` – only together with `section` |
-| `genre` | albums of a genre – only together with `section` |
+| `genre` | albums of a genre – only together with `section`; without it the answer is empty, also with `limit=500` or `offset=0` (verified 2026-11-15). All albums of a genre: [`/ui/browseGrouped`](#get-uibrowsegrouped) |
 | `artist` | all albums of the artist, one request |
 | `album` | with `artist`: one album including `cover` |
 | `composer` | albums with songs of the composer |
@@ -2622,6 +2624,7 @@ GET /ui/browseGrouped?service=<svc>&menuGroupId=<id>&browseIndex=<n>&title=<titl
 
 - Artists, albums, songs and composers of the library; the BluOS Controller loads pages of 30 with `offset`.
 - Verified (628 artists): the letter index gives the offset of every letter, the BluOS Controller loads the pages it needs with `offset`.
+- Albums of a genre (verified 2026-11-15, as the BluOS Controller asks them): `/ui/browseGrouped?browseIndex=2&menuGroupId=Genres&service=<svc>&title=Albums&type=Album&url=<encoded /library/v1/Albums?genre=…&service=<svc>>`. Answer: `<list offset="0" total="165">`, letter index, 30 `item` elements per page with `title` (album), `subTitle` (artist), `subSubTitle` ("12 Tracks"), `image`, `<action URI="/Albums?service=…&album=…&artist=…">`, `<playAction URI="/Add?playnow=1&service=…&album=…&artist=…">`, `<contextMenu URI="/ui/ContextMenu?…context=Album…">` (no favourite state, no add-to-queue URL); next page via `<nextLink>` (`…&listContinuation=30…`); sort menu with `&sort=alpha|recent|year|decade` in the url. 27 KB per page.
 
 ### `GET /ui/browseMenuGroup`
 

@@ -1,0 +1,64 @@
+meta {
+  name: E19 New albums as browse list
+  type: http
+  seq: 45
+}
+
+get {
+  url: http://{{host}}:11000/
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Candidate for the New chip with the player's URLs (instead of the fixed pattern of libAlbum()):
+  // the /library/v1 request recent=1 wrapped in a browse key like the artist albums key.
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+
+  const svc = bru.getVar("libSvc");
+  if (!svc) { bru.runner.skipRequest(); return; }
+  req.setUrl(H + "/Browse?withContextMenuItems=1&key=" + encodeURIComponent(svc + ":Album/%2Flibrary%2Fv1%2FAlbums%3Frecent=1&service=" + svc));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("explore-19-new-albums-browse.xml");
+
+  const albums = tags("item").filter((t) => attr(t, "type") === "album");
+  const next = (body.match(/nextKey="([^"]*)"/) || [])[1] || "";
+  console.log(albums.length + " albums, " + body.length + " bytes, " + (next ? "nextKey: " + dec(next) : "no further pages") + "; first: " + (albums[0] ? attr(albums[0], "text") + " / " + attr(albums[0], "text2") : "-"));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const albums = tags("item").filter((t) => attr(t, "type") === "album");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("list of albums with browseKey, playURL, contextMenuKey", () => {
+    expect(albums.length).to.be.above(0);
+    expect(albums.every((t) => attr(t, "browseKey") && attr(t, "playURL") && attr(t, "contextMenuKey"))).to.equal(true);
+  });
+  test("context menus with add-last action", () => expect(/type="addAll-last"/.test(body)).to.equal(true));
+}

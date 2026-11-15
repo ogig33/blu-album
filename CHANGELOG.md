@@ -5,6 +5,7 @@ PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
 - Code cleanup from the new ESLint check: unused error variables in `catch` removed, empty `catch` blocks explained (no change in behaviour).
+- Fix: the artist view showed favourite albums with an empty heart (the player's artist list does not mark favourites), and a click added the favourite again. The artist view now compares with the player's favourites (1 request) and reads the context menu of each favourite for the remove action.
 
 ## 0.8.1
 - Security: cover image URLs from player answers are checked (only on the player or http(s)),

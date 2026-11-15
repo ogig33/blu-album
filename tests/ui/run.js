@@ -451,10 +451,43 @@ test("artist: click shows the albums of the artist via the artist's browse menu,
     [],
     "All list not loaded",
   );
-  eq(r.filter((x) => /^\/Browse/.test(x)).length, 4, "artist menu + albums link per source (2 sources)");
+  eq(
+    r.filter((x) => /^\/Browse/.test(x) && !/CM\/LocalMusic-Album/.test(x)).length,
+    4,
+    "artist menu + albums link per source (2 sources)",
+  );
   ok(
     await t.page.evaluate(() => shown.every((a) => a.play && a.menu["addAll-last"])),
     "play and queue URLs from the player",
+  );
+  // The artist list does not mark favourites (Bruno E17): the app compares with the player's favourites
+  // (library only) and reads the context menu of each favourite with &isFavourite=1.
+  eq(
+    r.filter((x) => /^\/library\/v1\/Albums\?/.test(x)),
+    ["/library/v1/Albums?service=LocalMusic&category=FAVOURITES"],
+    "favourites of the library asked once",
+  );
+  eq(
+    r.filter((x) => /CM\/LocalMusic-Album/.test(x)),
+    ["/Browse?withContextMenuItems=1&key=LocalMusic:CM/LocalMusic-Album?album=1&artist=Peter+Gabriel&isFavourite=1"],
+    "context menu read only for the favourite",
+  );
+  eq(
+    await t.page.evaluate(() => shown.map((a) => a.t + ":" + favOf(a).on)),
+    ["1:true", "2:false", "3:false", "4:false"],
+    "favourite marked, the others not",
+  );
+  const heart = await t.page.$$eval("#grid .item", (x) =>
+    x.findIndex((e) => e.querySelector(".card:not(.ar) b")?.textContent === "1"),
+  );
+  ok(heart > 0, "tile of the favourite");
+  await t.page.hover(`#grid .item:nth-child(${heart + 1})`);
+  eq(await t.page.getAttribute(`#grid .item:nth-child(${heart + 1}) .favc`, "aria-pressed"), "true", "filled heart");
+  ok(
+    await t.page.evaluate(() =>
+      /^\/DeleteFavourite/.test(shown.find((a) => a.t === "1").menu["favourite-delete"] || ""),
+    ),
+    "remove URL from the player's context menu",
   );
   await t.chip("New");
   await t.settle();

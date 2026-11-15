@@ -1,0 +1,43 @@
+meta {
+  name: E16 USB - genre albums in one list
+  type: http
+  seq: 42
+}
+
+get {
+  url: http://{{host}}:11000/
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Like E14 for the first genre of the USB drive (E15; skipped without a USB drive).
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+
+  const svc = bru.getVar("usbSvc"), genre = bru.getVar("usbGenre");
+  if (!svc || !genre) { bru.runner.skipRequest(); return; }
+  req.setUrl(H + "/ui/browseGrouped?browseIndex=2&menuGroupId=Genres&service=" + svc + "&title=Albums&type=Album&url=" + encodeURIComponent("/library/v1/Albums?genre=" + genre + "&service=" + svc));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const list = (body.match(/<list\b[^>]*>/) || [""])[0];
+  const entries = (body.match(/<item\b[^>]*\btitle="[^"]*"[^>]*>[\s\S]*?<\/item>/g) || []);
+  console.log(decodeURIComponent(bru.getVar("usbGenre").replace(/\+/g, " ")) + ": " + list + ", " + entries.length + " entries on this page, " + body.length + " bytes");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const list = (body.match(/<list\b[^>]*>/) || [""])[0];
+  const entries = (body.match(/<item\b[^>]*\btitle="[^"]*"[^>]*>[\s\S]*?<\/item>/g) || []);
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("list with a total", () => expect(+((list.match(/\btotal="(\d+)"/) || [])[1] || 0)).to.be.above(0));
+  test("entries with title and subTitle", () => {
+    expect(entries.length).to.be.above(0);
+    expect(entries.every((e) => /\bsubTitle="[^"]+"/.test(e))).to.equal(true);
+  });
+}

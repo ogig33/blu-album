@@ -44,6 +44,11 @@ script:post-response {
     }
   };
   saveFixture("12-library-favourites.xml");
+
+  // Title and artist of the first favourite, for E17 / E18 (lists that surely contain a favourite)
+  const first = (body.match(/<album\b[^>]*>[\s\S]*?<\/album>/) || [""])[0];
+  bru.setVar("favAlbum", dec((first.match(/<alb>([^<]*)<\/alb>/) || [])[1] || ""));
+  bru.setVar("favArtist", dec((first.match(/<art>([^<]*)<\/art>/) || [])[1] || ""));
 }
 
 tests {
