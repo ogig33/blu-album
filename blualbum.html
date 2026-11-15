@@ -791,6 +791,25 @@ button {
 .q[hidden] {
   display: none !important;
 }
+/* Listening mode of the player (TV / Music / Movie) before the volume controls: display only */
+.lm {
+  flex: none;
+  font:
+    700 11px/1 -apple-system,
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  margin-right: 4px;
+}
+.lm[hidden] {
+  display: none;
+}
 /* Gold (HD) and bronze (MQA) variants of the silver quality tag */
 .q.q-hd {
   color: #6b4a06;
@@ -1622,6 +1641,7 @@ dialog::backdrop {
     <div class="na" id="nt2"></div>
   </div>
   <div class="vl">
+    <span id="lm" class="lm" hidden></span>
     <button id="vd" aria-label="Volume down" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     <input id="vs" type="range" min="0" max="100" step="1" value="0" aria-label="Volume" disabled>
     <button id="vu" aria-label="Volume up" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
@@ -1702,7 +1722,7 @@ dialog::backdrop {
  *  11. Popups                          Album popup and the popup for unsuccessful player answers.
  *  12. Playlists                       Saved playlists of the player as chips.
  *  13. Queue panel                     Play queue: list, pinning, shuffle, repeat, save / delete playlist, clear.
- *  14. Player footer & full screen     Now playing, progress, transport, volume, status polling, full-screen view.
+ *  14. Player footer & full screen     Now playing, progress, transport, volume, listening mode, status polling, full-screen view.
  *  15. Search                          The player's own search.
  *  16. Settings panel                  Panel, settings switches, library stats and settings, about.
  *  17. Event wiring & start            Event handlers and start-up code (runs once, in this order).
@@ -1886,6 +1906,8 @@ let dlgSeq = 0, popCache = {};
 let searchSeq = 0, searchTimer = 0;
 // Room name of the player (settings panel, browser tab title).
 let playerName = "";
+// Listening mode (footer tag): syncStat of /Status it was read for, request counter.
+let lmSync = "", lmSeq = 0;
 // Settings panel: library settings rows [label, value] and library statistics;
 // about popup: player software versions [label, value] (shown below the room name).
 // aboutCtx: ctx() for which statistics and versions were loaded (they load when the about popup opens).
@@ -1899,6 +1921,7 @@ function resetPlayerState() {
   libStats = {};
   playerRows = [];
   qPid = qSong = qName = "";
+  lmSync = "";
   playlistsKey = plLoaded = "";
   plChips = [];
   playlists = [];
@@ -3012,6 +3035,7 @@ function stopPoll() {
   $("#nt1").textContent = "";
   $("#nt2").textContent = "";
   $("#nq").hidden = true;
+  $("#lm").hidden = true;
   $("#cov").hidden = true;
   $("#cov").dataset.src = "";
   $("#cov").removeAttribute("src");
@@ -3023,6 +3047,23 @@ function qLabel(q) {
   if (/^mqa/i.test(q)) return "MQA";
   if (/^dolby/i.test(q)) return "Dolby";
   return "";
+}
+// Listening mode of the player (/audioPreset): the current mode's displayName as a tag, the setting's
+// displayName as tooltip. Players without listening modes do not answer it; the tag stays hidden.
+async function loadListeningMode() {
+  const seq = ++lmSeq, mine = base, el = $("#lm");
+  let d = null;
+  try {
+    d = await api("/audioPreset");
+  } catch { // no listening modes on this player
+  }
+  if (seq !== lmSeq || mine !== base) return;
+  const set = d && d.querySelector('setting[name="preset"]');
+  const cur = set && [...set.querySelectorAll(":scope > value")].find((v) => v.getAttribute("name") === set.getAttribute("value"));
+  const name = cur ? cur.getAttribute("displayName") || "" : "";
+  el.hidden = !name;
+  el.textContent = name;
+  el.title = name ? set.getAttribute("displayName") || "" : "";
 }
 // Renders a /Status response: now playing, cover, quality, position, volume, current queue entry.
 function showNow(d) {
@@ -3045,6 +3086,12 @@ function showNow(d) {
     qPid = pid;
     if (qOpen) loadQueue();
   } else markCur(false);
+  // A new listening mode raises syncStat (Bruno S44): read /audioPreset on connect and on every change
+  const sync = g("syncStat");
+  if (sync && sync !== lmSync) {
+    lmSync = sync;
+    loadListeningMode();
+  }
   // Shuffle (0 / 1) and repeat state of the queue
   $("#qshuf").setAttribute("aria-pressed", g("shuffle") === "1");
   showRepeat(g("repeat"));

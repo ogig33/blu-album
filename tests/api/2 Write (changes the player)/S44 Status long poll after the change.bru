@@ -1,0 +1,69 @@
+meta {
+  name: S44 Status long poll after the change
+  type: http
+  seq: 106
+}
+
+get {
+  url: http://{{host}}:11000/Status
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  // Long poll with the etag of S42: an answer well before the timeout means /Status reports the
+  // change, so the footer could follow the listening mode without extra polling.
+  if (!bru.getVar("lmBefore")) { bru.runner.skipRequest(); return; }
+  req.setUrl(H + "/Status?timeout=10&etag=" + bru.getVar("lmEtag"));
+  if (typeof req.setTimeout === "function") req.setTimeout(20000);
+  bru.setVar("lmT0", String(Date.now()));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("verify-status-after-listening-mode.xml");
+  const fields = (b) => { const o = {}; (b.match(/<([A-Za-z0-9]+)>([^<]*)<\/\1>/g) || []).forEach((t) => { const m = t.match(/<([A-Za-z0-9]+)>([^<]*)</); o[m[1]] = m[2]; }); return o; };
+  const a = fields(bru.getVar("lmStatus") || ""), b = fields(body);
+  const diff = Object.keys(Object.assign({}, a, b)).filter((k) => a[k] !== b[k]).map((k) => k + ": " + (a[k] ?? "–") + " → " + (b[k] ?? "–"));
+  const etag = (body.match(/<status etag="([^"]*)"/) || [])[1] || "";
+  const ms = typeof res.getResponseTime === "function" ? res.getResponseTime() : Date.now() - Number(bru.getVar("lmT0"));
+  console.log("answer after " + ms + " ms, etag " + (etag !== bru.getVar("lmEtag") ? "CHANGED" : "unchanged") + " (" + bru.getVar("lmEtag") + " → " + etag + ")" +
+    "\nchanged fields: " + (diff.join("; ") || "none") +
+    "\nnew mode " + bru.getVar("lmNew") + " in body: " + new RegExp(bru.getVar("lmNew"), "i").test(body));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("status answer", () => expect(/<status/.test(body)).to.equal(true));
+  // Verified 2026-11-15: the listening mode is not in /Status, but the change gives a new etag and syncStat + 1
+  const before = bru.getVar("lmStatus") || "";
+  const num = (b, t) => Number((b.match(new RegExp("<" + t + ">([^<]*)<")) || [])[1]);
+  test("etag changed", () => expect((body.match(/<status etag="([^"]*)"/) || [])[1]).to.not.equal(bru.getVar("lmEtag")));
+  test("syncStat increased", () => expect(num(body, "syncStat")).to.be.above(num(before, "syncStat")));
+}

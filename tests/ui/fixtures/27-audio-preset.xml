@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<setting id="preset" name="preset" displayName="Listening Mode" url="http://192.0.2.10:11000/alsa_setting" class="list" value="MUSIC" refresh="true" required="true" style="inline">
+	<value displayName="Music" name="MUSIC" icon="/images/settings/icon_music-mode.png" iconActive="/images/settings/icon_music-mode-active.png"></value>
+	<value displayName="Movie" name="MOVIE" icon="/images/settings/icon_movies-mode.png" iconActive="/images/settings/icon_movies-mode-active.png"></value>
+	<value displayName="TV" name="TV" icon="/images/settings/icon_tv-mode.png" iconActive="/images/settings/icon_tv-mode-active.png"></value>
+</setting>

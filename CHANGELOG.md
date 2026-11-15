@@ -5,6 +5,7 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 ## Unreleased
 - Code cleanup after ESLint (no change in behaviour).
 - Fix: artist view shows favourites with a filled heart.
+- Player bar shows the listening mode (e.g. Music, Movie, TV) next to the volume controls.
 - Fix: album popup track list empty in browsers set to a language other than English.
 - Fix: no album covers in Firefox.
 

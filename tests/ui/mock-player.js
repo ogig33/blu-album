@@ -37,6 +37,10 @@ function createPlayer(opts = {}) {
     // Playlist id (<pid> in /Status, id of /Playlist). Like the real player (Bruno 2 Write), it changes
     // when the queue changes: add, remove, shuffle, clear, load. Loading a broken playlist keeps it.
     pid: 485,
+    // Listening mode (/audioPreset, fixture 27). null = player without listening modes (answers 404).
+    // Like the real player (Bruno S44), a change of the mode raises <syncStat> in /Status.
+    listeningMode: opts.listeningModes === false ? null : "MUSIC",
+    syncStat: 533,
   };
   const QUEUE_CHANGES = /^\/(Add|Delete\?id=|Shuffle|Clear)/;
   const browse = (key, lang) => {
@@ -143,13 +147,18 @@ function createPlayer(opts = {}) {
             .replace(/<shuffle>\d<\/shuffle>/, "<shuffle>" + (state.shuffle ? 1 : 0) + "</shuffle>")
             .replace(/<repeat>\d<\/repeat>/, "<repeat>" + state.repeat + "</repeat>")
             .replace(/<pid>\d+<\/pid>/, "<pid>" + state.pid + "</pid>")
-        : '<status etag="idle"><state>stop</state><volume>19</volume></status>';
+            .replace(/<syncStat>\d+<\/syncStat>/, "<syncStat>" + state.syncStat + "</syncStat>")
+        : '<status etag="idle"><state>stop</state><syncStat>' + state.syncStat + "</syncStat><volume>19</volume></status>";
     if (p === "/Playlist")
       return state.queueEmpty
         ? `<playlist length="0" id="${state.pid}"></playlist>`
         : fx("20").replace(/ id="485">/, ` id="${state.pid}">`);
     if (p === "/Playlists") return fx("17");
     if (p === "/Settings") return fx("21");
+    if (p === "/audioPreset")
+      return state.listeningMode === null
+        ? { status: 404, type: "text/plain", body: "" }
+        : fx("27").replace(/(<setting [^>]*value=")[^"]*"/, "$1" + state.listeningMode + '"');
     if (p === "/Version") return '<?xml version="1.0" encoding="UTF-8"?>\n<version>v0.5.43</version>';
     if (p === "/GitVersion") return '<?xml version="1.0" encoding="UTF-8"?>\n<version>4.18.18</version>';
     if (p === "/Volume") return fx("22");
@@ -175,7 +184,7 @@ function createPlayer(opts = {}) {
     // /Status long polling: answer the follow-up requests (with etag) slowly, like a real player
     if (/\/Status\?.*etag=/.test(r.request().url())) await new Promise((z) => setTimeout(z, 1500));
     await r
-      .fulfill({ status: 200, contentType: res.type, headers: { "access-control-allow-origin": "*" }, body: res.body })
+      .fulfill({ status: res.status || 200, contentType: res.type, headers: { "access-control-allow-origin": "*" }, body: res.body })
       .catch(() => {});
   };
   return { state, route };

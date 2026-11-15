@@ -1702,10 +1702,11 @@ POST /alsa_setting   (JSON body {"<name>":"<value>"})
 
 **Response format**
 
-No answer body (HTTP 200, empty).
+No answer body (HTTP 200, empty); with `preset` HTTP 205 (Reset Content, one byte body).
 
 **Notes**
 
+- `preset` verified with GET (`MUSIC` ↔ `MOVIE`, read back from [`/audioPreset`](#get-audiopreset), restored): HTTP 205; the change ends a `/Status` long poll with `syncStat` + 1.
 - Names, ranges and dependencies are from the player's own `/Settings?id=audio` answer (verified read); the form `/alsa_setting?<name>=<value>` comes from community projects. Verified with `eq-balance` (0 ↔ 0.5, read back from `/Settings?id=audio`, restored).
 - Which settings exist depends on the player (DSP, centre, subwoofer).
 - The BluOS Controller sends it as **POST** with a JSON body, e.g. `{"preset":"MOVIE"}`; GET with `?<name>=<value>` works as well (verified). Seen: `preset` (`MUSIC`, `MOVIE`, `TV`).
@@ -1780,7 +1781,9 @@ No known parameters.
 **Notes**
 
 - Verified: answers the listening mode setting in the format of `/Settings`; `value` is the current mode.
-- Change it with [`/alsa_setting?preset=<name>`](#get-post-alsa_setting) (the `url` of the answer), using the `name` of a `value` as `<name>`.
+- Change it with [`/alsa_setting?preset=<name>`](#get-post-alsa_setting) (the `url` of the answer), using the `name` of a `value` as `<name>`. Verified (Bruno S41–S47, MUSIC → MOVIE and back): the player answers HTTP 205, `/audioPreset` shows the new mode after about 1 s.
+- `/Status` does not name the listening mode (Bruno E23). A change still ends a `/Status` long poll: new `etag`, and the only changed field is `syncStat` (+1) (Bruno S44). A client can follow the mode by reading `/audioPreset` again when `syncStat` changes.
+- Only players with listening modes have it; here a fixed home theatre group, whose [`/SyncStatus`](#get-syncstatus) carries `<audioPresetUrl url="/audioPreset"/>`. `/ui/Configuration` lists it as `listeningModesURL="/audioPreset"` of `/ui/presets`.
 
 ### `GET /Dataexport`
 

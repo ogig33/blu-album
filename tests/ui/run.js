@@ -585,6 +585,64 @@ test("footer: now playing and quality tag, no source icon", async (t) => {
   );
 });
 
+// Listening mode of the player (/audioPreset, fixture 27): current mode as a display-only tag before the
+// volume controls; name and tooltip are the displayName values of the answer.
+const LM = fs.readFileSync(
+  path.join(
+    __dirname,
+    "fixtures",
+    fs.readdirSync(path.join(__dirname, "fixtures")).find((f) => f.startsWith("27-")),
+  ),
+  "utf8",
+);
+const lmName = (mode) => (LM.match(new RegExp('displayName="([^"]*)" name="' + mode + '"')) || [])[1];
+const lmTitle = (LM.match(/<setting [^>]*displayName="([^"]*)"/) || [])[1];
+
+test("footer: listening mode tag before the volume controls, name and tooltip from /audioPreset", async (t) => {
+  await t.page.waitForFunction(() => !document.querySelector("#lm").hidden);
+  eq((await t.page.textContent("#lm")).trim(), lmName("MUSIC"), "current mode");
+  eq(await t.page.getAttribute("#lm", "title"), lmTitle, "tooltip");
+  ok(
+    await t.page.$eval("#lm", (e) => e.parentElement.matches("#ctl .vl") && e.nextElementSibling?.id === "vd"),
+    "tag sits right before the volume-down button",
+  );
+  ok(
+    await t.page.$eval("#lm", (e) => e.tagName !== "BUTTON" && !e.onclick && e.getAttribute("tabindex") === null),
+    "display only (no button)",
+  );
+});
+
+test("footer: listening mode follows syncStat of /Status, /audioPreset read only on a change", async (t) => {
+  await t.page.waitForFunction(() => !document.querySelector("#lm").hidden);
+  const count = () => t.player.state.requests.filter((x) => x === "/audioPreset").length;
+  eq(count(), 1, "read once on connect");
+  await t.settle(3500); // two more long polls with the same syncStat
+  eq(count(), 1, "no further reads while syncStat stays");
+  t.player.state.listeningMode = "MOVIE";
+  t.player.state.syncStat++;
+  await t.page.waitForFunction((x) => document.querySelector("#lm").textContent === x, lmName("MOVIE"));
+  eq(count(), 2, "read again after the syncStat change");
+  eq(
+    t.player.state.commands.filter((c) => /alsa_setting/.test(c)),
+    [],
+    "no listening mode command",
+  );
+});
+
+test(
+  "footer: no listening mode tag on a player without listening modes",
+  async (t) => {
+    await t.settle(1500);
+    ok(
+      t.player.state.requests.includes("/audioPreset"),
+      "asked once",
+    );
+    ok(await t.page.$eval("#lm", (e) => e.hidden && !e.textContent), "tag hidden");
+    eq(t.errors, [], "no JavaScript errors");
+  },
+  { listeningModes: false },
+);
+
 test("footer: play / pause button shows an SVG icon and sends /Pause", async (t) => {
   await t.page.evaluate(() => setState("pause"));
   ok(

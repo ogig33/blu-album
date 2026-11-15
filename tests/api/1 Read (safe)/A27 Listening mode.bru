@@ -1,0 +1,64 @@
+meta {
+  name: A27 Listening mode
+  type: http
+  seq: 95
+}
+
+get {
+  url: http://{{host}}:11000/audioPreset
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  // App: listening mode tag in the footer (read on connect and when syncStat of /Status changes).
+  // /ui/Configuration lists it as listeningModesURL="/audioPreset" of /ui/presets.
+  req.setUrl(H + "/audioPreset");
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  const preset = tags("setting").find((t) => attr(t, "name") === "preset") || "";
+  const modes = tags("value").map((t) => ({ name: attr(t, "name"), label: attr(t, "displayName") })).filter((m) => m.name);
+  saveFixture("27-audio-preset.xml");
+  bru.setVar("lmValue", attr(preset, "value"));
+  bru.setVar("lmLabel", (modes.find((m) => m.name === attr(preset, "value")) || {}).label || "");
+  console.log("HTTP " + res.getStatus() + ", current: " + attr(preset, "value") + ", displayName \"" + attr(preset, "displayName") + "\", url " + attr(preset, "url") +
+    ", refresh=" + attr(preset, "refresh") + "\nmodes: " + modes.map((m) => m.name + " = " + m.label).join(", ") + "\n" + body.slice(0, 2000));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  const preset = tags("setting").find((t) => attr(t, "name") === "preset") || "";
+  const modes = tags("value").map((t) => ({ name: attr(t, "name"), label: attr(t, "displayName") })).filter((m) => m.name);
+  test("setting preset of class list", () => { expect(preset).to.not.equal(""); expect(attr(preset, "class")).to.equal("list"); });
+  test("at least two modes with name and displayName", () => { expect(modes.length).to.be.above(1); expect(modes.every((m) => m.label)).to.equal(true); });
+  test("current value is one of the modes", () => expect(modes.map((m) => m.name)).to.include(attr(preset, "value")));
+  test("url points to alsa_setting", () => expect(attr(preset, "url")).to.match(/\/alsa_setting$/));
+}

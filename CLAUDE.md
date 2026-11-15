@@ -79,7 +79,7 @@ Used endpoints:
   `/Skip`, `/Back`, `/Volume?level=|db=±2`, `/Shuffle?state=0|1`, `/Repeat?state=0|1|2`
   (0 = queue, 1 = track, 2 = off), `/Save?name=` (`<saved><entries>N`), `/Load?service=BluOS&name=`,
   `/Clear`, `/AddFavourite`, `/DeleteFavourite`, `/Settings`, `/Services`, `/Version` (API
-  version), `/GitVersion` (BluOS version), `/Artwork?service=…&album=…&artist=…`.
+  version), `/GitVersion` (BluOS version), `/Artwork?service=…&album=…&artist=…`, `/audioPreset` (listening mode for the footer tag; read on connect and when `<syncStat>` of `/Status` changes – the mode itself is not in `/Status`, Bruno E23 / S44).
 
 Outside the player (only on click): `https://api.github.com/repos/ogig33/blu-album/releases/latest`
 (`tag_name`, `html_url`; CORS `*`, works from a local file) – update check in the about popup.
@@ -116,7 +116,7 @@ Pitfalls:
   chasing a "bug".
 
 ## Tests
-- `tests/api` – Bruno collection, environment "Home" (`host` = player IP, `saveFixtures`, `runManual`). Three folders, the whole collection is the suite to run after a firmware update: "1 Read (safe)" only reads (app requests A01–A26, album details and new variants E01–E21, E24–E26, reference endpoints V01–V47); "2 Write (changes the player)" sends every command of the app (C01–C47) and of the reference (W01–W15, S01–S40) and restores queue, position, volume, settings etc. afterwards; "3 Manual (run on purpose)" (M01–M21: doorbell, reindex, test preset, reboot, playlist restore, clear history, statistics, rebuild index, UpdateDNS) is skipped unless `runManual = true`. Fixtures go to `tests/api/fixtures/` (git-ignored, personal data).
+- `tests/api` – Bruno collection, environment "Home" (`host` = player IP, `saveFixtures`, `runManual`). Three folders, the whole collection is the suite to run after a firmware update: "1 Read (safe)" only reads (app requests A01–A27, album details and new variants E01–E21, E23–E26, reference endpoints V01–V47); "2 Write (changes the player)" sends every command of the app (C01–C47) and of the reference (W01–W15, S01–S47) and restores queue, position, volume, settings etc. afterwards; "3 Manual (run on purpose)" (M01–M21: doorbell, reindex, test preset, reboot, playlist restore, clear history, statistics, rebuild index, UpdateDNS) is skipped unless `runManual = true`. Fixtures go to `tests/api/fixtures/` (git-ignored, personal data).
 - `tests/tools/sanitize-fixtures.js` – copies fixtures to `tests/ui/fixtures` without IPs,
   room name, share / mount paths and USB ids.
 - `tests/ui` – Playwright tests (`npm test` in `tests/ui`) of the app against `mock-player.js`,
