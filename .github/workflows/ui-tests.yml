@@ -1,4 +1,5 @@
-# UI tests of BluAlbum (tests/ui) on macOS, Windows and Linux in every supported browser.
+# UI tests of BluAlbum (tests/ui) on macOS, Windows and Linux in every supported browser,
+# each at three window sizes; screenshots of the main views are kept as artifacts.
 # The tests run against the mock player with the sanitized fixtures: no player, no network.
 name: UI tests
 
@@ -17,13 +18,13 @@ permissions:
 
 jobs:
   ui:
-    name: ${{ matrix.os }} / ${{ matrix.browser }}
-    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.target.os }} / ${{ matrix.target.browser }} / ${{ matrix.viewport }}
+    runs-on: ${{ matrix.target.os }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        include:
+        target:
           # Safari: Playwright's WebKit build, only on macOS (closest to the real Safari)
           - { os: macos-latest, browser: safari, install: webkit }
           - { os: macos-latest, browser: chrome }
@@ -32,6 +33,8 @@ jobs:
           - { os: windows-latest, browser: firefox, install: firefox }
           - { os: ubuntu-latest, browser: chrome }
           - { os: ubuntu-latest, browser: firefox, install: firefox }
+        # Window size and device pixel ratio: small laptop, Retina laptop, desktop monitor
+        viewport: [1280x800, 1440x900@2, 1920x1080]
     defaults:
       run:
         working-directory: tests/ui
@@ -47,12 +50,14 @@ jobs:
       - run: npm ci
       # Chrome and Edge are preinstalled on the runners (the real, current apps);
       # WebKit and Firefox come from Playwright.
-      - if: matrix.install
-        run: npx playwright install --with-deps ${{ matrix.install }}
-      - run: node run.js --browser ${{ matrix.browser }}
-      - if: failure()
+      - if: matrix.target.install
+        run: npx playwright install --with-deps ${{ matrix.target.install }}
+      - run: node run.js --browser ${{ matrix.target.browser }} --viewport ${{ matrix.viewport }} --shots
+      # Screenshots of the main views (views/) and of failed tests, for a visual check
+      - if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: screenshots-${{ matrix.os }}-${{ matrix.browser }}
+          name: screenshots-${{ matrix.target.os }}-${{ matrix.target.browser }}-${{ matrix.viewport }}
           path: tests/ui/test-results/
           if-no-files-found: ignore
+          retention-days: 14

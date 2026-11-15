@@ -6,7 +6,7 @@ import html from "eslint-plugin-html";
 import globals from "globals";
 
 // Functions and variables of the app that the UI tests call inside page.evaluate()
-const APP_GLOBALS = ["shown", "openAlbum", "setState", "showArtist", "imgUrl", "APP", "playerName"];
+const APP_GLOBALS = ["shown", "openAlbum", "setState", "showArtist", "imgUrl", "render", "APP", "playerName"];
 
 export default [
   js.configs.recommended,

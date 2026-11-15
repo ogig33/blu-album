@@ -1,41 +1,41 @@
 # BluAlbum – notes for Claude
 
 ## Project
-- BluAlbum: single-file browser app (`blualbum.html`) that browses the **albums of the music
-  library** (network share = "Library", and USB drive) of a BluOS player and controls playback.
-- Talks directly to the BluOS Custom Integration API: HTTP GET on port 11000, XML answers.
-  No server, no build step, no dependencies.
-- Opened locally (file). Not hostable on GitHub Pages: an HTTPS page may not reach the player
-  over HTTP in the home network.
+- BluAlbum: single-file app (`blualbum.html`) that browses the **albums of the music library** of a BluOS player and controls playback
+- Motivation is to provide an alternative to the vendor app "BluOS Controller" 
+  - uses a time-consuming and visually unattractive way of finding and selecting locally stored music via hierarchical browsing
+- Talks directly to the BluOS Custom Integration API: HTTP GET on port 11000, XML answers. 
+- expects music library to be tagged and with cover art
+- minimalistic design - less is more, only show relevant information, but in an appealing way
+- No build step, no dependencies
+- Opened locally in a Web browser (file) - optional server hosting if users have an HTTP server
 - Owner: Ingmar Gebert. MIT licence. Repository: `blu-album`.
-- Independent project, not affiliated with Lenbrook / Bluesound (notice in README, file header
-  and about popup – keep it).
-- Owner's test setup: Bluesound Powernode, BluOS 4.18.18, API v0.5.43, library on a network
-  share plus a USB drive. Main browser: **Safari** on macOS; Chrome as second browser.
+- Independent project, not affiliated with Lenbrook / Bluesound (notice in README, file header and about popup – keep it).
+- Owner's test setup: Bluesound Powernode, BluOS 4.18.18, API v0.5.43, library on a network share plus a USB drive. Main browser: Safari on macOS; Chrome as second browser.
 
 ## Scope
-Focus: music albums of the music library. Other player features stay in the BluOS app.
+Focus: music albums of the locally stored music library. 
+Other player features and settings stay in the BluOS Controller app.
 
 Out of scope (do not build, suggest the alternative):
-- Streaming services, radio, inputs – not part of the album concept
-- Presets (select / create) – nothing to do with the album concept
+- Streaming services - already have good support from native apps "Connect" option
+- Radio - not following album concept
+- Inputs – not following the album concept
+- Presets – not following the album concept
 - Mute / unmute button – use pause instead
-- Artist browser – use search instead
-- Composer browser – use search instead
-- Song browser – use search instead (to be confirmed)
-- Folder browser – music without tags is not compatible with the album concept
+- Artist browser – use search instead, browsing visually not attractive due to missing pictures
+- Composer browser – use search instead, browsing visually not attractive due to missing pictures
+- Song browser – use search instead, with any meaningful local library there will be too many songs to browse
+- Folder browser – not compatible with main requirement of BluAlbum of a tagged music library
 
 ## Rules
 - **One file.** No extra files (favicon, logo, fonts, libraries). Icons are inline SVG constants.
 - **API reference for development: `docs/bluos-api.md`.** Before using or changing a player request in the app, look up the endpoint there (parameters, answer format, verified or not); prefer verified endpoints. When the app needs an endpoint or variant that is missing or not verified, verify it with Bruno first and then add or update it in the reference.
-- **No fallbacks: one implementation per feature.** Variants of an API call are checked first
-  against the real player with the Bruno collection (`tests/api`, folder "1 Read", E requests); only the
-  verified variant is implemented.
+- **No fallbacks: one implementation per feature.** Variants of an API call are checked first against the real player with the Bruno collection (`tests/api`, folder "1 Read", E requests); only the verified variant is implemented.
 - **Favourites are managed by the player only**, never locally (no localStorage for favourites).
 - **Values come from the API**, not hard-coded: source names, play / action URLs, quality, etc.
-- UI language English, minimalist design. **Communicate with the owner in German.**
-- **All project documents in English** (README, CHANGELOG, `docs/`, test READMEs, Bruno and code
-  comments), even when the conversation is in German.
+- UI language: English
+- **project documents: English** (README, CHANGELOG, `docs/`, test READMEs, Bruno and code comments)
 - **No default IP address** in the app.
 - **Semantic versioning, set only for a GitHub release:** every delivered change of the app gets a line under `## Unreleased` at the top of `CHANGELOG.md`; `APP.version` stays as it is. Changes to the documentation (`docs/`, READMEs, CLAUDE.md) or only to the tests (`tests/`) get no CHANGELOG line. When the owner asks for a release, Claude calculates the version once from all collected changes (MINOR if any new feature, else PATCH; MAJOR only when the owner says so), sets it in `APP.version` (the only place; shown in the settings footer and the about popup), renames `Unreleased` to the version, then commits, tags `vX.Y.Z` and creates the release.
 - Do not publish anything (GitHub release, artifact, pages) without asking the owner first.
@@ -118,10 +118,13 @@ Pitfalls:
 - `tests/ui` – Playwright tests (`npm test` in `tests/ui`) of the app against `mock-player.js`,
   which answers from the fixtures and records all commands. Runs in Chrome and Edge (installed
   apps, Playwright channels), Safari (Playwright WebKit) and Firefox (Playwright build);
-  `--browser chrome|safari|edge|firefox`, `UI_SLOW=<factor>` stretches the fixed waits.
-- `.github/workflows/ui-tests.yml` – the UI tests on GitHub runners, one job per OS and browser
-  (macOS: Safari/WebKit, Chrome; Windows: Edge, Chrome, Firefox; Ubuntu: Chrome, Firefox); on
-  push / PR touching the app or `tests/ui`, weekly on Mondays and on demand.
+  `--browser chrome|safari|edge|firefox`, `--viewport WxH[@scale]` (default 1200x800), `--shots`
+  (screenshots of the main views to `test-results/views/`), `UI_SLOW=<factor>` stretches the fixed waits.
+  Tests must not assume a window size (use `VIEWPORT`).
+- `.github/workflows/ui-tests.yml` – the UI tests on GitHub runners, one job per OS, browser and
+  window size (macOS: Safari/WebKit, Chrome; Windows: Edge, Chrome, Firefox; Ubuntu: Chrome,
+  Firefox; each at 1280x800, 1440x900@2, 1920x1080 = 21 jobs); screenshots as artifacts (14 days);
+  on push / PR touching the app or `tests/ui`, weekly on Mondays and on demand.
 - `.github/workflows/lint.yml` – ESLint (recommended rules) for the script in `blualbum.html`,
   `tests/ui` and `tests/tools`; config `.github/lint/eslint.config.mjs`. Runs **only on GitHub**
   (ESLint is installed on the runner with fixed versions); the owner does not lint locally.
@@ -135,4 +138,3 @@ Pitfalls:
 ## Backlog / ideas
 - Not done on purpose: the heart re-reads the album context menu after toggling (1 request) –
   without it the next click would use a self-built URL (rule above).
-- Optional: viewport matrix (laptop / desktop / HiDPI) and screenshots per OS and browser as CI artifacts

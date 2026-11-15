@@ -1,7 +1,10 @@
 // UI tests for BluAlbum.
 // Runs the app in headless browsers against a mock player that answers with recorded fixtures.
 // Usage: node run.js [path/to/blualbum.html] [--only <text>] [--browser chrome|safari|edge|firefox]
-// Without --browser all four browsers run one after another.
+//                    [--viewport WIDTHxHEIGHT[@SCALE]] [--shots]
+// Without --browser all four browsers run one after another. --viewport sets the window size and the
+// device pixel ratio (default 1200x800, e.g. 1440x900@2 for a Retina laptop). --shots also saves
+// screenshots of the main views to test-results/views/ (for a visual check per browser and size).
 // Environment: UI_SLOW=<factor> stretches the fixed waits (settle) for slow machines such as CI runners.
 const path = require("path");
 const { pathToFileURL } = require("url");
@@ -32,6 +35,14 @@ const SLOW = Number(process.env.UI_SLOW) || 1;
 const RESULTS = path.join(__dirname, "test-results"); // screenshots of failed tests (ignored by git)
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : "");
 const ONLY = arg("--only");
+const VP_ARG = arg("--viewport") || "1200x800";
+const VP_MATCH = /^(\d+)x(\d+)(?:@(\d+(?:\.\d+)?))?$/.exec(VP_ARG);
+if (!VP_MATCH) {
+  console.error(`Invalid viewport: ${VP_ARG} (use WIDTHxHEIGHT or WIDTHxHEIGHT@SCALE, e.g. 1440x900@2)`);
+  process.exit(2);
+}
+const VIEWPORT = { width: +VP_MATCH[1], height: +VP_MATCH[2], scale: +(VP_MATCH[3] || 1) };
+const SHOTS = process.argv.includes("--shots");
 // Browsers: Chrome and Edge are the installed apps (Playwright channels), Safari is Playwright's
 // WebKit build (the engine of Safari; real Safari cannot be automated by Playwright), Firefox is
 // Playwright's Firefox build.
@@ -63,7 +74,8 @@ const eq = (a, b, msg) =>
 async function start(browser, opts = {}) {
   const player = createPlayer(opts);
   const ctx = await browser.newContext({
-    viewport: { width: 1200, height: 800 },
+    viewport: { width: VIEWPORT.width, height: VIEWPORT.height },
+    deviceScaleFactor: VIEWPORT.scale,
     colorScheme: opts.colorScheme || "light",
   });
   const page = await ctx.newPage();
@@ -274,11 +286,18 @@ test("grid: random album tile first, play button picks from the view", async (t)
 });
 
 test("grid: lazy rendering in batches of 60", async (t) => {
+  // The recorded lists are short (New: 70), so New is rendered five times over; a large window
+  // fills itself with more than one batch, so only whole batches and not everything are expected
   await t.chip("New");
   await t.settle();
-  const total = await t.page.evaluate(() => shown.length);
+  const total = await t.page.evaluate(() => {
+    const list = Array(5).fill(shown).flat();
+    render(list);
+    return list.length;
+  });
+  await t.settle();
   const rendered = await t.page.$$eval("#grid .item", (x) => x.length - 1);
-  ok(rendered <= 60 && rendered === Math.min(60, total), `rendered ${rendered} of ${total}`);
+  ok(rendered > 0 && rendered % 60 === 0 && rendered < total, `rendered ${rendered} of ${total}`);
 });
 
 test("popup: details and source line, no buttons", async (t) => {
@@ -598,13 +617,15 @@ test("full screen: opens from the footer cover, footer hidden until bottom edge"
   await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, st("title1"));
   await t.page.click("#cvb");
   ok(await t.page.isVisible("#full"), "full screen visible");
-  await t.page.mouse.move(600, 300);
+  const x = VIEWPORT.width / 2,
+    h = VIEWPORT.height;
+  await t.page.mouse.move(x, h * 0.4);
   await t.settle(300);
   const top = () => t.page.$eval("#ctl", (e) => Math.round(e.getBoundingClientRect().top));
-  ok((await top()) >= 800, "footer hidden");
-  await t.page.mouse.move(600, 799);
+  ok((await top()) >= h, "footer hidden");
+  await t.page.mouse.move(x, h - 1);
   await t.settle(300);
-  ok((await top()) < 800, "footer shown at bottom edge");
+  ok((await top()) < h, "footer shown at bottom edge");
   await t.page.keyboard.press("Escape");
   ok(!(await t.page.isVisible("#full")), "closed with Esc");
 });
@@ -778,10 +799,44 @@ test("no JavaScript errors in a full session", async (t) => {
   eq(t.errors, [], "page errors");
 });
 
+// Screenshots of the main views (only with --shots); file names: <browser>-<viewport>-<view>.png
+async function views(t) {
+  const dir = path.join(RESULTS, "views");
+  fs.mkdirSync(dir, { recursive: true });
+  const shot = (name) => t.page.screenshot({ path: path.join(dir, `${t.key}-${VP_ARG}-${name}.png`) });
+  await t.settle(800); // covers
+  await shot("1-favourites");
+  await t.chip("All");
+  await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
+  await t.settle(800);
+  await shot("2-all-albums");
+  await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic") && a.t === "1")));
+  await t.page.waitForSelector("#tracks li button");
+  await t.settle(500);
+  await shot("3-album-popup");
+  await t.page.click("#close");
+  await t.page.click("#qbtn");
+  await t.page.waitForSelector("#qlist li");
+  await t.settle(500);
+  await shot("4-queue");
+  await t.page.click("#gear");
+  await t.settle(500);
+  await shot("5-settings");
+  await t.page.click('#themes [data-theme="dark"]');
+  await t.page.keyboard.press("Escape");
+  await t.settle(500);
+  await shot("6-dark");
+  await t.page.click("#cvb");
+  await t.page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height * 0.4);
+  await t.settle(800);
+  await shot("7-full-screen");
+}
+if (SHOTS) test("views: screenshots of the main views", views);
+
 // ---------- runner ----------
 async function runIn(key) {
   const { label } = BROWSERS[key];
-  console.log(`\n${label}`);
+  console.log(`\n${label} · ${VP_ARG}`);
   let browser;
   try {
     browser = await BROWSERS[key].launch();
@@ -796,6 +851,7 @@ async function runIn(key) {
     let t;
     try {
       t = await start(browser, tc.opts);
+      t.key = key;
       await tc.fn(t);
       if (t.errors.length) throw new AssertError("page errors: " + t.errors.join(" | "));
       pass++;
@@ -807,7 +863,7 @@ async function runIn(key) {
       );
       if (t) {
         fs.mkdirSync(RESULTS, { recursive: true });
-        const file = path.join(RESULTS, `${key}-${tc.name.replace(/[^a-z0-9]+/gi, "-").slice(0, 80)}.png`);
+        const file = path.join(RESULTS, `${key}-${VP_ARG}-${tc.name.replace(/[^a-z0-9]+/gi, "-").slice(0, 80)}.png`);
         await t.page.screenshot({ path: file }).catch(() => {});
       }
     } finally {
@@ -822,6 +878,6 @@ async function runIn(key) {
   const results = [];
   for (const key of PICK) results.push(await runIn(key));
   console.log("");
-  for (const r of results) console.log(`${r.label}: ${r.pass} passed, ${r.fail} failed`);
+  for (const r of results) console.log(`${r.label} · ${VP_ARG}: ${r.pass} passed, ${r.fail} failed`);
   process.exit(results.some((r) => r.fail) ? 1 : 0);
 })();

@@ -23,12 +23,14 @@ npm test                            # tests ../../blualbum.html in Chrome, Safar
 node run.js --browser safari        # one browser: chrome, safari, edge or firefox (comma list allowed)
 node run.js --only queue            # only tests whose name contains "queue"
 UI_SLOW=2 npm test                  # doubles the fixed waits (slow machines, CI)
+node run.js --viewport 1440x900@2   # window size and device pixel ratio (default 1200x800)
+node run.js --shots                 # also screenshots of the main views to test-results/views/
 ```
 
-A failed test saves a screenshot of the page to `test-results/` (ignored by git).
+A failed test saves a screenshot of the page to `test-results/` (ignored by git). Tests must not assume a window size: use `VIEWPORT` for coordinates.
 
 ## GitHub Actions
-`.github/workflows/ui-tests.yml` runs the tests on GitHub's runners, one job per system and browser:
+`.github/workflows/ui-tests.yml` runs the tests on GitHub's runners, one job per system, browser and window size (1280x800 small laptop, 1440x900@2 Retina laptop, 1920x1080 desktop):
 
 | Runner | Browsers |
 |---|---|
@@ -36,7 +38,7 @@ A failed test saves a screenshot of the page to `test-results/` (ignored by git)
 | Windows | Edge, Chrome, Firefox |
 | Linux (Ubuntu) | Chrome, Firefox |
 
-Chrome and Edge are the apps preinstalled on the runners, WebKit and Firefox are installed by Playwright. The workflow runs on pushes to `main` and pull requests that change `blualbum.html`, `tests/ui/` or the workflow, every Monday (new browser versions) and on demand (*Actions → UI tests → Run workflow*). A failed job keeps its screenshots as an artifact.
+Chrome and Edge are the apps preinstalled on the runners, WebKit and Firefox are installed by Playwright. The workflow runs on pushes to `main` and pull requests that change `blualbum.html`, `tests/ui/` or the workflow, every Monday (new browser versions) and on demand (*Actions → UI tests → Run workflow*). Every job keeps the screenshots of the main views (and of failed tests) as an artifact for 14 days (*Actions → run → Artifacts*), for a visual check per system, browser and size.
 
 ## Update the fixtures
 1. Run the Bruno folder "1 Read (safe)" (`tests/api`) with `saveFixtures = true`.
