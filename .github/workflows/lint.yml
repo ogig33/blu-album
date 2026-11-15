@@ -1,0 +1,27 @@
+# ESLint for the script in blualbum.html and the test tools (configuration: .github/lint/eslint.config.mjs).
+# Runs only here: ESLint is installed on the runner, nothing is needed locally.
+name: Lint
+
+on:
+  push:
+    branches: [main]
+    paths: [blualbum.html, "tests/ui/**", "tests/tools/**", ".github/lint/**", .github/workflows/lint.yml]
+  pull_request:
+    paths: [blualbum.html, "tests/ui/**", "tests/tools/**", ".github/lint/**", .github/workflows/lint.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  eslint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # Fixed versions; the config imports the packages from .github/lint/node_modules
+      - run: npm install --prefix .github/lint --no-save --no-package-lock eslint@10.15.0 @eslint/js@10.0.1 eslint-plugin-html@8.2.1 globals@17.14.0
+      - run: .github/lint/node_modules/.bin/eslint --config .github/lint/eslint.config.mjs blualbum.html tests/ui tests/tools

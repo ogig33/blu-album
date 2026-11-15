@@ -122,6 +122,9 @@ Pitfalls:
 - `.github/workflows/ui-tests.yml` – the UI tests on GitHub runners, one job per OS and browser
   (macOS: Safari/WebKit, Chrome; Windows: Edge, Chrome, Firefox; Ubuntu: Chrome, Firefox); on
   push / PR touching the app or `tests/ui`, weekly on Mondays and on demand.
+- `.github/workflows/lint.yml` – ESLint (recommended rules) for the script in `blualbum.html`,
+  `tests/ui` and `tests/tools`; config `.github/lint/eslint.config.mjs`. Runs **only on GitHub**
+  (ESLint is installed on the runner with fixed versions); the owner does not lint locally.
 - Workflow for a change: verify unknown API behaviour in Bruno → adapt or add the UI test (and
   the mock) → change the code → all UI tests green → CHANGELOG line under `Unreleased` (only for changes of the app).
 
