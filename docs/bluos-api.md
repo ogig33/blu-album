@@ -1092,10 +1092,11 @@ GET /library/v1/Albums?service=<svc>&section=<letter>&recent=1&category=FAVOURIT
 `artist`:
 
 ```xml
-<albums artist="Dire Straits" id="327701" service="LocalMusic">
-  <artist name="Dire Straits">
-    <album tracks="9" date="1985">Brothers In Arms</album>
-    <album tracks="6" date="1984">Alchemy</album>
+<albums artist="Paolo Fresu" id="327705" service="LocalMusic">
+  <artist name="Paolo Fresu">
+    <album tracks="15" date="2005">Kosmopolites</album>
+    <album tracks="29" date="2010">Songlines - Night &amp; Blue</album>
+    <album tracks="11" date="2001">Sonos &#39;E Memoria</album>
   </artist>
 </albums>
 ```
@@ -1103,11 +1104,11 @@ GET /library/v1/Albums?service=<svc>&section=<letter>&recent=1&category=FAVOURIT
 `album` + `artist` (also `composer`):
 
 ```xml
-<albums album="Brothers In Arms" artist="Dire Straits" id="327701" service="LocalMusic">
-  <album tracks="9" date="1985">
-    <title>Brothers In Arms</title>
-    <art>Dire Straits</art>
-    <cover>/Artwork?service=LocalMusic&amp;album=Brothers+In+Arms&amp;artist=Dire+Straits</cover>
+<albums album="Kosmopolites" artist="Paolo Fresu" id="327705" service="LocalMusic">
+  <album tracks="15" date="2005">
+    <title>Kosmopolites</title>
+    <art>Paolo Fresu</art>
+    <cover>/Artwork?service=LocalMusic&amp;album=Kosmopolites&amp;artist=Paolo+Fresu</cover>
   </album>
 </albums>
 ```
@@ -1136,12 +1137,13 @@ GET /library/v1/Artists?service=<svc>&section=<letter>&category=FAVOURITES&genre
 **Response format**
 
 ```xml
-<artists section="A" id="327701" service="LocalMusic">
+<artists section="A" id="327705" service="LocalMusic">
   <sections>
     <section name="A">
-      <art>AC-DC</art>
-      <art isFavourite="1">Al Di Meola</art>
-      <!-- one <art> per artist -->
+      <art>A-ha</art>
+      <art isFavourite="1">AC-DC</art>
+      <art>Adele</art>
+      <!-- one <art> per artist of the section -->
     </section>
   </sections>
 </artists>
@@ -1169,11 +1171,12 @@ GET /library/v1/Composers?service=<svc>&section=<letter>&genre=<genre>
 **Response format**
 
 ```xml
-<composers id="327701" service="LocalMusic">
+<composers id="327705" service="LocalMusic">
+  <composer>Adolphe Adam</composer>
+  <composer>Alan Silvestri</composer>
   <composer>Andrea Bocelli</composer>
-  <composer>Ennio Morricone</composer>
   <!-- 51 per page without a filter -->
-  <nextlink>/library/v1/Composers?…</nextlink>
+  <nextlink>/library/v1/Composers?end=101&amp;service=LocalMusic&amp;start=51</nextlink>
 </composers>
 ```
 
@@ -1192,18 +1195,17 @@ GET /library/v1/Folders?service=<svc>&path=<path>
 | Parameter | Meaning |
 |---|---|
 | `service` | `LocalMusic` or the USB id |
-| `path` | folder to list; without it the root of the share |
+| `path` | folder to list, e.g. `//<server>/<share>`; without it the list of shares |
 
 **Response format**
 
 ```xml
-<folders id="327701" service="LocalMusic">
+<folders id="327705" service="LocalMusic">
   <subfolders>
-    <folder …/>   <!-- one per sub folder -->
+    <folder>//<server>/<share></folder>
+    <!-- one <folder> per sub folder; without path: the shares -->
   </subfolders>
-  <songs>
-    <song …/>     <!-- with path: the songs of the folder -->
-  </songs>
+  <!-- with path: also <songs> with the songs of the folder -->
 </folders>
 ```
 
@@ -1270,28 +1272,35 @@ GET /library/v1/Search?service=<svc>&expr=<text>
 **Response format**
 
 ```xml
-<search expr="love" id="327701" service="LocalMusic">
-  <artists expr="love" id="327701" service="LocalMusic">
-    <artist><name>Courtney Love</name></artist>
+<search expr="a" id="327705" service="LocalMusic">
+  <artists expr="a" id="327705" service="LocalMusic">
+    <artist>
+      <name>10cc</name>
+    </artist>
+    <!-- at most 25 -->
   </artists>
-  <albums expr="love" id="327701" service="LocalMusic">
-    <album tracks="12">
-      <title>Love Over Gold</title>
-      <art>Dire Straits</art>
-      <cover>/Artwork?service=LocalMusic&amp;album=Love+Over+Gold&amp;artist=Dire+Straits</cover>
+  <albums expr="a" id="327705" service="LocalMusic">
+    <album tracks="11">
+      <title>10,000 Hz Legend</title>
+      <art>Air</art>
+      <cover>/Artwork?service=LocalMusic&amp;album=10%2C000+Hz+Legend&amp;artist=Air</cover>
     </album>
+    <!-- at most 25 -->
   </albums>
-  <songs expr="love" id="327701" service="LocalMusic">
+  <songs expr="a" id="327705" service="LocalMusic">
     <song>
-      <title>I Love You</title>
-      <art>Tanita Tikaram</art>
-      <alb>Ancient Heart</alb>
-      <fn>/var/mnt/<share>/…/04-I Love You.flac</fn>
-      <track>4</track>
-      <time>165</time>
+      <title>#Addicted</title>
+      <art>Riverside</art>
+      <alb>Love, Fear and the Time Machine</alb>
+      <fn>/var/mnt/<share>/By Artist/R/Riverside/2015_Love, Fear and the Time Machine/03-#Addicted.flac</fn>
+      <track>3</track>
+      <discno>1</discno>
+      <time>294</time>
+      <date>2015</date>
+      <quality>cd</quality>
     </song>
+    <!-- at most 25; depending on the song also composer -->
   </songs>
-  <!-- at most 25 per type -->
 </search>
 ```
 
