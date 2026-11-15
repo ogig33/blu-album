@@ -633,10 +633,7 @@ test(
   "footer: no listening mode tag on a player without listening modes",
   async (t) => {
     await t.settle(1500);
-    ok(
-      t.player.state.requests.includes("/audioPreset"),
-      "asked once",
-    );
+    ok(t.player.state.requests.includes("/audioPreset"), "asked once");
     ok(await t.page.$eval("#lm", (e) => e.hidden && !e.textContent), "tag hidden");
     eq(t.errors, [], "no JavaScript errors");
   },

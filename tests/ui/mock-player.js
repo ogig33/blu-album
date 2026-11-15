@@ -148,7 +148,9 @@ function createPlayer(opts = {}) {
             .replace(/<repeat>\d<\/repeat>/, "<repeat>" + state.repeat + "</repeat>")
             .replace(/<pid>\d+<\/pid>/, "<pid>" + state.pid + "</pid>")
             .replace(/<syncStat>\d+<\/syncStat>/, "<syncStat>" + state.syncStat + "</syncStat>")
-        : '<status etag="idle"><state>stop</state><syncStat>' + state.syncStat + "</syncStat><volume>19</volume></status>";
+        : '<status etag="idle"><state>stop</state><syncStat>' +
+            state.syncStat +
+            "</syncStat><volume>19</volume></status>";
     if (p === "/Playlist")
       return state.queueEmpty
         ? `<playlist length="0" id="${state.pid}"></playlist>`
@@ -184,7 +186,12 @@ function createPlayer(opts = {}) {
     // /Status long polling: answer the follow-up requests (with etag) slowly, like a real player
     if (/\/Status\?.*etag=/.test(r.request().url())) await new Promise((z) => setTimeout(z, 1500));
     await r
-      .fulfill({ status: res.status || 200, contentType: res.type, headers: { "access-control-allow-origin": "*" }, body: res.body })
+      .fulfill({
+        status: res.status || 200,
+        contentType: res.type,
+        headers: { "access-control-allow-origin": "*" },
+        body: res.body,
+      })
       .catch(() => {});
   };
   return { state, route };
