@@ -485,6 +485,8 @@ test("about: popup with name, version, copyright, GitHub link, player info and s
   await t.page.click("#gear");
   await t.page.click("#aboutb");
   await t.page.waitForSelector("#infodlg[open]");
+  // versions and statistics arrive after the popup opens
+  await t.page.waitForFunction(() => /BluOS version\s*\d/.test(document.querySelector("#infodlg").textContent) && /Playlists/.test(document.querySelector("#infodlg").textContent));
   const txt = await t.page.textContent("#infodlg");
   ok(/BluAlbum/.test(txt) && /Version v\d+\.\d+\.\d+/.test(txt) && /Copyright © 2026 Ingmar Gebert/.test(txt), "header lines");
   ok(/Albums/.test(txt) && /Playlists/.test(txt), "stats");

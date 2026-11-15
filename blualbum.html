@@ -1761,14 +1761,14 @@ const store = {
   get: (k) => {
     try {
       return localStorage.getItem(k);
-    } catch (e) {
+    } catch {
       return null;
     }
   },
   set: (k, v) => {
     try {
       localStorage.setItem(k, v);
-    } catch (e) {
+    } catch { // storage blocked (private window): conveniences are just not kept
     }
   }
 };
@@ -1810,7 +1810,7 @@ function imgUrl(p) {
   let u;
   try {
     u = new URL(p, base + "/");
-  } catch (e) {
+  } catch {
     return "";
   }
   if (u.protocol !== "http:" && u.protocol !== "https:") return "";
@@ -1917,7 +1917,7 @@ const xml = async (path) => {
   }
   try {
     return await api(path);
-  } catch (e) {
+  } catch {
     toast("Failed");
     return null;
   }
@@ -1937,7 +1937,7 @@ const offKey = () => "srcoff:" + base;
 const disabledSources = () => {
   try {
     return new Set(JSON.parse(store.get(offKey()) || "[]"));
-  } catch (e) {
+  } catch {
     return new Set();
   }
 };
@@ -2565,7 +2565,7 @@ async function refreshFav(a) {
     Object.assign(a.menu, m);
     repaintCoverHeart(a);
     return true;
-  } catch (e) {
+  } catch {
     return false;
   }
 }
@@ -2657,7 +2657,7 @@ async function openAlbum(a) {
       li.append(b);
       ol.append(li);
     });
-  } catch (e) {
+  } catch {
     ol.innerHTML = "";
     toast("Could not load tracks");
   }
@@ -2754,7 +2754,7 @@ async function loadPlaylists() {
       return b;
     });
     renderPlChips();
-  } catch (e) {
+  } catch {
     if (seq === plSeq) {
       plChips = [];
       renderPlChips();
@@ -2858,7 +2858,7 @@ async function loadQueue() {
     // Two lines: number of tracks, total playing time
     $("#qcount").textContent = total ? total + (total === 1 ? " track" : " tracks") + (totalSecs ? "\n" + fmtTime(totalSecs) : "") : "";
     markCur(true);
-  } catch (e) {
+  } catch {
     if (seq === qSeq) {
       ol.innerHTML = "";
       $("#qcount").textContent = "Could not load queue";
@@ -2950,7 +2950,7 @@ function stopPoll() {
   tickProg();
   try {
     if (pollCtl) pollCtl.abort();
-  } catch (e) {
+  } catch { // nothing to abort
   }
   $("#nt1").textContent = "";
   $("#nt2").textContent = "";
@@ -3036,7 +3036,7 @@ async function pollStatus() {
       if (id !== pollId) return;
       etag = d.documentElement.getAttribute("etag") || "";
       showNow(d);
-    } catch (e) {
+    } catch {
       if (id !== pollId) return;
       await new Promise((res) => setTimeout(res, 5e3));
     }
@@ -3165,7 +3165,7 @@ async function loadStats() {
         const n = k === "Album" ? (await albumSections(x)).reduce((s, y) => s + (+attr(y, "text2") || 0), 0) : await countItems(attr(it, "browseKey"));
         sum += n;
         any = true;
-      } catch (e) {
+      } catch { // list not available: the count stays without it
       }
     }));
     if (mine !== ctx()) return;
@@ -3197,7 +3197,7 @@ async function loadInfo() {
       ["Server mode", onoff("server")]
     ].filter((x) => x[1]);
     renderLib();
-  } catch (e) {
+  } catch {
     if (mine === base) {
       libRows = [];
       renderLib();
@@ -3218,7 +3218,7 @@ async function loadVersions() {
   const ver = async (path) => {
     try {
       return (await api(path)).querySelector("version")?.textContent.trim() || "";
-    } catch (e) {
+    } catch {
       return "";
     }
   };
@@ -3473,7 +3473,7 @@ bindSwitch("#psw", "plchips", (on) => document.body.classList.toggle("nopl", !on
 // single-source choice (now one switch per source) and the genre map of the former genre crawl.
 try {
   Object.keys(localStorage).filter((k) => /^(fav|src|genres):/.test(k)).forEach((k) => localStorage.removeItem(k));
-} catch (e) {
+} catch { // storage blocked: nothing to clean up
 }
 $("#cvb").onclick = () => showFull($("#full").hidden);
 $("#cvb").onkeydown = (e) => {
