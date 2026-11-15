@@ -29,7 +29,7 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
 - **Requests:** `http://<player>:<port>/<Request>?<parameters>` with the HTTP method given at each endpoint; parameters are URL-encoded name/value pairs (UTF-8). Answers are UTF-8 XML unless the endpoint says otherwise.
 - **Port:** 11000, the control API of every player. Endpoints on another port show it in their request line.
 - **Errors:** endpoints answer with HTTP errors or with an `<error>` root element instead of the expected one; clients should check the root element name.
-- **Unknown elements** in answers are to be ignored; the official documentation lists only part of them.
+- **Unknown elements:** answers may contain more elements and attributes than shown here; clients should ignore the ones they do not know.
 - **Relative URIs** in answers (`playURL`, `actionURL`, `image`, …) have an absolute path and are resolved against the player address (RFC 3986). Invoke them as they are; do not parse or build them.
 - **Polling rules:**
   - Without long polling: at most one request every 30 s.
