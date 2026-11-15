@@ -1,6 +1,6 @@
 # BluAlbum
 
-[![Proudly Vibe Coded](https://vibecoded.fyi/badges/flat/main/proudly-vibe-coded.svg)](https://vibecoded.fyi/)
+[![Proudly Vibe Coded](https://vibecoded.fyi/badges/flat/main/proudly-vibe-coded.svg)](https://vibecoded.fyi/) [![UI tests](https://github.com/ogig33/blu-album/actions/workflows/ui-tests.yml/badge.svg?branch=main)](https://github.com/ogig33/blu-album/actions/workflows/ui-tests.yml) [![Lint](https://github.com/ogig33/blu-album/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/ogig33/blu-album/actions/workflows/lint.yml) [![Format](https://github.com/ogig33/blu-album/actions/workflows/format.yml/badge.svg?branch=main)](https://github.com/ogig33/blu-album/actions/workflows/format.yml)
 
 **Album player for BluOS devices.** A single HTML file that turns the music library of a BluOS player (Bluesound, NAD, …) into an album wall: browse your albums by cover, filter them, look at the details and play them, right in the browser.
 
