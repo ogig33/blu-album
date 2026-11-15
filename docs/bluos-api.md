@@ -1615,6 +1615,7 @@ The text is the new trim in dB.
 | `GET /statistics` | switch the statistics collection (port 80) | | ✓ |
 | `GET /triggercfg` | web page for learning IR remote codes (port 80) | | ✓ |
 | `GET /update` | purpose unknown (presumably firmware update status) | | ✓ |
+| `GET /UpdateDNS` | purpose unknown (presumably refreshes the player's DNS / network name registration) | | ✓ |
 | `GET /upgrade` | redirect to a web page, presumably the firmware upgrade | | ✓ |
 | `POST /upload_playlists_api` | restore the saved playlists (port 80) | | ✓ |
 | `GET /Version` | API version | | ✓ |
@@ -2342,6 +2343,22 @@ No known parameters.
 
 - Verified without parameters; the purpose is unknown. The name and the answer suggest a firmware update status or message ("no message" = nothing to report); the upgrade itself presumably runs via [`/upgrade`](#get-upgrade).
 - Do not try parameters on a real player without care: an update endpoint may start a firmware update.
+
+### `GET /UpdateDNS`
+
+```
+GET /UpdateDNS
+```
+
+No known parameters.
+
+**Response format**
+
+Empty answer.
+
+**Notes**
+
+- Verified without parameters: the player answers empty; nothing noticeable happens. The name suggests that the player refreshes its DNS or network name registration.
 
 ### `GET /upgrade`
 
@@ -3123,4 +3140,3 @@ No known parameters.
 **Notes**
 
 - Verified. Inputs with their play requests, music sources with their browse screens.
-

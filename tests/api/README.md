@@ -48,6 +48,7 @@ Every request is skipped unless `runManual = true`. Set it, run the folder (or s
 - **M09–M12**: saves a backup of the playlists (`/download_playlists_api`, to `fixtures/verify-playlists-backup.json`), uploads the same backup again (`/upload_playlists_api`) and checks that the playlists are unchanged. Needs `saveFixtures = true`; the upload is skipped without a fresh backup.
 - **M14–M18**: switches the statistics collection (`/statistics?enable=0|1`, port 80) and back, read from the diagnostics page. While it is on, the player may send usage statistics to Bluesound.
 - **M19–M20**: rebuild index (`/delete_index`, port 80) – the library index is deleted and the whole library is scanned again; then `/Status`.
+- **M21**: `/UpdateDNS` (answers empty, no visible effect; purpose not known).
 - **M13**: clears the recent stations (`/ui/clearUsageHistory?stations=1`) – the history is lost.
 - **M07–M08**: soft reboot (`POST` to port 80 `/reboot`), then waits until `/SyncStatus` answers again (at most 5 minutes) and logs how long the restart took.
 
