@@ -1,15 +1,28 @@
 // Mock BluOS player for the UI tests.
 // Answers every request of the app from the fixtures recorded with the Bruno collection
 // (fixtures/NN-*.xml) and records all commands (play, add, favourites, save, delete ...).
-const fs = require("fs"), path = require("path");
+const fs = require("fs"),
+  path = require("path");
 
 const FIX = path.join(__dirname, "fixtures");
-const fx = (n) => fs.readFileSync(path.join(FIX, fs.readdirSync(FIX).find((f) => f.startsWith(n + "-"))), "utf8");
+const fx = (n) =>
+  fs.readFileSync(
+    path.join(
+      FIX,
+      fs.readdirSync(FIX).find((f) => f.startsWith(n + "-")),
+    ),
+    "utf8",
+  );
 // 1x1 PNG for all artwork requests
-const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
 
-const LIB = "LocalMusic", USB = "1A2B_3C4D";
-const COMMANDS = /^\/(Add|Play|Pause|Skip|Back|Load|Save|Delete|AddFavourite|DeleteFavourite|Clear|Shuffle|Repeat|Volume\?)/;
+const LIB = "LocalMusic",
+  USB = "1A2B_3C4D";
+const COMMANDS =
+  /^\/(Add|Play|Pause|Skip|Back|Load|Save|Delete|AddFavourite|DeleteFavourite|Clear|Shuffle|Repeat|Volume\?)/;
 
 function createPlayer(opts = {}) {
   const state = {
@@ -23,7 +36,7 @@ function createPlayer(opts = {}) {
     playing: opts.playing !== false,
     // Playlist id (<pid> in /Status, id of /Playlist). Like the real player (Bruno 2 Write), it changes
     // when the queue changes: add, remove, shuffle, clear, load. Loading a broken playlist keeps it.
-    pid: 485
+    pid: 485,
   };
   const QUEUE_CHANGES = /^\/(Add|Delete\?id=|Shuffle|Clear)/;
   const browse = (key) => {
@@ -34,11 +47,15 @@ function createPlayer(opts = {}) {
     }
     if (key === LIB + ":") return fx("02");
     if (key === USB + ":") return fx("03");
-    if (/GG\/Genres$/.test(key)) return key.startsWith(USB) ? '<browse type="genres"><item browseKey="1A2B_3C4D:MG/Genres?genre=Soundtrack" text="Soundtrack" type="genre"></item></browse>' : fx("04");
+    if (/GG\/Genres$/.test(key))
+      return key.startsWith(USB)
+        ? '<browse type="genres"><item browseKey="1A2B_3C4D:MG/Genres?genre=Soundtrack" text="Soundtrack" type="genre"></item></browse>'
+        : fx("04");
     if (/MG\/Genres\?genre=/.test(key)) return fx("05");
     // Album sections (all albums, genre albums) and the stats lists. Like the real player, the USB drive
     // lists only the sections that contain albums (here: A and S).
-    if (/bySection:Album/.test(key) && key.startsWith(USB)) return fx("06").replace(/\s*<item[^>]*text="(?![AS]")[^"]*"[^>]*><\/item>/g, "");
+    if (/bySection:Album/.test(key) && key.startsWith(USB))
+      return fx("06").replace(/\s*<item[^>]*text="(?![AS]")[^"]*"[^>]*><\/item>/g, "");
     if (/bySection:(Album|Artist|Song|Composer)/.test(key)) return fx("06");
     // Section "#" carries the recorded albums, all other sections are empty
     if (/:S:Album\//.test(key)) return /section=%23/.test(key) ? fx("07") : '<browse type="albums"></browse>';
@@ -46,19 +63,28 @@ function createPlayer(opts = {}) {
     const art = (key.match(/(?:[?&]|%3F)artist=([^&]*)/) || [])[1];
     if (/MG\/LocalMusic-Artist\?/.test(key)) {
       const svc = key.split(":")[0];
-      return `<browse type="menu"><item browseKey="${svc}:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=${art}&amp;service=${svc}" text="Albums" type="link"></item>` +
-        `<item browseKey="${svc}:Song/%2Flibrary%2Fv1%2FSongs%3Fartist=${art}&amp;service=${svc}" text="Songs" type="link"></item></browse>`;
+      return (
+        `<browse type="menu"><item browseKey="${svc}:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=${art}&amp;service=${svc}" text="Albums" type="link"></item>` +
+        `<item browseKey="${svc}:Song/%2Flibrary%2Fv1%2FSongs%3Fartist=${art}&amp;service=${svc}" text="Songs" type="link"></item></browse>`
+      );
     }
     if (/:Album\/%2Flibrary%2Fv1%2FAlbums%3Fartist=/.test(key)) {
       if (key.startsWith(USB)) return '<browse type="albums"></browse>';
       const name = decodeURIComponent(art.replace(/\+/g, " "));
-      return fx("07").replace(/\s*<item [^>]*type="album">[\s\S]*?<\/contextMenu>\s*<\/item>/g, (it) => (it.match(/ text2="([^"]*)"/) || [])[1]?.replace(/&amp;/g, "&") === name ? it : "");
+      return fx("07").replace(/\s*<item [^>]*type="album">[\s\S]*?<\/contextMenu>\s*<\/item>/g, (it) =>
+        (it.match(/ text2="([^"]*)"/) || [])[1]?.replace(/&amp;/g, "&") === name ? it : "",
+      );
     }
     if (/MG\/LocalMusic-Album/.test(key)) return fx("08");
     if (/CM\/LocalMusic-Album/.test(key)) {
       // Library albums: favourite state follows the isFavourite flag of the key; USB albums: no favourites
       if (key.startsWith(USB)) return fx("09").replace(/\s*<item[^>]*favourite-delete[^>]*><\/item>/, "");
-      return key.includes("isFavourite=1") ? fx("09") : fx("09").replace("/DeleteFavourite", "/AddFavourite").replace("favourite-delete", "favourite-add").replace("Remove favourite", "Favourite");
+      return key.includes("isFavourite=1")
+        ? fx("09")
+        : fx("09")
+            .replace("/DeleteFavourite", "/AddFavourite")
+            .replace("favourite-delete", "favourite-add")
+            .replace("Remove favourite", "Favourite");
     }
     if (key === "BluOS:") return fx("16");
     if (/:Search$/.test(key)) return fx("18");
@@ -73,12 +99,15 @@ function createPlayer(opts = {}) {
     if (q.get("category") === "FAVOURITES") return svc === USB ? '<albums category="FAVOURITES"></albums>' : fx("12");
     if (q.get("quality")) {
       if (svc === USB) return fx("15");
-      return q.get("section") === "A" ? fx("13") : '<albums><sections></sections></albums>';
+      return q.get("section") === "A" ? fx("13") : "<albums><sections></sections></albums>";
     }
     return "<albums></albums>";
   };
   const answer = (u) => {
-    const url = new URL(u), p = url.pathname, q = url.searchParams, pq = p + url.search;
+    const url = new URL(u),
+      p = url.pathname,
+      q = url.searchParams,
+      pq = p + url.search;
     state.requests.push(pq);
     if (COMMANDS.test(pq) && !/^\/Volume$/.test(p)) state.commands.push(decodeURIComponent(pq));
     if (QUEUE_CHANGES.test(pq)) state.pid++;
@@ -87,11 +116,24 @@ function createPlayer(opts = {}) {
     if (p === "/library/v1/Albums") return library(q);
     if (p === "/library/v1/Songs") {
       let x = q.get("service") === USB ? fx("26") : fx("25");
-      for (const [t, ar] of Object.entries(state.songArtists)) x = x.replace(new RegExp("<art>[^<]*</art>(\\s*<alb>[^<]*</alb>\\s*<title>" + t + "</title>)"), "<art>" + ar + "</art>$1");
+      for (const [t, ar] of Object.entries(state.songArtists))
+        x = x.replace(
+          new RegExp("<art>[^<]*</art>(\\s*<alb>[^<]*</alb>\\s*<title>" + t + "</title>)"),
+          "<art>" + ar + "</art>$1",
+        );
       return x;
     }
-    if (p === "/Status") return state.playing ? fx("19").replace(/<shuffle>\d<\/shuffle>/, "<shuffle>" + (state.shuffle ? 1 : 0) + "</shuffle>").replace(/<repeat>\d<\/repeat>/, "<repeat>" + state.repeat + "</repeat>").replace(/<pid>\d+<\/pid>/, "<pid>" + state.pid + "</pid>") : '<status etag="idle"><state>stop</state><volume>19</volume></status>';
-    if (p === "/Playlist") return state.queueEmpty ? `<playlist length="0" id="${state.pid}"></playlist>` : fx("20").replace(/ id="485">/, ` id="${state.pid}">`);
+    if (p === "/Status")
+      return state.playing
+        ? fx("19")
+            .replace(/<shuffle>\d<\/shuffle>/, "<shuffle>" + (state.shuffle ? 1 : 0) + "</shuffle>")
+            .replace(/<repeat>\d<\/repeat>/, "<repeat>" + state.repeat + "</repeat>")
+            .replace(/<pid>\d+<\/pid>/, "<pid>" + state.pid + "</pid>")
+        : '<status etag="idle"><state>stop</state><volume>19</volume></status>';
+    if (p === "/Playlist")
+      return state.queueEmpty
+        ? `<playlist length="0" id="${state.pid}"></playlist>`
+        : fx("20").replace(/ id="485">/, ` id="${state.pid}">`);
     if (p === "/Playlists") return fx("17");
     if (p === "/Settings") return fx("21");
     if (p === "/Version") return '<?xml version="1.0" encoding="UTF-8"?>\n<version>v0.5.43</version>';
@@ -118,7 +160,9 @@ function createPlayer(opts = {}) {
     const res = typeof a === "string" ? { type: "text/xml", body: a } : a;
     // /Status long polling: answer the follow-up requests (with etag) slowly, like a real player
     if (/\/Status\?.*etag=/.test(r.request().url())) await new Promise((z) => setTimeout(z, 1500));
-    await r.fulfill({ status: 200, contentType: res.type, headers: { "access-control-allow-origin": "*" }, body: res.body }).catch(() => {});
+    await r
+      .fulfill({ status: 200, contentType: res.type, headers: { "access-control-allow-origin": "*" }, body: res.body })
+      .catch(() => {});
   };
   return { state, route };
 }

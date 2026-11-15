@@ -3,7 +3,8 @@
 // USB drive ids. The structure of the answers stays the same.
 // Usage: node tests/tools/sanitize-fixtures.js [from] [to]
 //   default: tests/api/fixtures -> tests/ui/fixtures (only NN-*.xml, not explore-*)
-const fs = require("fs"), path = require("path");
+const fs = require("fs"),
+  path = require("path");
 const root = path.join(__dirname, "..", "..");
 const from = process.argv[2] || path.join(root, "tests", "api", "fixtures");
 const to = process.argv[3] || path.join(root, "tests", "ui", "fixtures");
@@ -20,12 +21,15 @@ const RULES = [
   [/\b[0-9A-F]{4}_[0-9A-F]{4}\b/g, "1A2B_3C4D"],
   [/\b[0-9A-F]{4}-[0-9A-F]{4}\b/g, "1A2B-3C4D"],
   // Any remaining IPv4 address -> documentation range
-  [/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, "192.0.2.10"]
+  [/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, "192.0.2.10"],
 ];
 
 fs.mkdirSync(to, { recursive: true });
 let n = 0;
-for (const f of fs.readdirSync(from).filter((x) => /^\d\d-.*\.xml$/.test(x)).sort()) {
+for (const f of fs
+  .readdirSync(from)
+  .filter((x) => /^\d\d-.*\.xml$/.test(x))
+  .sort()) {
   let s = fs.readFileSync(path.join(from, f), "utf8");
   for (const [re, rep] of RULES) s = s.replace(re, rep);
   fs.writeFileSync(path.join(to, f), s);
