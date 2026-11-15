@@ -748,7 +748,11 @@ test("settings: every cover size in every design, no horizontal scrolling, reada
     }
     ok(widths[0] < widths[1] && widths[1] < widths[2], `${d.theme}: S < M < L (${widths.join(" / ")} px)`);
   }
-  eq(await t.page.evaluate(() => [localStorage.getItem("theme"), localStorage.getItem("tile")]), ["system", "l"], "stored");
+  eq(
+    await t.page.evaluate(() => [localStorage.getItem("theme"), localStorage.getItem("tile")]),
+    ["system", "l"],
+    "stored",
+  );
 });
 
 test("about: popup with name, version, copyright, GitHub link, player info and stats", async (t) => {
