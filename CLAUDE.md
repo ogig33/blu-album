@@ -117,11 +117,15 @@ Pitfalls:
   room name, share / mount paths and USB ids.
 - `tests/ui` – Playwright tests (`npm test` in `tests/ui`) of the app against `mock-player.js`,
   which answers from the fixtures and records all commands. Runs in Chrome and Edge (installed
-  apps, Playwright channels) and Safari (Playwright WebKit); `--browser chrome|safari|edge`.
+  apps, Playwright channels), Safari (Playwright WebKit) and Firefox (Playwright build);
+  `--browser chrome|safari|edge|firefox`, `UI_SLOW=<factor>` stretches the fixed waits.
+- `.github/workflows/ui-tests.yml` – the UI tests on GitHub runners, one job per OS and browser
+  (macOS: Safari/WebKit, Chrome; Windows: Edge, Chrome, Firefox; Ubuntu: Chrome, Firefox); on
+  push / PR touching the app or `tests/ui`, weekly on Mondays and on demand.
 - Workflow for a change: verify unknown API behaviour in Bruno → adapt or add the UI test (and
   the mock) → change the code → all UI tests green → CHANGELOG line under `Unreleased` (only for changes of the app).
 
 ## Backlog / ideas
 - Not done on purpose: the heart re-reads the album context menu after toggling (1 request) –
   without it the next click would use a self-built URL (rule above).
-- Optional: GitHub Action that runs the UI tests on every push
+- Optional: viewport matrix (laptop / desktop / HiDPI) and screenshots per OS and browser as CI artifacts

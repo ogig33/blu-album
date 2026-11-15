@@ -1,24 +1,31 @@
 // UI tests for BluAlbum.
 // Runs the app in headless browsers against a mock player that answers with recorded fixtures.
-// Usage: node run.js [path/to/blualbum.html] [--only <text>] [--browser chrome|safari|edge]
-// Without --browser all three browsers run one after another.
+// Usage: node run.js [path/to/blualbum.html] [--only <text>] [--browser chrome|safari|edge|firefox]
+// Without --browser all four browsers run one after another.
+// Environment: UI_SLOW=<factor> stretches the fixed waits (settle) for slow machines such as CI runners.
 const path = require("path");
-const { chromium, webkit } = require("playwright");
+const { pathToFileURL } = require("url");
+const { chromium, webkit, firefox } = require("playwright");
 const { createPlayer, USB } = require("./mock-player");
 const fs = require("fs");
 // Expected now-playing values come from the recorded status
 const STATUS = fs.readFileSync(path.join(__dirname, "fixtures", fs.readdirSync(path.join(__dirname, "fixtures")).find((f) => f.startsWith("19-"))), "utf8");
 const st = (tag) => ((STATUS.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")) || [])[1] || "").replace(/&amp;/g, "&");
 
-const APP = "file://" + path.resolve(process.argv[2] && !process.argv[2].startsWith("--") ? process.argv[2] : path.join(__dirname, "..", "..", "blualbum.html"));
+// pathToFileURL: a correct file URL on Windows too (file:///C:/…)
+const APP = pathToFileURL(path.resolve(process.argv[2] && !process.argv[2].startsWith("--") ? process.argv[2] : path.join(__dirname, "..", "..", "blualbum.html"))).href;
+const SLOW = Number(process.env.UI_SLOW) || 1;
+const RESULTS = path.join(__dirname, "test-results"); // screenshots of failed tests (ignored by git)
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : "");
 const ONLY = arg("--only");
 // Browsers: Chrome and Edge are the installed apps (Playwright channels), Safari is Playwright's
-// WebKit build (the engine of Safari; real Safari cannot be automated by Playwright).
+// WebKit build (the engine of Safari; real Safari cannot be automated by Playwright), Firefox is
+// Playwright's Firefox build.
 const BROWSERS = {
   chrome: { label: "Chrome", launch: () => chromium.launch({ channel: "chrome" }) },
   safari: { label: "Safari (WebKit)", launch: () => webkit.launch() },
   edge: { label: "Edge", launch: () => chromium.launch({ channel: "msedge" }) },
+  firefox: { label: "Firefox", launch: () => firefox.launch() },
 };
 const PICK = arg("--browser") ? arg("--browser").split(",") : Object.keys(BROWSERS);
 const unknown = PICK.filter((b) => !BROWSERS[b]);
@@ -59,7 +66,7 @@ async function start(browser, opts = {}) {
   const $$text = (sel) => page.$$eval(sel, (x) => x.map((e) => (e.getAttribute("aria-label") || e.textContent).trim()));
   const tiles = () => page.$$eval("#grid .item", (x) => x.map((e) => e.querySelector("b").textContent).filter((t) => t !== "Random album"));
   const msg = () => page.textContent("#msg");
-  const settle = (ms = 400) => page.waitForTimeout(ms);
+  const settle = (ms = 400) => page.waitForTimeout(ms * SLOW);
   const chip = (name) => page.click(`#az button:text-is("${name}")`);
   return { page, player, gh, errors, $$text, tiles, msg, settle, chip, close: () => ctx.close() };
 }
@@ -304,7 +311,7 @@ test("search: while typing only from 3 characters and after a pause, Enter alway
   await t.settle(1200);
   eq(searches() - n0, 0, "no search for 2 characters");
   await t.page.type("#q", "ve", { delay: 60 });
-  await t.settle(300);
+  await t.page.waitForTimeout(300); // not stretched by UI_SLOW: must stay below SEARCH_DELAY (800 ms)
   eq(searches() - n0, 0, "no search before the pause");
   await t.page.waitForFunction(() => /for/.test(document.querySelector("#msg").textContent));
   const n1 = searches();
@@ -558,6 +565,11 @@ async function runIn(key) {
     } catch (e) {
       fail++;
       console.log(`  ✗ ${tc.name}\n      ${e instanceof AssertError ? e.message : e.stack.split("\n").slice(0, 3).join("\n      ")}`);
+      if (t) {
+        fs.mkdirSync(RESULTS, { recursive: true });
+        const file = path.join(RESULTS, `${key}-${tc.name.replace(/[^a-z0-9]+/gi, "-").slice(0, 80)}.png`);
+        await t.page.screenshot({ path: file }).catch(() => {});
+      }
     } finally {
       if (t) await t.close();
     }

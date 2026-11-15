@@ -1,0 +1,58 @@
+# UI tests of BluAlbum (tests/ui) on macOS, Windows and Linux in every supported browser.
+# The tests run against the mock player with the sanitized fixtures: no player, no network.
+name: UI tests
+
+on:
+  push:
+    branches: [main]
+    paths: [blualbum.html, "tests/ui/**", .github/workflows/ui-tests.yml]
+  pull_request:
+    paths: [blualbum.html, "tests/ui/**", .github/workflows/ui-tests.yml]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * 1" # Mondays: catches new browser versions without a code change
+
+permissions:
+  contents: read
+
+jobs:
+  ui:
+    name: ${{ matrix.os }} / ${{ matrix.browser }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Safari: Playwright's WebKit build, only on macOS (closest to the real Safari)
+          - { os: macos-latest, browser: safari, install: webkit }
+          - { os: macos-latest, browser: chrome }
+          - { os: windows-latest, browser: edge }
+          - { os: windows-latest, browser: chrome }
+          - { os: windows-latest, browser: firefox, install: firefox }
+          - { os: ubuntu-latest, browser: chrome }
+          - { os: ubuntu-latest, browser: firefox, install: firefox }
+    defaults:
+      run:
+        working-directory: tests/ui
+    env:
+      UI_SLOW: "2" # runners are slower than a desktop machine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/ui/package-lock.json
+      - run: npm ci
+      # Chrome and Edge are preinstalled on the runners (the real, current apps);
+      # WebKit and Firefox come from Playwright.
+      - if: matrix.install
+        run: npx playwright install --with-deps ${{ matrix.install }}
+      - run: node run.js --browser ${{ matrix.browser }}
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.os }}-${{ matrix.browser }}
+          path: tests/ui/test-results/
+          if-no-files-found: ignore
