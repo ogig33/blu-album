@@ -61,6 +61,11 @@ Tests:
 - [`tests/tools/sanitize-fixtures.js`](tests/tools/sanitize-fixtures.js) – copies recorded
   answers to the UI tests and removes personal details.
 
+Checks on GitHub (`.github/workflows`, configs in `.github/lint`):
+- `ui-tests.yml` – the UI tests, see [`tests/ui`](tests/ui/README.md#github-actions).
+- `lint.yml` – ESLint (recommended rules) for the script in `blualbum.html`, `tests/ui` and `tests/tools`.
+- `format.yml` – Prettier (`printWidth` 120) for the test scripts `tests/**/*.js`; `blualbum.html` keeps its compact style. Push / PR only check; run by hand with input `fix` to format, commit and start UI tests and lint for that commit.
+
 See [`CHANGELOG.md`](CHANGELOG.md) for the version history.
 
 ## License

@@ -18,15 +18,17 @@ Run the **whole collection** in the Runner (or `bru run -r --env Home` in this f
 
 | Folder | What it does | Effect on the player |
 |---|---|---|
-| **1 Read (safe)** | Every read request of the app (A01–A26), album details, the variants the app uses and new candidates (E01–E26), the reference endpoints that only read (V01–V51, including the whole settings tree and the app screens `/ui/…`) | none |
-| **2 Write (changes the player)** | Every command of the app (C01–C47), queue and playback commands of the reference (W01–W15), settings, playlist and name commands of the reference (S01–S40) | playback is interrupted; queue, position, pause state, volume, repeat, favourite and every changed setting are restored, test playlists deleted |
-| **3 Manual (run on purpose)** | Doorbell, library rescan, test preset, reboot | skipped unless `runManual = true` |
+| **1 Read (safe)** | Every read request of the app (A01–A27), album details, the variants the app uses and new candidates (E01–E21, E23–E26), the reference endpoints that only read (V01–V51, including the whole settings tree and the app screens `/ui/…`) | none |
+| **2 Write (changes the player)** | Every command of the app (C01–C47), queue and playback commands of the reference (W01–W15), settings, playlist and name commands of the reference (S01–S52) | playback is interrupted; queue, position, pause state, volume, repeat, favourite and every changed setting are restored, test playlists deleted |
+| **3 Manual (run on purpose)** | Doorbell, library rescan, test preset, reboot, playlist restore, clear history, statistics, rebuild index, UpdateDNS, radio favourite, playurl (M01–M23) | skipped unless `runManual = true` |
 
 After a firmware update, compare `23-api-version.xml` and `24-bluos-version.xml` in `fixtures/` with the versions in the reference and look at the failed tests.
 
 CLI: `npm i -g @usebruno/cli`, then in this folder `bru run -r --env Home` (whole suite) or `bru run "1 Read (safe)" --env Home` (one folder).
 
 ## Folders in detail
+
+Request URLs are built by the scripts with `encodeURIComponent`; such requests set `settings { encodeUrl: false }`, otherwise Bruno encodes them a second time and the player answers HTTP 400.
 
 Every request has a unique prefix: **A** app reads, **E** album details / new variants, **V** reference reads (folder 1); **C** app commands, **W** queue and playback, **S** settings and playlists (folder 2); **M** manual (folder 3). Fixture files of the app requests keep the number without the letter (`A19 Status` → `19-status.xml`).
 
