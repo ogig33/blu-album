@@ -3,6 +3,7 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Fewer player requests for the search and the now playing cover.
 
 ## 0.9.0
 - Code cleanup after ESLint (no change in behaviour).

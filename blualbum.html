@@ -1842,14 +1842,16 @@ function imgUrl(p) {
 // (mixed content) and the player has no https; fetch() is not upgraded and the player allows it
 // (Access-Control-Allow-Origin: *, Bruno E24). URLs of other hosts (now playing) are set directly.
 // The blob URL is released once the image is decoded. A failed load fires the element's "error" event.
+// `el` may be an array: the image is fetched once for all of them (now playing: footer and full screen).
 async function showImg(el, url) {
-  el.dataset.src = url;
+  const els = [].concat(el);
+  els.forEach((e) => e.dataset.src = url);
   if (!url) {
-    el.removeAttribute("src");
+    els.forEach((e) => e.removeAttribute("src"));
     return;
   }
   if (new URL(url).origin !== new URL(base).origin) {
-    el.src = url;
+    els.forEach((e) => e.src = url);
     return;
   }
   let blob = null;
@@ -1858,17 +1860,18 @@ async function showImg(el, url) {
     if (r.ok) blob = await r.blob();
   } catch { // network error: handled below like an HTTP error
   }
-  if (el.dataset.src !== url) return; // another image was set meanwhile
-  if (!blob) {
-    el.removeAttribute("src");
-    el.dispatchEvent(new Event("error"));
-    return;
-  }
-  const o = URL.createObjectURL(blob);
-  const done = () => URL.revokeObjectURL(o);
-  el.addEventListener("load", done, { once: true });
-  el.addEventListener("error", done, { once: true });
-  el.src = o;
+  els.filter((e) => e.dataset.src === url).forEach((e) => { // others got another image meanwhile
+    if (!blob) {
+      e.removeAttribute("src");
+      e.dispatchEvent(new Event("error"));
+      return;
+    }
+    const o = URL.createObjectURL(blob);
+    const done = () => URL.revokeObjectURL(o);
+    e.addEventListener("load", done, { once: true });
+    e.addEventListener("error", done, { once: true });
+    e.src = o;
+  });
 }
 
 /* ---------- State ---------- */
@@ -2216,16 +2219,17 @@ function toAlbum(i) {
     menu
   };
 }
-// Loads all albums of a list, following nextKey paging.
-async function fetchAlbums(key) {
+// Loads all albums of a list, following nextKey paging. first: answer of `key` when it was read already.
+async function fetchAlbums(key, first) {
   const all = [], seen = new Set();
-  let k = key;
+  let k = key, d = first;
   while (k && !seen.has(k)) {
     seen.add(k);
-    const d = await browse(k);
+    if (!d) d = await browse(k);
     all.push(...items(d).filter((i) => attr(i, "type") === "album").map(toAlbum));
     const nx = d.querySelector("[nextKey]");
     k = nx ? attr(nx, "nextKey") : "";
+    d = null;
   }
   return all;
 }
@@ -3098,18 +3102,16 @@ function showNow(d) {
   const t1 = g("title1") || g("name");
   $("#nt1").textContent = t1 || (state ? "Nothing playing" : "");
   $("#nt2").textContent = t1 ? [g("title2"), g("title3")].filter(Boolean).join(" \u2013 ") : "";
-  const im = t1 ? g("image") : "", cv = $("#cov");
+  const im = t1 ? g("image") : "", cv = $("#cov"), fi = $("#fimg");
   const src = imgUrl(im);
-  if (cv.dataset.src !== src) {
-    cv.hidden = !src;
-    showImg(cv, src);
-  }
+  if (cv.dataset.src !== src) cv.hidden = !src;
+  // Footer and full-screen cover: one request for both
+  const upd = [cv, fi].filter((e) => (e.dataset.src || "") !== src);
+  if (upd.length) showImg(upd, src);
   // Full-screen view: title1-3 are the three now-playing lines the API asks UIs to use
   $("#ft1").textContent = t1;
   $("#ft2").textContent = t1 ? g("title2") : "";
   $("#ft3").textContent = t1 ? g("title3") : "";
-  const fi = $("#fimg");
-  if ((fi.dataset.src || "") !== src) showImg(fi, src);
   if (!t1) showFull(false);
   // MP3 has a bitrate as quality (e.g. 184000); it is recognised by the stream format ("MP3 184 kb/s").
   const ql = !t1 ? "" : /^MP3\b/i.test(g("streamFormat")) ? "MP3" : qLabel(g("quality")), q = $("#nq");
@@ -3155,10 +3157,11 @@ function showFull(open) {
 /* ---------- Search ---------- */
 // The player's own search.
 
-// Collects albums from a search result list that is split into sections.
+// Collects albums from a search result list, split into sections or not (then its answer is used directly).
 async function searchAlbums(key) {
-  const secs = items(await browse(key)).filter((i) => attr(i, "type") === "section" && attr(i, "text2") !== "0");
-  if (!secs.length) return fetchAlbums(key);
+  const d = await browse(key);
+  const secs = items(d).filter((i) => attr(i, "type") === "section" && attr(i, "text2") !== "0");
+  if (!secs.length) return fetchAlbums(key, d);
   const out = [];
   for (const x of secs) out.push(...await fetchAlbums(attr(x, "browseKey")));
   return out;

@@ -423,6 +423,14 @@ test("covers: grid, popup and now playing show the player's images", async (t) =
   );
 });
 
+test("covers: the now playing cover is loaded once for footer and full-screen view", async (t) => {
+  await t.page.waitForFunction(() =>
+    ["#cov", "#fimg"].every((s) => /^blob:/.test(document.querySelector(s).getAttribute("src") || "")),
+  );
+  await t.settle(500);
+  eq(t.player.state.requests.filter((r) => /^\/Artwork\?.*fn=/.test(r)).length, 1, "one /Artwork request");
+});
+
 test("cover heart: favourite album filled, toggles via the player (no local storage)", async (t) => {
   // Default view is Favourites: the first album tile is a favourite
   const tile = "#grid .item:nth-child(2)";
@@ -545,6 +553,16 @@ test("search: uses the player search, no random tile", async (t) => {
     t.player.state.requests.some((r) => /Search/.test(decodeURIComponent(r))),
     "search request",
   );
+});
+
+test("search: the albums list of the result is read once per source (no second request)", async (t) => {
+  await t.page.fill("#q", "a");
+  await t.page.press("#q", "Enter");
+  await t.page.waitForFunction(() => /for/.test(document.querySelector("#msg").textContent));
+  const r = t.player.state.requests.map((x) => decodeURIComponent(x));
+  const searches = r.filter((x) => /[?&]q=/.test(x)).length;
+  ok(searches >= 1, "search request");
+  eq(r.filter((x) => /Albums%3Fexpr=|Albums\?expr=/.test(x)).length, searches, "one albums request per search request");
 });
 
 test("search: while typing only from 3 characters and after a pause, Enter always", async (t) => {
