@@ -71,6 +71,7 @@ const TOP = /^\/Browse\?withContextMenuItems=1$/;
 // Names of the playlists the tests create (deleted again)
 const TEST_LIST = "__blualbum_test_list__";
 const SAVE_NAME = "__blualbum_ui_test__";
+const WORK_NAME = "__blualbum_ui_test_start__"; // queue set up by prepare() (--write)
 const sleep = (ms) => new Promise((z) => setTimeout(z, ms));
 
 // ---------- test data ----------
@@ -199,6 +200,8 @@ async function buildTD(get) {
   }
   // TD-STATUS, TD-QUEUE (pages of 200, at most 2000 like the app), TD-SET, TD-LM, TD-VER
   D.STATUS = (await get("/Status")) || "";
+  // TD-NOW-LIB: a title of a library source is playing or paused
+  D.NOW_LIB = /^(play|pause)$/.test(stOf(D.STATUS)("state")) && D.SVC.includes(stOf(D.STATUS)("service"));
   D.QUEUE = [];
   for (let s = 0, total = 1; s < total && s < 2000; s += 200) {
     const x = (await get(`/Playlist?start=${s}&end=${s + 199}`)) || "";
@@ -487,8 +490,10 @@ const openLibAlbum = async (t) => {
 };
 const R = { real: "read" };
 const W = { real: "write" };
-// needs a USB drive (a second source); skipped on a player without one
-const U = { real: "read", needs: "usb" };
+// opts.needs: what a test needs on the real player; skipped without it (read-only) or set up first (--write, see prepare())
+// usb: a USB drive (a second source), library: a library title playing or paused, queue: at least 3 tracks,
+// playlist: a saved playlist
+const U = { real: "read", needs: ["usb"] };
 
 // ---------- 4.1 Connection & start (CON) ----------
 test(
@@ -725,7 +730,7 @@ test(
     eq(await t.page.$$eval("#az button:not(.plc)", (x) => x.length), 0, "no genre chips");
     eq(await t.page.$$eval("#az .plc", (x) => x.length), TD.PL.length, "playlist chips");
   },
-  U,
+  { ...U, needs: ["usb", "playlist"] },
 );
 
 test(
@@ -769,7 +774,7 @@ test(
     );
     ok(await t.page.$("#az .plg + .plc"), "separator before the playlists");
   },
-  R,
+  { ...R, needs: ["playlist"] },
 );
 
 test(
@@ -1129,6 +1134,11 @@ test(
     const i = await t.page.evaluate((usb) => shown.findIndex((a) => usb && a.key.startsWith(usb)), TD.USB);
     ok(i >= 0, "USB album in New");
     const tile = "#grid .item:nth-child(" + (i + 2) + ")";
+    // the grid renders tiles while scrolling: scroll to the last tile until the USB album is there
+    for (let n = 0; n < 50 && !(await t.page.$(tile)); n++) {
+      await t.page.evaluate(() => [...document.querySelectorAll("#grid .item")].pop()?.scrollIntoView());
+      await sleep(200);
+    }
     await t.page.evaluate((s) => document.querySelector(s)?.scrollIntoView(), tile);
     await t.page.hover(tile);
     ok(!(await t.page.isVisible(tile + " .favc")), "heart hidden");
@@ -1603,7 +1613,7 @@ test(
       "no source icon in the player bar",
     );
   },
-  R,
+  { ...R, needs: ["library"] },
 );
 
 test("FTR-02 quality tag for every quality value of /Status", async (t) => {
@@ -1661,7 +1671,7 @@ test(
       await t.page.waitForFunction((p) => document.querySelector("#pp").innerHTML === p, before);
     }
   },
-  W,
+  { ...W, needs: ["library"] },
 );
 
 test(
@@ -1672,7 +1682,7 @@ test(
     await t.settle();
     ok(t.player.state.commands.includes("/Back") && t.player.state.commands.includes("/Skip"), "/Back and /Skip sent");
   },
-  W,
+  { ...W, needs: ["library"] },
 );
 
 test("FTR-07 progress strip follows the position", async (t) => {
@@ -1714,7 +1724,7 @@ test(
     );
     eq(t.cmds(/seek=/), [], "no seek request");
   },
-  R,
+  { ...R, needs: ["library"] },
 );
 
 test(
@@ -1735,7 +1745,7 @@ test(
     const last = +t.cmds(/^\/Play\?seek=/).pop().split("=")[1];
     ok(last <= total - 1, `limited to the end (${last})`);
   },
-  W,
+  { ...W, needs: ["library"] },
 );
 
 test(
@@ -1753,7 +1763,7 @@ test(
     const left = +t.cmds(/^\/Play\?seek=/)[1].split("=")[1];
     ok(left < right, `-5 s (${left})`);
   },
-  W,
+  { ...W, needs: ["library"] },
 );
 
 test(
@@ -1942,7 +1952,7 @@ test(
     await t.page.keyboard.press("Escape");
     ok(!(await t.page.isVisible("#full")), "closed with Esc");
   },
-  R,
+  { ...R, needs: ["library"] },
 );
 
 test(
@@ -1959,7 +1969,7 @@ test(
     await t.page.click("#cvb");
     ok(!(await t.page.isVisible("#full")), "closed by the footer cover");
   },
-  R,
+  { ...R, needs: ["library"] },
 );
 
 test(
@@ -1975,7 +1985,7 @@ test(
     ok(!(await t.page.isVisible("#full")), "closed with Space");
     eq(await t.page.getAttribute("#cvb", "aria-label"), "Show full-screen player", "label when closed");
   },
-  R,
+  { ...R, needs: ["library"] },
 );
 
 test("FUL-05 full screen closes when playback stops", async (t) => {
@@ -2021,7 +2031,7 @@ test(
         "grid moves aside",
       );
   },
-  R,
+  { ...R, needs: ["queue"] },
 );
 
 test(
@@ -2036,7 +2046,7 @@ test(
     await t.settle();
     ok(t.reqs(/key=BluOS:$/).length > pl, "playlist chips reloaded");
   },
-  { ...W, promptValue: TEST_LIST, cleanup: (get) => get("/Delete?service=BluOS&name=" + encodeURIComponent(TEST_LIST)) },
+  { ...W, needs: ["queue"], promptValue: TEST_LIST, cleanup: (get) => get("/Delete?service=BluOS&name=" + encodeURIComponent(TEST_LIST)) },
 );
 
 test(
@@ -2048,7 +2058,7 @@ test(
     await t.page.click("#go");
     await t.page.waitForFunction((n) => document.querySelectorAll("#qlist li").length === n, TD.QUEUE.length);
   },
-  R,
+  { ...R, needs: ["queue"] },
 );
 
 test(
@@ -2061,7 +2071,7 @@ test(
     );
     eq(await t.page.$$eval("#qlist li.cur", (x) => x.length), 1, "one current entry");
   },
-  R,
+  { ...R, needs: ["library", "queue"] },
 );
 
 test(
@@ -2072,7 +2082,7 @@ test(
     await t.settle();
     ok(t.player.state.commands.includes("/Play?id=" + TD.QUEUE[2].id), "/Play?id= sent");
   },
-  W,
+  { ...W, needs: ["queue"] },
 );
 
 test(
@@ -2099,7 +2109,7 @@ test(
     await t.settle();
     ok(t.player.state.commands.includes("/Delete?id=" + TD.QUEUE[1].id), "/Delete?id= sent");
   },
-  W,
+  { ...W, needs: ["queue"] },
 );
 
 test(
@@ -2127,7 +2137,7 @@ test(
     eq(t.cmds(/^\/Clear/).length, 1, "/Clear after confirmation");
     ok(/Clear the whole queue/.test(t.dialogs.log.pop().message), "confirm text");
   },
-  W,
+  { ...W, needs: ["queue"] },
 );
 
 test(
@@ -2138,7 +2148,7 @@ test(
     await t.settle();
     eq(t.cmds(/^\/Clear/), [], "no /Clear");
   },
-  { ...R, dialog: "dismiss" },
+  { ...R, needs: ["queue"], dialog: "dismiss" },
 );
 
 test(
@@ -2184,7 +2194,7 @@ test(
     await t.settle();
     eq(t.cmds(/^\/Save/), [], "no /Save");
   },
-  { ...R, dialog: "dismiss" },
+  { ...R, needs: ["queue"], dialog: "dismiss" },
 );
 
 test(
@@ -2248,7 +2258,7 @@ test(
     await t.settle();
     eq(t.cmds(/^\/Delete\?service=/), [], "no delete");
   },
-  { ...W, dialog: "dismiss" },
+  { ...W, needs: ["playlist"], dialog: "dismiss" },
 );
 
 test(
@@ -2317,7 +2327,7 @@ test(
     await t.settle(3000);
     eq(loads() - n, 1, "queue reloaded once (new playlist id, or after 1.5 s when it stays)");
   },
-  W,
+  { ...W, needs: ["playlist"] },
 );
 
 test(
@@ -2360,7 +2370,7 @@ test(
     eq(await t.page.$$eval("#az .plc", (x) => x.length), TD.PL.length, "chips");
     ok(await t.page.$eval("#az", (n) => n.lastElementChild.classList.contains("plc")), "at the end");
   },
-  U,
+  { ...U, needs: ["usb", "playlist"] },
 );
 
 test(
@@ -2829,7 +2839,7 @@ test(
     await loaded("#dimg");
     ok(t.reqs(/^\/Artwork\?.*followRedirects=1/).length > 0, "covers come from /Artwork with followRedirects=1");
   },
-  R,
+  { ...R, needs: ["library"] },
 );
 
 test(
@@ -2846,7 +2856,7 @@ test(
       "one /Artwork request for the now playing cover",
     );
   },
-  R,
+  { ...R, needs: ["library"] },
 );
 
 test(
@@ -3053,26 +3063,41 @@ if (SHOTS) test("ENV views: screenshots of the main views", views, R);
 // ---------- real player: save and restore its state (write tests) ----------
 // Like the Bruno folder "2 Write": the queue is saved as a playlist before the write tests and loaded
 // again after each of them; playback position, pause state, shuffle, repeat and volume are set back.
-async function saveState(get) {
+// name: the playlist that keeps the queue. An input (e.g. HDMI) cannot be restored: the queue is restored paused.
+async function saveState(get, name) {
   const s = stOf(await get("/Status"));
   const state = {
+    name,
     volume: s("volume"),
     repeat: s("repeat"),
     shuffle: s("shuffle"),
     song: s("song"),
     secs: s("secs"),
-    playing: /^(play|stream)$/.test(s("state")),
+    playing: s("state") === "play" && TD.SVC.includes(s("service")),
   };
   const q = (await get("/Playlist?start=0&end=0")) || "";
   state.queue = +((q.match(/<playlist [^>]*length="(\d+)"/) || [])[1] || 0);
-  if (state.queue && !/<entries>[1-9]/.test((await get("/Save?name=" + SAVE_NAME)) || ""))
+  if (state.queue && !/<entries>[1-9]/.test((await get("/Save?name=" + name)) || ""))
     throw new Error("could not save the queue of the player");
   return state;
+}
+// Sets up what the write tests need (opts.needs) when the player lacks it: no library title playing or
+// paused, or fewer than 3 tracks in the queue -> plays the first album with 3 or more tracks.
+// Returns true when it changed the queue.
+async function prepare(get) {
+  if (TD.NOW_LIB && TD.QUEUE.length >= 3) return false;
+  const album = TD.ALL.find((a) => +a.tracks >= 3 && a.playURL);
+  if (!album) return false;
+  console.log(`Preparing the player: playing "${album.text}" (no library title playing or fewer than 3 tracks queued)`);
+  await get("/Clear");
+  await get(album.playURL);
+  await sleep(2000);
+  return true;
 }
 async function restoreState(get, s) {
   await get("/Clear");
   if (s.queue) {
-    await get("/Load?service=BluOS&name=" + SAVE_NAME);
+    await get("/Load?service=BluOS&name=" + s.name);
     await sleep(1500);
   }
   if (stOf(await get("/Status"))("shuffle") !== s.shuffle) await get("/Shuffle?state=" + (s.shuffle === "1" ? 1 : 0));
@@ -3088,6 +3113,13 @@ async function restoreState(get, s) {
 }
 
 // ---------- runner ----------
+// opts.needs on the real player: a test is skipped when the player lacks it (with --write prepare() sets it up)
+const NEEDS = {
+  usb: { ok: () => !!TD.USB, why: "the player has no USB drive" },
+  library: { ok: () => TD.NOW_LIB, why: "no library title playing or paused" },
+  queue: { ok: () => TD.QUEUE.length >= 3, why: "fewer than 3 tracks in the queue" },
+  playlist: { ok: () => TD.PL.length > 0, why: "no saved playlist" },
+};
 async function runIn(key, list, real) {
   const { label } = BROWSERS[key];
   console.log(`\n${label} · ${VP_ARG}`);
@@ -3102,9 +3134,10 @@ async function runIn(key, list, real) {
     fail = 0,
     skip = 0;
   for (const tc of list) {
-    if (tc.opts.needs === "usb" && !TD.USB) {
+    const missing = REAL && (tc.opts.needs || []).map((n) => NEEDS[n]).find((n) => !n.ok());
+    if (missing) {
       skip++;
-      console.log(`  - ${tc.name} (skipped: the player has no USB drive)`);
+      console.log(`  - ${tc.name} (skipped: ${missing.why})`);
       continue;
     }
     const t0 = Date.now();
@@ -3158,15 +3191,26 @@ if (process.argv.includes("--list")) {
     (x) => (!ONLY || x.name.includes(ONLY)) && (!REAL || x.opts.real === "read" || (WRITE && x.opts.real === "write")),
   );
   if (REAL) console.log(`${list.length} of ${tests.filter((x) => !ONLY || x.name.includes(ONLY)).length} tests apply to the real player`);
-  // the state is saved first: its playlist is then part of the test data (chips, statistics)
-  let real = null;
-  if (WRITE && list.some((x) => x.opts.real === "write")) real = { get: src.get, saved: await saveState(src.get) };
   TD = await buildTD(src.get);
+  // --write: the player's state is saved (restored at the end), prepare() sets up what the tests need; the state
+  // the tests start from is restored after every write test. The test data are read again: the saved
+  // playlists are then part of them (chips, statistics).
+  let real = null;
+  if (WRITE && list.some((x) => x.opts.real === "write")) {
+    const orig = await saveState(src.get, SAVE_NAME);
+    const saved = (await prepare(src.get)) ? await saveState(src.get, WORK_NAME) : orig;
+    real = { get: src.get, orig, saved };
+    TD = await buildTD(src.get);
+  }
   const results = [];
   try {
     for (const key of PICK) results.push(await runIn(key, list, real));
   } finally {
-    if (real) await src.get("/Delete?service=BluOS&name=" + SAVE_NAME);
+    if (real && real.saved !== real.orig) {
+      await restoreState(src.get, real.orig);
+      if (real.saved.queue) await src.get("/Delete?service=BluOS&name=" + WORK_NAME);
+    }
+    if (real && real.orig.queue) await src.get("/Delete?service=BluOS&name=" + SAVE_NAME);
   }
   console.log("");
   for (const r of results)
