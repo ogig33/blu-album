@@ -222,6 +222,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | POP-10 | Popup cache | Open, close, open the same album | No second `/Browse` / `/library/v1/Songs` request | read | Auto |
 | POP-11 | Browser in another language | Option `locale: de-DE` | Track list still filled (requests send `Accept-Language: en`) | read | Auto |
 | POP-12 | Close the popup | Close button; click on the backdrop; Esc | Popup closed each time; Esc does not close the settings panel behind it | read | Auto |
+| POP-14 | Page behind stays still | Page scrollable; popup open; mouse wheel over the backdrop and over the track list (also past its end) | Only the popup content scrolls; the page keeps its scroll position; after closing the page scrolls again | – | Auto |
 | POP-13 | Track list fails | Mock answers HTTP 500 for the album's `/Browse` | Empty list, toast "Could not load tracks"; songs missing (`/library/v1/Songs` fails) → no year / technical data, tracks still shown | – | Auto |
 
 ### 4.8 Search (SRH)

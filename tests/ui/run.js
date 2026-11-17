@@ -1456,6 +1456,28 @@ test("POP-13 track list or songs fail", async (t) => {
   eq(await t.page.textContent("#dtech"), "", "no technical data");
 });
 
+test("POP-14 open popup keeps the page behind it still", async (t) => {
+  await t.all();
+  // the page must be able to scroll, whatever the window size
+  await t.page.evaluate(() => (document.body.style.minHeight = "300vh"));
+  await openLibAlbum(t);
+  await t.page.waitForSelector("#tracks li button");
+  eq(await t.page.evaluate(() => getComputedStyle(document.documentElement).overflow), "hidden", "page scrolling off");
+  const y = await t.page.evaluate(() => scrollY);
+  await t.page.mouse.move(3, 3);
+  await t.page.mouse.wheel(0, 600);
+  const box = await t.page.$eval("#tracks", (e) => {
+    const r = e.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  });
+  await t.page.mouse.move(box.x, box.y);
+  await t.page.mouse.wheel(0, 3000);
+  await t.page.waitForTimeout(300);
+  eq(await t.page.evaluate(() => scrollY), y, "page not scrolled by the wheel over backdrop and track list");
+  await t.page.click("#close");
+  ok(await t.page.evaluate(() => getComputedStyle(document.documentElement).overflow !== "hidden"), "page scrolls again");
+});
+
 // ---------- 4.8 Search (SRH) ----------
 test(
   "SRH-01 search uses the player search, no random tile, no chip",

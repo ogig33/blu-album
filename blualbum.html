@@ -1306,6 +1306,15 @@ dialog {
 dialog::backdrop {
   background: rgba(0, 0, 0, .6);
 }
+/* An open popup keeps the page behind it still: the wheel scrolls only the popup content, the end
+   of a list does not pass the scroll on to the page */
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+dialog,
+dialog * {
+  overscroll-behavior: contain;
+}
 /* Two equal columns: cover with the album details below it on the left, the track list on the right.
    --dh: maximum height of the popup, --dw: its width. The cover fills its column unless the popup
    height is the limit (room is kept for the details below it); a longer track list scrolls. */
