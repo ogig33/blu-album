@@ -1,28 +1,25 @@
 // UI tests for BluAlbum.
-// Runs the app in headless browsers against a mock player that answers with recorded fixtures.
+// Runs the app in headless browsers against a mock player that answers with recorded fixtures, or
+// against a real player (--player).
 // Usage: node run.js [path/to/blualbum.html] [--only <text>] [--browser chrome|safari|edge|firefox]
-//                    [--viewport WIDTHxHEIGHT[@SCALE]] [--shots]
+//                    [--viewport WIDTHxHEIGHT[@SCALE]] [--shots] [--player <ip> [--write]] [--list]
 // Without --browser all four browsers run one after another. --viewport sets the window size and the
 // device pixel ratio (default 1200x800, e.g. 1440x900@2 for a Retina laptop). --shots also saves
 // screenshots of the main views to test-results/views/ (for a visual check per browser and size).
+// --player <ip> runs the tests marked real: "read" against that player (nothing is changed on it);
+// --write adds the tests marked real: "write" (they play, change the queue and favourites; the queue,
+// playback position, shuffle, repeat and volume are saved first and restored after every such test).
+// --list prints every test with its mark (read / write / mock).
 // Environment: UI_SLOW=<factor> stretches the fixed waits (settle) for slow machines such as CI runners.
+// Every test name starts with the IDs of the test plan (docs/test-plan.md) it covers, e.g. --only QUE-
+// runs the queue block.
 const path = require("path");
 const { pathToFileURL } = require("url");
 const { chromium, webkit, firefox } = require("playwright");
-const { createPlayer, USB } = require("./mock-player");
+const { createPlayer, createRecorder, fx, USB } = require("./mock-player");
 const fs = require("fs");
-// Expected now-playing values come from the recorded status
-const STATUS = fs.readFileSync(
-  path.join(
-    __dirname,
-    "fixtures",
-    fs.readdirSync(path.join(__dirname, "fixtures")).find((f) => f.startsWith("19-")),
-  ),
-  "utf8",
-);
-const st = (tag) =>
-  ((STATUS.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")) || [])[1] || "").replace(/&amp;/g, "&");
 
+// ---------- options ----------
 // pathToFileURL: a correct file URL on Windows too (file:///C:/…)
 const APP = pathToFileURL(
   path.resolve(
@@ -43,6 +40,13 @@ if (!VP_MATCH) {
 }
 const VIEWPORT = { width: +VP_MATCH[1], height: +VP_MATCH[2], scale: +(VP_MATCH[3] || 1) };
 const SHOTS = process.argv.includes("--shots");
+// Real player: its IP address (empty = mock player); WRITE = also the tests that change the player
+const REAL = arg("--player");
+const WRITE = !!REAL && process.argv.includes("--write");
+if (process.argv.includes("--player") && !/^[\w.-]+$/.test(REAL)) {
+  console.error("--player needs the IP address of the player, e.g. --player 192.168.1.50");
+  process.exit(2);
+}
 // Browsers: Chrome and Edge are the installed apps (Playwright channels), Safari is Playwright's
 // WebKit build (the engine of Safari; real Safari cannot be automated by Playwright), Firefox is
 // Playwright's Firefox build.
@@ -58,9 +62,271 @@ if (unknown.length) {
   console.error(`Unknown browser: ${unknown.join(", ")} (use ${Object.keys(BROWSERS).join(", ")})`);
   process.exit(2);
 }
-const IP = "192.0.2.50"; // address of the mock player (documentation range, never a real device)
+// Address of the player: the real one, or the mock (documentation range, never a real device)
+const IP = REAL || "192.0.2.50";
+const IP2 = "192.0.2.51"; // second mock player (changing the player)
+const BASE = `http://${IP}:11000`;
+// Top menu request (no key)
+const TOP = /^\/Browse\?withContextMenuItems=1$/;
+// Names of the playlists the tests create (deleted again)
+const TEST_LIST = "__blualbum_test_list__";
+const SAVE_NAME = "__blualbum_ui_test__";
+const sleep = (ms) => new Promise((z) => setTimeout(z, ms));
+
+// ---------- test data ----------
+// Built before the tests run by asking the player the tests run against (mock: answers derived from the
+// fixtures; real player with --player) the same questions as the app, so no artist, album or number is
+// written into the tests. IDs as in "Test data dictionary" of docs/test-plan.md.
+const ent = (s) =>
+  (s || "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+    .replace(/&amp;/g, "&");
+// Attributes of every <item> of a Browse answer that passes `keep`
+const itemsOf = (xml, keep = () => true) =>
+  [...(xml || "").matchAll(/<item ([^>]*)>/g)]
+    .map((m) => Object.fromEntries([...m[1].matchAll(/([\w-]+)="([^"]*)"/g)].map((x) => [x[1], ent(x[2])])))
+    .filter(keep);
+const ofType = (t) => (i) => i.type === t;
+// <album> entries of a /library/v1/Albums answer: {t, a}
+const libList = (xml) =>
+  [...(xml || "").matchAll(/<album[^>]*>\s*<(?:alb|title)>([^<]*)<\/(?:alb|title)>\s*<art>([^<]*)<\/art>/g)].map(
+    (m) => ({ t: ent(m[1]), a: ent(m[2]) }),
+  );
+const sum = (secs) => secs.reduce((n, x) => n + (+x.text2 || 0), 0);
+// Text of the first <tag> of an answer (e.g. a /Status value)
+const stOf = (xml) => (tag) => ent(((xml || "").match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")) || [])[1] || "");
+// Form encoding as the player writes it in keys and URLs (same as formEnc() of the app)
+const formEnc = (v) =>
+  encodeURIComponent(v)
+    .replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase())
+    .replace(/%20/g, "+");
+let TD = {};
+async function buildTD(get) {
+  const D = {};
+  const browse = async (key, menus = true) =>
+    (await get("/Browse?withContextMenuItems=" + (menus ? 1 : 0) + (key ? "&key=" + encodeURIComponent(key) : ""))) || "";
+  // Albums of a browse list, following nextKey (like fetchAlbums of the app)
+  const albumsOf = async (key) => {
+    const out = [],
+      seen = new Set();
+    let k = key;
+    while (k && !seen.has(k)) {
+      seen.add(k);
+      const x = await browse(k);
+      out.push(...itemsOf(x, ofType("album")));
+      k = ent((x.match(/nextKey="([^"]*)"/) || [])[1] || "");
+    }
+    return out;
+  };
+  // /library/v1/Albums of a service, following <nextlink> (like libAlbums of the app)
+  const libAlbums = async (svc, filter, max) => {
+    const out = [],
+      seen = new Set();
+    let p = "/library/v1/Albums?service=" + encodeURIComponent(svc) + "&" + filter;
+    while (p && !seen.has(p) && out.length < max) {
+      seen.add(p);
+      const x = (await get(p)) || "";
+      out.push(...libList(x));
+      p = ent(((x.match(/<nextlink>([^<]*)<\/nextlink>/) || [])[1] || "").trim());
+    }
+    return out.slice(0, max);
+  };
+  const svcOf = (key) => key.split(":")[0];
+  const top = await browse("");
+  // TD-SRC: music sources (library / USB) of the top menu
+  D.SRC = itemsOf(top, (i) => i.type === "link" && /USBIcon|LibraryIcon/.test(i.image || ""));
+  D.SVC = D.SRC.map((s) => svcOf(s.browseKey));
+  D.LIB = svcOf((D.SRC.find((s) => /LibraryIcon/.test(s.image)) || { browseKey: "LocalMusic:" }).browseKey);
+  D.USB = svcOf((D.SRC.find((s) => /USBIcon/.test(s.image)) || { browseKey: "" }).browseKey);
+  D.MENU = {};
+  D.GENRES = {};
+  D.SECS = {};
+  for (const s of D.SRC) {
+    const svc = svcOf(s.browseKey),
+      menu = await browse(s.browseKey),
+      its = itemsOf(menu);
+    D.MENU[svc] = menu;
+    const gi = its.find((i) => /GG\/Genres/.test(i.browseKey || "") || i.text === "Genres");
+    D.GENRES[svc] = gi ? itemsOf(await browse(gi.browseKey), ofType("genre")).map((g) => g.text) : [];
+    const ai = its.find((i) => /bySection:Album/.test(i.browseKey || ""));
+    D.SECS[svc] = ai ? itemsOf(await browse(ai.browseKey), ofType("section")) : [];
+  }
+  // TD-GEN: genre names of all sources (chip row = sorted union); TD-GEN-ONE: a genre of the library only
+  D.GEN_LIB = D.GENRES[D.LIB] || [];
+  D.GEN_USB = D.USB ? D.GENRES[D.USB] : [];
+  D.GEN = [...new Set(Object.values(D.GENRES).flat())].sort((x, y) => x.localeCompare(y));
+  D.GEN_ONE = D.GEN_LIB.find((g) => D.SVC.every((s) => s === D.LIB || !D.GENRES[s].includes(g)));
+  // TD-SEC: A-Z sections, "filled" = album count not 0
+  D.SEC_LIB = D.SECS[D.LIB] || [];
+  D.SEC_USB = D.USB ? D.SECS[D.USB] : [];
+  D.FILLED_LIB = D.SEC_LIB.filter((x) => x.text2 !== "0");
+  D.FILLED_USB = D.SEC_USB.filter((x) => x.text2 !== "0");
+  // TD-ALL: albums of the first filled library section; ALL_COUNT: albums of every filled section of every source
+  D.ALL = null;
+  D.ALL_COUNT = 0;
+  for (const svc of D.SVC)
+    for (const sec of D.SECS[svc].filter((x) => x.text2 !== "0")) {
+      const a = await albumsOf(sec.browseKey);
+      D.ALL_COUNT += a.length;
+      if (svc === D.LIB && !D.ALL && a.length) D.ALL = a;
+    }
+  D.ALL = D.ALL || [];
+  // TD-ALB-LIB: first album of TD-ALL with its tracks (TD-TRK) and songs (TD-SONGS)
+  const first = D.ALL[0] || { text: "", text2: "", browseKey: "" };
+  D.ALB_LIB = { t: first.text, a: first.text2, key: first.browseKey };
+  D.SONGS = (await get("/library/v1/Songs?service=" + D.LIB + "&" + (first.browseKey.split("?")[1] || ""))) || "";
+  D.SONG_TITLES = [...D.SONGS.matchAll(/<title>([^<]*)<\/title>/g)].map((m) => ent(m[1]));
+  D.TRK = itemsOf(await browse(first.browseKey, false), ofType("track"));
+  // TD-NEW (newest first, at most 200 per source like the app) and TD-FAV (library only)
+  D.NEW_LIB = (await libAlbums(D.LIB, "recent=1", 200)).map((x) => x.t);
+  const newUsb = D.USB ? await libAlbums(D.USB, "recent=1", 200) : [];
+  D.NEW_USB = newUsb.map((x) => x.t);
+  // TD-ALB-USB: first USB album of New and its songs
+  D.SONGS_USB = newUsb.length
+    ? (await get(`/library/v1/Songs?service=${D.USB}&album=${formEnc(newUsb[0].t)}&artist=${formEnc(newUsb[0].a)}`)) || ""
+    : "";
+  D.FAV = await libAlbums(D.LIB, "category=FAVOURITES", 5000);
+  // TD-PL: saved playlists (following nextKey like the app)
+  const plItem = itemsOf(top).find((i) => /myplaylists/i.test(i.image || "") || /^(playlists|wiedergabelisten)$/i.test(i.text || ""));
+  D.PL = [];
+  for (let k = plItem ? plItem.browseKey : "", i = 0; k && i < 20; i++) {
+    const x = await browse(k);
+    D.PL.push(...itemsOf(x, ofType("playlist")));
+    k = ent((x.match(/<browse [^>]*nextKey="([^"]*)"/) || [])[1] || "");
+  }
+  // TD-STATUS, TD-QUEUE (pages of 200, at most 2000 like the app), TD-SET, TD-LM, TD-VER
+  D.STATUS = (await get("/Status")) || "";
+  D.QUEUE = [];
+  for (let s = 0, total = 1; s < total && s < 2000; s += 200) {
+    const x = (await get(`/Playlist?start=${s}&end=${s + 199}`)) || "";
+    total = +((x.match(/<playlist [^>]*length="(\d+)"/) || [])[1] || 0);
+    D.QUEUE.push(
+      ...[...x.matchAll(/<song [^>]*id="(\d+)"[^>]*>([\s\S]*?)<\/song>/g)].map((m) => ({
+        id: m[1],
+        time: +((m[2].match(/<time>(\d+)<\/time>/) || [])[1] || 0),
+      })),
+    );
+    if (D.QUEUE.length >= total) break;
+  }
+  const settings = (await get("/Settings")) || "";
+  const setAttr = (id, a) =>
+    ent((settings.match(new RegExp('<setting id="' + id + '"[^>]*\\s' + a + '="([^"]*)"')) || [])[1] || "");
+  D.SET = {
+    room: setAttr("zonename", "value"),
+    share: setAttr("sharecfg", "description"),
+    resizeall: setAttr("resizeall", "value"),
+    server: setAttr("server", "value"),
+  };
+  D.LM = await get("/audioPreset"); // null: player without listening modes
+  D.VER = { bluos: stOf(await get("/GitVersion"))("version"), api: stOf(await get("/Version"))("version") };
+  // TD-ART: artist of a favourite with albums (artist menu -> albums link on every source, like the app)
+  D.ART = "";
+  D.ART_ALBUMS = [];
+  for (const f of D.FAV) {
+    const albums = [];
+    for (const svc of D.SVC) {
+      const link = itemsOf(await browse(svc + ":MG/LocalMusic-Artist?artist=" + formEnc(f.a))).find(
+        (i) => i.type === "link" && /:Album\//.test(i.browseKey || ""),
+      );
+      if (link) albums.push(...(await albumsOf(link.browseKey)));
+    }
+    if (albums.length) {
+      D.ART = f.a;
+      D.ART_ALBUMS = albums;
+      break;
+    }
+  }
+  D.FAV_ART = D.ART_ALBUMS.filter((x) => D.FAV.some((f) => f.t === x.text && f.a === x.text2));
+  // Statistics of the about popup (summed over the sources like the app)
+  D.STAT_LISTS = Object.values(D.MENU).reduce(
+    (n, m) => n + itemsOf(m, (i) => /bySection:(Album|Artist|Song|Composer)/.test(i.browseKey || "")).length,
+    0,
+  );
+  D.STATS = {};
+  for (const [label, k] of [
+    ["Albums", "Album"],
+    ["Artists", "Artist"],
+    ["Songs", "Song"],
+    ["Composers", "Composer"],
+  ]) {
+    let n = 0,
+      any = false;
+    for (const svc of D.SVC) {
+      const it = itemsOf(D.MENU[svc]).find((i) => new RegExp("bySection:" + k).test(i.browseKey || ""));
+      if (!it) continue;
+      if (k === "Album") n += sum(D.SECS[svc]);
+      else {
+        const x = await browse(it.browseKey),
+          secs = itemsOf(x, ofType("section"));
+        n += secs.length ? sum(secs) : itemsOf(x, (i) => i.type !== "link").length;
+      }
+      any = true;
+    }
+    D.STATS[label] = any ? n.toLocaleString("en") : "\u2013";
+  }
+  D.STATS.Genres = String(D.GEN.length);
+  D.STATS.Playlists = String(D.PL.length);
+  // TD-TERM: a search term from the library (the first word of 3+ letters in an album title)
+  D.TERM = ([...D.ALL, ...D.FAV.map((f) => ({ text: f.t }))]
+    .map((a) => (a.text.match(/[A-Za-z]{3,}/) || [])[0])
+    .find(Boolean) || "love").toLowerCase();
+  D.OTHER_ARTIST = "Test Artist"; // test value: track artist that differs from the album artist
+  return D;
+}
+const lmName = (mode) => (TD.LM.match(new RegExp('displayName="([^"]*)" name="' + mode + '"')) || [])[1];
+
+// Year, quality tags and technical data of an album from its songs (/library/v1/Songs), with the
+// rules of the album popup: ranges for differing values, "/" for differing formats, no bit depth
+// for lossy formats, average bitrate. FORMATS / LOSSY are the app's own constants.
+function songDetails(xml, FORMATS, LOSSY) {
+  const songs = [...xml.matchAll(/<song ([^>]*)>([\s\S]*?)<\/song>/g)].map((m) => ({
+    at: Object.fromEntries([...m[1].matchAll(/(\w+)="([^"]*)"/g)].map((x) => [x[1], x[2]])),
+    tag: (t) => ((m[2].match(new RegExp("<" + t + ">([^<]*)</" + t + ">")) || [])[1] || "").trim(),
+  }));
+  const uniq = (f) => [...new Set(songs.map(f).filter((v) => v !== ""))];
+  const range = (vals, f) => {
+    const n = vals
+      .map(Number)
+      .filter((v) => v > 0)
+      .sort((p, q) => p - q);
+    return !n.length ? "" : n[0] === n[n.length - 1] ? f(n[0]) : f(n[0]) + "\u2013" + f(n[n.length - 1]);
+  };
+  const qLabel = (q) =>
+    q === "cd" ? "CD" : q === "hd" || q === "hr" ? "HD" : /^mqa/i.test(q) ? "MQA" : /^dolby/i.test(q) ? "Dolby" : "";
+  const at = (n) => (s) => s.at[n] || "";
+  const fmts = uniq(at("atype")).map((f) => FORMATS[f] || f.toUpperCase());
+  const lossy = fmts.every((f) => LOSSY.includes(f));
+  const bits = lossy ? "" : range(uniq(at("samplebits")), String);
+  const rate = range(uniq(at("samplerate")), (v) => +(v / 1000).toFixed(1) + "");
+  const ch = uniq(at("channels"))
+    .map((c) => ({ 1: "Mono", 2: "Stereo" })[c] || c + " ch")
+    .join(" / ");
+  const br = songs.map((s) => +at("bitrate")(s)).filter((v) => v > 0);
+  const avg = br.length ? "\u00D8 " + Math.round(br.reduce((p, q) => p + q, 0) / br.length / 1000) + " kbit/s" : "";
+  const res = [bits && bits + " bit", rate && rate + " kHz"].filter(Boolean).join(" / ");
+  return {
+    year: range(uniq((s) => s.tag("date")), String),
+    tags: uniq((s) => (at("atype")(s) === "mp3" ? "MP3" : qLabel(s.tag("quality")))),
+    tech: [fmts.join(" / "), res, ch, avg].filter(Boolean).join(" \u00B7 "),
+  };
+}
+// Seconds -> "m:ss" or "h:mm:ss"
+const fmtTime = (n) => {
+  const h = Math.floor(n / 3600),
+    m = Math.floor((n % 3600) / 60),
+    s = n % 60;
+  return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0");
+};
+const nAlb = (n) => n + (n === 1 ? " album" : " albums");
+const re = (s) => new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 
 // ---------- tiny test harness ----------
+// opts.real: "read" = also runs against the real player (changes nothing), "write" = also runs against the
+// real player with --write (changes the player; the state is restored afterwards), missing = mock only
+// (needs mock answers: errors, delays, patched status, a second player ...).
 const tests = [];
 const test = (name, fn, opts = {}) => tests.push({ name, fn, opts });
 class AssertError extends Error {}
@@ -69,10 +335,18 @@ const ok = (cond, msg) => {
 };
 const eq = (a, b, msg) =>
   ok(JSON.stringify(a) === JSON.stringify(b), `${msg}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
+// Request counts: exact with the mock; at least with the real player (longer lists come in several pages)
+const eqCount = (a, b, msg) => (REAL ? ok(a >= b, `${msg}: expected at least ${b}, got ${a}`) : eq(a, b, msg));
 
-// Opens the app with a fresh browser profile, connects to the mock player and waits for the default view.
+// Opens the app with a fresh browser profile, connects to the player and waits for the default view.
+// opts: connect (false = stay on the start page), storage (localStorage before start), locale, colorScheme,
+// promptValue / dialog ("accept" | "dismiss") for prompt and confirm, unreachable (every player request
+// fails), blockStorage (localStorage throws), and the mock options (usb, playing, listeningModes,
+// statusPatch, overrides, mock).
 async function start(browser, opts = {}) {
-  const player = createPlayer(opts);
+  const player = REAL ? createRecorder(BASE) : createPlayer(opts);
+  // Now playing at the start of the test (the real player moves on during a run)
+  const st = stOf(REAL ? await player.get("/Status") : TD.STATUS);
   const ctx = await browser.newContext({
     viewport: { width: VIEWPORT.width, height: VIEWPORT.height },
     deviceScaleFactor: VIEWPORT.scale,
@@ -82,12 +356,18 @@ async function start(browser, opts = {}) {
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  page.on("dialog", (d) => d.accept(opts.promptValue));
-  await page.route(`http://${IP}:11000/**`, player.route);
+  // prompt / confirm: answered as dialogs.mode says, every dialog is logged
+  const dialogs = { mode: opts.dialog || "accept", value: opts.promptValue, log: [] };
+  page.on("dialog", (d) => {
+    dialogs.log.push({ type: d.type(), message: d.message(), value: d.defaultValue() });
+    return dialogs.mode === "dismiss" ? d.dismiss() : d.accept(dialogs.value);
+  });
+  await page.route(`http://${IP}:11000/**`, opts.unreachable ? (r) => r.abort() : player.route);
   // GitHub API (update check): records every request; answers with gh.answer = {status, body} or fails.
-  const gh = { urls: [], answer: null };
-  await page.route("https://api.github.com/**", (r) => {
+  const gh = { urls: [], answer: null, delay: 0 };
+  await page.route("https://api.github.com/**", async (r) => {
     gh.urls.push(r.request().url());
+    if (gh.delay) await sleep(gh.delay);
     if (!gh.answer) return r.abort();
     return r.fulfill({
       status: gh.answer.status,
@@ -96,14 +376,35 @@ async function start(browser, opts = {}) {
       body: JSON.stringify(gh.answer.body),
     });
   });
+  if (opts.blockStorage)
+    await page.addInitScript(() =>
+      Object.defineProperty(window, "localStorage", {
+        get() {
+          throw new DOMException("blocked", "SecurityError");
+        },
+      }),
+    );
   if (opts.storage)
     await page.addInitScript((s) => Object.entries(s).forEach(([k, v]) => localStorage.setItem(k, v)), opts.storage);
   await page.goto(APP);
+  const ready = async () => {
+    await page.waitForFunction(() => document.querySelectorAll("#az button").length > 5);
+    await page.waitForFunction(() => !/Loading/.test(document.querySelector("#msg").textContent));
+  };
+  // Connects to `ip` with the settings panel (opens it if needed), wait = wait for the default view
+  const connect = async (ip = IP, wait = true) => {
+    if (!(await page.isVisible("#cform"))) {
+      if (!(await page.$eval("#side", (e) => e.classList.contains("open")))) await page.click("#gear");
+      await page.click("#cchg");
+    }
+    await page.fill("#ip", ip);
+    await page.click("#go");
+    if (wait) await ready();
+  };
   if (opts.connect !== false) {
     await page.fill("#ip", IP);
     await page.click("#go");
-    await page.waitForFunction(() => document.querySelectorAll("#az button").length > 5);
-    await page.waitForFunction(() => !/Loading/.test(document.querySelector("#msg").textContent));
+    await ready();
   }
   const $$text = (sel) => page.$$eval(sel, (x) => x.map((e) => (e.getAttribute("aria-label") || e.textContent).trim()));
   const tiles = () =>
@@ -112,543 +413,1467 @@ async function start(browser, opts = {}) {
     );
   const msg = () => page.textContent("#msg");
   const settle = (ms = 400) => page.waitForTimeout(ms * SLOW);
-  const chip = (name) => page.click(`#az button:text-is("${name}")`);
-  return { page, player, gh, errors, $$text, tiles, msg, settle, chip, close: () => ctx.close() };
+  const chip = (name) =>
+    page.click(name === "Favourites" ? '#az button[aria-label="Favourites"]' : `#az button:text-is("${name}")`);
+  const waitText = (sel, r) =>
+    page.waitForFunction(([s, src]) => new RegExp(src).test(document.querySelector(s)?.textContent || ""), [
+      sel,
+      (r instanceof RegExp ? r : re(r)).source,
+    ]);
+  const waitMsg = (r) => waitText("#msg", r);
+  const waitToast = (r) => waitText("#toast", r);
+  const dec = (x) => {
+    try {
+      return decodeURIComponent(x);
+    } catch {
+      return x;
+    }
+  };
+  // Decoded requests / commands that match a RegExp
+  const reqs = (r) => player.state.requests.map(dec).filter((x) => r.test(x));
+  const cmds = (r) => player.state.commands.filter((x) => r.test(x));
+  // nth-child index of the grid tile with this title (0 = not found)
+  const tileOf = (title) =>
+    page.$$eval(
+      "#grid .item",
+      (x, t) => x.findIndex((e) => e.querySelector(".card:not(.ar) b")?.textContent === t) + 1,
+      title,
+    );
+  const all = async () => {
+    await chip("All");
+    await page.waitForFunction(() => activeKey === "__all" && cache.__all && shown === cache.__all, null, {
+      timeout: REAL ? 120000 : 30000,
+    });
+  };
+  const openPanel = async () => {
+    if (!(await page.$eval("#side", (e) => e.classList.contains("open")))) await page.click("#gear");
+  };
+  const openQueue = async () => {
+    await page.click("#qbtn");
+    await page.waitForSelector("#qlist li");
+  };
+  return {
+    page,
+    player,
+    st,
+    gh,
+    errors,
+    dialogs,
+    $$text,
+    tiles,
+    msg,
+    settle,
+    chip,
+    waitText,
+    waitMsg,
+    waitToast,
+    reqs,
+    cmds,
+    tileOf,
+    all,
+    connect,
+    openPanel,
+    openQueue,
+    close: () => ctx.close(),
+  };
 }
 
-// ---------- scenarios ----------
-test("connect: no playback command on page load (regression)", async (t) => {
-  await t.settle(1200);
-  eq(
-    t.player.state.commands.filter((c) => /^\/(Add|Play|Load)/.test(c)),
-    [],
-    "playback commands after load",
-  );
-});
+// Opens the popup of an album of the current view picked in the page by `find` (a function source).
+const openAlbumBy = (t, find, argv) =>
+  t.page.evaluate(([f, a]) => openAlbum(shown.find((x) => new Function("x", "a", "return " + f)(x, a))), [find, argv]);
+const openLibAlbum = async (t) => {
+  await openAlbumBy(t, "x.key === a.key", TD.ALB_LIB);
+  await t.page.waitForSelector("#tracks li button");
+};
+const R = { real: "read" };
+const W = { real: "write" };
+// needs a USB drive (a second source); skipped on a player without one
+const U = { real: "read", needs: "usb" };
 
-test("connect: only the requests the first view needs (no genre crawl, stats, versions, one-off status)", async (t) => {
-  await t.settle(1200);
-  const r = t.player.state.requests.map((x) => decodeURIComponent(x));
-  eq(r.filter((x) => /MG\/Genres\?genre=/.test(x)).length, 0, "no genre crawl");
-  eq(
-    r.filter((x) => /^\/(GitVersion|Version)$/.test(x)),
-    [],
-    "no version requests",
-  );
-  eq(
-    r.filter((x) => /bySection:(Album|Artist|Song|Composer)/.test(x)),
-    [],
-    "no statistics requests",
-  );
-  eq(
-    r.filter((x) => /^\/Status$|^\/Volume$/.test(x)),
-    [],
-    "no one-off /Status or /Volume",
-  );
-  ok(
-    r.some((x) => /^\/Status\?timeout=100/.test(x)),
-    "status long polling runs",
-  );
-  ok(
-    r.some((x) => /^\/Settings$/.test(x)),
-    "settings (room name)",
-  );
-});
-
-test("about: statistics and versions are loaded when the popup opens, once", async (t) => {
-  const count = () =>
-    t.player.state.requests
-      .map((x) => decodeURIComponent(x))
-      .filter((x) => /^\/(GitVersion|Version)$|bySection:(Album|Artist|Song|Composer)/.test(x)).length;
-  eq(count(), 0, "nothing before the popup");
-  await t.page.click("#gear");
-  await t.page.click("#aboutb");
-  await t.page.waitForFunction(
-    () =>
-      /BluOS version/.test(document.querySelector("#infodlg").textContent) &&
-      /Composers\s*[\d,]/.test(document.querySelector("#infodlg").textContent),
-  );
-  const n = count();
-  eq(n, 2 + 4 * 2, "versions + 4 statistics lists per source");
-  await t.page.click("#infoclose");
-  await t.page.click("#aboutb");
-  await t.settle(300);
-  eq(count(), n, "second opening: no new requests");
-});
-
-test("connect: compact connection line shows room and IP", async (t) => {
-  await t.page.click("#gear");
-  ok(await t.page.isVisible("#cline"), "connection line visible");
-  ok(!(await t.page.isVisible("#cform")), "IP form hidden");
-  ok((await t.page.textContent("#cip")).includes(IP), "IP shown");
-});
-
-test("connect: source switches for Library and USB", async (t) => {
-  const rows = await t.page.$$eval("#srcl .srow", (x) =>
-    x.map((e) => e.textContent.trim() + "=" + e.querySelector(".sw").getAttribute("aria-checked")),
-  );
-  eq(rows, ["Library=true", "USB=true"], "source rows");
-});
+// ---------- 4.1 Connection & start (CON) ----------
+test(
+  "CON-01 start page without stored IP: panel open, no request",
+  async (t) => {
+    await t.settle(800);
+    ok(await t.page.$eval("#side", (e) => e.classList.contains("open")), "settings panel open");
+    eq(await t.page.inputValue("#ip"), "", "IP field empty");
+    ok(await t.page.getAttribute("#ip", "placeholder"), "placeholder");
+    ok(await t.page.isVisible("#iphelp"), "help text visible");
+    ok(/Connect/.test(await t.msg()), "status line asks to connect");
+    eq(t.player.state.requests, [], "no request to the player");
+  },
+  { ...R, connect: false },
+);
 
 test(
-  "connect: without USB drive only Library is offered",
+  "CON-02 stored IP is restored, no automatic connect",
+  async (t) => {
+    await t.settle(800);
+    eq(await t.page.inputValue("#ip"), IP, "IP restored");
+    ok(await t.page.$eval("#side", (e) => e.classList.contains("open")), "panel open");
+    eq(t.player.state.requests, [], "no request to the player");
+  },
+  { ...R, connect: false, storage: { ip: IP } },
+);
+
+test(
+  "CON-03 CON-04 connect with Enter: views loaded, IP stored, panel closed",
+  async (t) => {
+    await t.page.fill("#ip", IP);
+    await t.page.press("#ip", "Enter");
+    await t.page.waitForFunction(() => document.querySelectorAll("#az button").length > 5);
+    await t.waitMsg(/in favourites/);
+    eq(await t.page.evaluate(() => localStorage.getItem("ip")), IP, "IP stored");
+    ok(!(await t.page.$eval("#side", (e) => e.classList.contains("open"))), "panel closed");
+    eq(t.reqs(TOP).length, 1, "top menu read");
+  },
+  { ...R, connect: false },
+);
+
+test(
+  "CON-05 IP input is normalised (scheme, port and path removed)",
+  async (t) => {
+    await t.page.fill("#ip", `http://${IP}:11000/x`);
+    await t.page.click("#go");
+    await t.page.waitForFunction(() => document.querySelectorAll("#az button").length > 5);
+    eq(await t.page.inputValue("#ip"), IP, "IP field");
+    ok(t.player.state.requests.length > 0, "requests reach the player");
+  },
+  { ...R, connect: false },
+);
+
+test(
+  "CON-06 empty IP: error, panel open, IP field focused, no request",
+  async (t) => {
+    await t.page.click("#go");
+    await t.waitMsg("Please enter the IP address of your player.");
+    ok(await t.page.$eval("#msg", (e) => e.className === "err"), "shown as error");
+    ok(await t.page.$eval("#side", (e) => e.classList.contains("open")), "panel open");
+    await t.page.waitForFunction(() => document.activeElement.id === "ip");
+    eq(t.player.state.requests, [], "no request");
+  },
+  { ...R, connect: false },
+);
+
+test(
+  "CON-07 player not reachable: LAN permission message, IP form stays",
+  async (t) => {
+    await t.page.fill("#ip", IP);
+    await t.page.click("#go");
+    const lan = await t.page.evaluate(() => LAN_MSG);
+    await t.page.waitForFunction(() => document.querySelector("#msg").className === "err");
+    eq(await t.msg(), lan, "LAN message");
+    ok(await t.page.isVisible("#cform"), "IP form visible");
+    ok(await t.page.isVisible("#iphelp"), "help text visible");
+    ok(await t.page.$eval("#side", (e) => e.classList.contains("open")), "panel open");
+  },
+  { ...R, connect: false, unreachable: true },
+);
+
+test(
+  "CON-08 player without music source: error, panel open",
+  async (t) => {
+    await t.connect(IP, false);
+    await t.waitMsg("No USB or library source found");
+    ok(await t.page.$eval("#msg", (e) => e.className === "err"), "shown as error");
+    ok(await t.page.$eval("#side", (e) => e.classList.contains("open")), "panel open");
+  },
+  {
+    connect: false,
+    overrides: [{ match: TOP, edit: (x) => x.replace(/\s*<item [^>]*(USBIcon|LibraryIcon)[^>]*><\/item>/g, "") }],
+  },
+);
+
+test(
+  "CON-09 compact connection line shows room and IP",
+  async (t) => {
+    await t.page.click("#gear");
+    ok(await t.page.isVisible("#cline"), "connection line visible");
+    ok(!(await t.page.isVisible("#cform")), "IP form hidden");
+    ok((await t.page.textContent("#cip")).includes(IP), "IP shown");
+    eq(await t.page.textContent("#cname"), TD.SET.room, "room name");
+  },
+  R,
+);
+
+test(
+  "CON-10 Change shows the IP form with the IP selected",
+  async (t) => {
+    await t.page.click("#gear");
+    await t.page.click("#cchg");
+    ok(await t.page.isVisible("#cform"), "IP form visible");
+    ok(!(await t.page.isVisible("#cline")), "connection line hidden");
+    ok(
+      await t.page.evaluate(() => {
+        const i = document.activeElement;
+        return i.id === "ip" && i.selectionStart === 0 && i.selectionEnd === i.value.length && i.value.length > 0;
+      }),
+      "IP field focused and selected",
+    );
+  },
+  R,
+);
+
+test(
+  "CON-11 room name as tab title",
+  async (t) => {
+    await t.page.waitForFunction((n) => document.title === n, TD.SET.room);
+  },
+  R,
+);
+
+test("CON-12 changing the player forgets the previous one", async (t) => {
+  const second = createPlayer();
+  await t.page.route(`http://${IP2}:11000/**`, second.route);
+  // a slow "All" of the first player must not show up after the change
+  t.player.state.overrides.push({ match: /:S:Album\//, delay: 2500 });
+  await t.chip("All");
+  await t.openQueue();
+  await t.connect(IP2);
+  await t.waitMsg(/in favourites/);
+  const n1 = t.player.state.requests.length;
+  await t.settle(3500);
+  eq(t.player.state.requests.length, n1, "no more requests to the first player");
+  ok(/in favourites/.test(await t.msg()), "late result of the first player dropped");
+  eq(await t.page.getAttribute('#az button[aria-label="Favourites"]', "aria-pressed"), "true", "default view");
+  eq(await t.page.inputValue("#q"), "", "search field empty");
+  ok(
+    second.state.requests.some((r) => /^\/Playlist\?/.test(r)),
+    "queue read from the second player",
+  );
+  ok((await t.page.textContent("#cip")).includes(IP2), "new IP shown");
+});
+
+// ---------- 4.2 Music sources (SRC) ----------
+test(
+  "SRC-01 one switch per source, named by the player, all on",
+  async (t) => {
+    const rows = await t.page.$$eval("#srcl .srow", (x) =>
+      x.map((e) => e.textContent.trim() + "=" + e.querySelector(".sw").getAttribute("aria-checked")),
+    );
+    eq(
+      rows,
+      TD.SRC.map((s) => s.text + "=true"),
+      "source rows",
+    );
+  },
+  R,
+);
+
+test(
+  "SRC-02 without USB drive only the library is offered",
   async (t) => {
     const rows = await t.page.$$eval("#srcl .srow", (x) => x.map((e) => e.textContent.trim()));
-    eq(rows, ["Library"], "source rows");
+    eq(
+      rows,
+      TD.SRC.filter((s) => !/USBIcon/.test(s.image)).map((s) => s.text),
+      "source rows",
+    );
   },
   { usb: false },
 );
 
-test("chips: special chips, genres and playlists in one row", async (t) => {
-  const c = await t.$$text("#az button");
-  eq(c.slice(0, 6), ["All", "Favourites", "New", "HD", "CD", "MQA"], "special chips");
-  ok(c.includes("Alternative Rock") && c.includes("Soundtrack"), "genres of both sources");
-  ok(c.includes("IG test") && c.includes("TTT"), "playlist chips");
-});
+test(
+  "SRC-03 source switch off -> only the other source",
+  async (t) => {
+    await t.page.click("#gear");
+    await t.page.click("#srcl .srow:nth-child(2) .sw"); // USB off
+    await t.settle(800);
+    await t.page.keyboard.press("Escape"); // close the panel
+    await t.waitMsg(/favourites/);
+    const c = await t.$$text("#az button");
+    ok(
+      TD.GEN_LIB.every((g) => c.includes(g)) &&
+        TD.GEN_USB.filter((g) => !TD.GEN_LIB.includes(g)).every((g) => !c.includes(g)),
+      "chips rebuilt from the library",
+    );
+    await t.chip("New");
+    await t.settle();
+    ok(!(await t.tiles()).some((x) => TD.NEW_USB.includes(x) && !TD.NEW_LIB.includes(x)), "no USB album");
+  },
+  U,
+);
 
-test("favourites: default view, from /library category=FAVOURITES", async (t) => {
+test("SRC-04 switch state is stored per player", async (t) => {
+  await t.page.click("#gear");
+  await t.page.click("#srcl .srow:nth-child(2) .sw"); // USB off
+  await t.settle(800);
   eq(
-    await t.page.getAttribute('#az button[aria-label="Favourites"]', "aria-pressed"),
-    "true",
-    "favourites chip selected",
+    await t.page.evaluate((b) => JSON.parse(localStorage.getItem("srcoff:" + b)), BASE),
+    [USB + ":"],
+    "stored for this player",
   );
-  const tl = await t.tiles();
-  eq(tl.length, 5, "5 favourite albums");
-  ok(tl.includes("Brothers In Arms"), "contains a recorded favourite");
-  ok(
-    t.player.state.requests.some((r) => /library\/v1\/Albums.*category=FAVOURITES/.test(r)),
-    "uses the library endpoint",
-  );
+  await t.page.reload();
+  await t.page.click("#go");
+  await t.page.waitForFunction(() => document.querySelectorAll("#az button").length > 5);
+  const checked = () => t.page.$$eval("#srcl .sw", (x) => x.map((e) => e.getAttribute("aria-checked")));
+  eq(await checked(), ["true", "false"], "USB still off after reload");
+  const second = createPlayer();
+  await t.page.route(`http://${IP2}:11000/**`, second.route);
+  await t.connect(IP2);
+  eq(await checked(), ["true", "true"], "another player starts with all sources on");
 });
 
-test("new: library + USB, newest first per source", async (t) => {
+test(
+  "SRC-05 all sources off: message, no genre chips, playlist chips stay",
+  async (t) => {
+    await t.page.click("#gear");
+    await t.page.click("#srcl .srow:nth-child(1) .sw");
+    await t.settle(800);
+    await t.page.click("#srcl .srow:nth-child(2) .sw");
+    await t.waitMsg("No music source enabled. Switch one on in the settings panel.");
+    eq(await t.page.$$eval("#az button:not(.plc)", (x) => x.length), 0, "no genre chips");
+    eq(await t.page.$$eval("#az .plc", (x) => x.length), TD.PL.length, "playlist chips");
+  },
+  U,
+);
+
+test(
+  "SRC-06 two sources with the same name are told apart by their key",
+  async (t) => {
+    const rows = await t.page.$$eval("#srcl .srow", (x) => x.map((e) => e.textContent.trim()));
+    const usb = TD.SRC.find((s) => /USBIcon/.test(s.image));
+    ok(rows.includes(`${usb.text} (${USB})`) && rows.includes(`${usb.text} (5E6F_7A8B)`), "rows: " + rows.join(", "));
+  },
+  {
+    overrides: [
+      {
+        match: TOP,
+        edit: (x) =>
+          x.replace(
+            "</browse>",
+            '<item browseKey="5E6F_7A8B:" text="USB" image="/images/USBIcon.png" type="link"></item></browse>',
+          ),
+      },
+    ],
+  },
+);
+
+// ---------- 4.3 Chips & views (CHP) ----------
+test(
+  "CHP-01 PLS-01 chip row: special chips, genres of both sources, playlists",
+  async (t) => {
+    const c = await t.$$text("#az button");
+    const lead = await t.page.evaluate(() => QUALITIES.map((q) => q[1]));
+    eq(c.slice(0, 3 + lead.length), ["All", "Favourites", "New", ...lead], "special chips");
+    eq(c.slice(3 + lead.length, 3 + lead.length + TD.GEN.length), TD.GEN, "genres of both sources, A-Z");
+    eq(
+      c.slice(-TD.PL.length),
+      TD.PL.map((p) => p.text),
+      "playlist chips at the end",
+    );
+    eq(
+      await t.page.$$eval("#az .plc", (x) => x.map((e) => e.title)),
+      TD.PL.map((p) => `Play playlist \u201C${p.text}\u201D`),
+      "playlist tooltips",
+    );
+    ok(await t.page.$("#az .plg + .plc"), "separator before the playlists");
+  },
+  R,
+);
+
+test(
+  "CHP-02 GRD-01 favourites: default view, tiles with cover, title and artist",
+  async (t) => {
+    eq(await t.page.getAttribute('#az button[aria-label="Favourites"]', "aria-pressed"), "true", "favourites chip");
+    eq(
+      (await t.page.evaluate(() => shown.map((a) => a.t + "|" + a.a))).sort(),
+      TD.FAV.map((f) => f.t + "|" + f.a).sort(),
+      "favourite albums",
+    );
+    const tl = await t.page.$$eval("#grid .item:not(:first-child)", (x) =>
+      x.map((e) => ({
+        t: e.querySelector(".card:not(.ar) b").textContent,
+        a: e.querySelector(".card.ar span").textContent,
+        label: e.querySelector(".card.ar").getAttribute("aria-label"),
+        img: !!e.querySelector(".cov img"),
+      })),
+    );
+    ok(
+      tl.length && tl.every((x) => x.img && x.label === "Albums by " + x.a),
+      "cover and artist button",
+    );
+    eqCount(
+      t.reqs(/^\/library\/v1\/Albums.*category=FAVOURITES/).length,
+      TD.SRC.length,
+      "library endpoint asked per source",
+    );
+    ok(/in favourites/.test(await t.msg()), "status line");
+    await t.page.click("#grid .item:nth-child(2) .cw .card");
+    await t.page.waitForSelector("#dlg[open]");
+    eq(await t.page.textContent("#dt"), tl[0].t, "cover opens the popup");
+    await t.page.click("#close");
+    await t.page.click("#grid .item:nth-child(3) > .card:not(.ar)");
+    await t.page.waitForSelector("#dlg[open]");
+    eq(await t.page.textContent("#dt"), tl[1].t, "title opens the popup");
+  },
+  R,
+);
+
+test(
+  "CHP-03 GRD-05 no favourites: message, no tiles",
+  async (t) => {
+    eq(await t.msg(), "No favourite albums yet.", "status line");
+    eq(await t.page.$$eval("#grid .item", (x) => x.length), 0, "no tiles, no random tile");
+  },
+  { overrides: [{ match: /category=FAVOURITES/, body: '<albums category="FAVOURITES"></albums>' }] },
+);
+
+test(
+  "CHP-04 new: library + USB, newest first per source",
+  async (t) => {
+    await t.chip("New");
+    await t.waitMsg(/recently added, newest first/);
+    eq(await t.page.evaluate(() => shown.map((a) => a.t)), [...TD.NEW_LIB, ...TD.NEW_USB], "order");
+    if (TD.NEW_USB.length) ok((await t.tiles()).includes(TD.NEW_USB[0]) || TD.NEW_LIB.length >= 59, "USB album shown");
+  },
+  R,
+);
+
+test(
+  "CHP-05 CHP-07 quality CD: one request per filled section, cached, sections shared with All",
+  async (t) => {
+    await t.chip("CD");
+    await t.waitMsg(/CD quality|No CD/);
+    const reqs = t.player.state.requests.filter((r) => /quality=cd/.test(r));
+    eq(reqs.length, TD.FILLED_LIB.length + TD.FILLED_USB.length, "one request per filled section of every source");
+    ok(
+      reqs.every((r) => /limit=500/.test(r)),
+      "limit=500",
+    );
+    eq(
+      reqs
+        .filter((r) => TD.USB && new RegExp("service=" + TD.USB).test(r))
+        .map((r) => new URL("http://x" + r).searchParams.get("section"))
+        .sort(),
+      TD.FILLED_USB.map((s) => s.text).sort(),
+      "USB sections",
+    );
+    ok((await t.tiles()).length > 0, "albums shown");
+    ok(/in CD quality/.test(await t.msg()), "status line");
+    await t.all();
+    await t.chip("CD");
+    await t.settle();
+    eq(t.player.state.requests.filter((r) => /quality=cd/.test(r)).length, reqs.length, "second click served from cache");
+    eq(t.reqs(/bySection:Album/).length, TD.SRC.length, "album sections asked once per source (shared by CD and All)");
+  },
+  R,
+);
+
+test(
+  "CHP-06 quality HD and MQA: filter values, empty result",
+  async (t) => {
+    await t.chip("HD");
+    await t.waitMsg(/in HD quality|No HD albums/);
+    ok(t.reqs(/quality=hr/).length > 0, "HD asks quality=hr");
+    await t.chip("MQA");
+    await t.waitMsg("No MQA albums.");
+    ok(t.reqs(/quality=mqa/).length > 0, "MQA asks quality=mqa");
+  },
+  { overrides: [{ match: /quality=mqa/, body: "<albums><sections></sections></albums>" }] },
+);
+
+test(
+  "CHP-08 all: every filled section, progress, A-Z across sources",
+  async (t) => {
+    await t.page.evaluate(() => {
+      window.__msgs = [];
+      const m = document.querySelector("#msg");
+      new MutationObserver(() => window.__msgs.push(m.textContent)).observe(m, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    });
+    await t.all();
+    const n = TD.FILLED_LIB.length + TD.FILLED_USB.length;
+    eqCount(t.reqs(/:S:Album\//).length, n, "one request per filled section (more when a section has several pages)");
+    ok(
+      (await t.page.evaluate(() => window.__msgs)).some((m) => new RegExp(`^Loading all albums \u2026 \\d+/${n}$`).test(m)),
+      "progress n/N",
+    );
+    // several sources are joined A-Z; one source keeps the order of the player's sections
+    if (TD.SRC.length > 1)
+      ok(
+        await t.page.evaluate(() => shown.every((a, i) => !i || shown[i - 1].t.localeCompare(a.t) <= 0)),
+        "sorted A-Z",
+      );
+    eq(await t.msg(), nAlb(TD.ALL_COUNT), "status line");
+    ok((await t.tiles()).length > 0, "albums shown");
+  },
+  R,
+);
+
+test(
+  "CHP-09 CHP-10 CHP-11 genre: albums of a genre, only its sources, cached",
+  async (t) => {
+    await t.chip(TD.GEN_ONE);
+    await t.waitMsg(/^\d+ albums?$/);
+    ok((await t.tiles()).length > 0, "albums shown");
+    ok(t.reqs(new RegExp(`key=${TD.LIB}:MG/Genres\\?genre=`)).length > 0, "genre menu of the library");
+    if (TD.USB) eq(t.reqs(new RegExp(`key=${TD.USB}:MG/Genres\\?genre=`)).length, 0, "no request to the other source");
+    // covers (/Artwork) are read again for the new tiles, the album lists are not
+    const lists = () => t.reqs(/^\/(Browse|library)/).length;
+    await t.all();
+    const m = lists();
+    await t.chip(TD.GEN_ONE);
+    await t.waitMsg(/^\d+ albums?$/);
+    eq(lists(), m, "second click from the session cache");
+  },
+  R,
+);
+
+test("CHP-12 outdated result is dropped, All stops loading", async (t) => {
+  t.player.state.overrides.push({ match: /:S:Album\//, delay: 1500 });
+  await t.chip("All");
+  await t.settle(100);
   await t.chip("New");
-  await t.settle();
-  const tl = await t.tiles();
-  ok(tl.length > 10, "albums shown");
-  ok(tl.includes("Hellboy II: The Golden Army"), "USB album included");
-  ok(/recently added/.test(await t.msg()), "status line");
+  await t.waitMsg(/recently added/);
+  await t.settle(3000);
+  ok(/recently added/.test(await t.msg()), "New still shown");
+  eq(await t.page.getAttribute('#az button:text-is("New")', "aria-pressed"), "true", "New selected");
+  eq(await t.page.evaluate(() => shown.length), TD.NEW_LIB.length + TD.NEW_USB.length, "albums of New");
+  ok(t.reqs(/:S:Album\//).length <= 3, "All stopped after the running requests");
 });
 
-test("quality CD: one request per section with albums, results from section A", async (t) => {
-  await t.chip("CD");
-  await t.page.waitForFunction(() => /CD quality|No CD/.test(document.querySelector("#msg").textContent));
-  const reqs = t.player.state.requests.filter((r) => /quality=cd/.test(r));
-  eq(reqs.length, 27 + 2, "library: 27 filled sections, USB: only its 2 filled sections");
-  eq(
-    reqs
-      .filter((r) => /service=1A2B_3C4D/.test(r))
-      .map((r) => new URL("http://x" + r).searchParams.get("section"))
-      .sort(),
-    ["A", "S"],
-    "USB sections",
-  );
-  ok((await t.tiles()).length > 0, "albums shown");
-  await t.chip("All");
-  await t.settle();
-  await t.chip("CD");
-  await t.settle();
-  eq(t.player.state.requests.filter((r) => /quality=cd/.test(r)).length, 29, "second click served from cache");
-  eq(
-    t.player.state.requests.filter((r) => /bySection%3AAlbum|bySection:Album/.test(decodeURIComponent(r))).length,
-    2,
-    "album sections asked once per source (shared by CD and All)",
-  );
-});
+test(
+  "CHP-13 selecting a chip clears the search",
+  async (t) => {
+    await t.page.fill("#q", TD.TERM);
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(/for/);
+    await t.chip("New");
+    await t.waitMsg(/recently added/);
+    eq(await t.page.inputValue("#q"), "", "search field empty");
+    eq(await t.page.getAttribute('#az button:text-is("New")', "aria-pressed"), "true", "chip pressed");
+  },
+  R,
+);
 
-test("all: albums from the sections", async (t) => {
-  await t.chip("All");
-  await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
-  ok((await t.tiles()).length > 20, "albums shown");
-});
-
-test("genre: albums of a genre", async (t) => {
-  await t.chip("Alternative Rock");
-  await t.page.waitForFunction(() => /album|No albums/i.test(document.querySelector("#msg").textContent));
-  ok((await t.tiles()).length > 0, "albums shown");
-});
-
-test("grid: random album tile first, play button picks from the view", async (t) => {
-  const first = await t.page.textContent("#grid .item:first-child b");
-  eq(first, "Random album", "first tile");
-  await t.page.hover("#grid .item:first-child");
-  await t.page.click("#grid .item:first-child .play:not(.addq)");
-  await t.settle();
-  ok(
-    t.player.state.commands.some((c) => /^\/Add\?playnow=1/.test(c)),
-    "play command sent",
-  );
-  await t.settle(1200);
-  eq(
-    t.player.state.requests.filter((x) => /^\/Status$|^\/Volume$/.test(x)),
-    [],
-    "no one-off /Status or /Volume after the command (long polling reports the change)",
-  );
-});
-
-test("grid: lazy rendering in batches of 60", async (t) => {
-  // The recorded lists are short (New: 70), so New is rendered five times over; a large window
-  // fills itself with more than one batch, so only whole batches and not everything are expected
+test("CHP-14 loading error is shown in the status line", async (t) => {
+  t.player.state.overrides.push({ match: /recent=1/, status: 500 });
   await t.chip("New");
-  await t.settle();
-  const total = await t.page.evaluate(() => {
-    const list = Array(5).fill(shown).flat();
-    render(list);
-    return list.length;
-  });
-  await t.settle();
-  const rendered = await t.page.$$eval("#grid .item", (x) => x.length - 1);
-  ok(rendered > 0 && rendered % 60 === 0 && rendered < total, `rendered ${rendered} of ${total}`);
+  await t.waitMsg("Loading failed: Player responded with 500");
+  ok(await t.page.$eval("#msg", (e) => e.className === "err"), "shown as error");
 });
 
-test("popup: details and source line, no buttons", async (t) => {
-  await t.chip("All");
-  await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
-  await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic"))));
+// ---------- 4.4 Album grid (GRD) ----------
+test(
+  "GRD-02 random album tile first, number of albums, no popup",
+  async (t) => {
+    eq(await t.page.textContent("#grid .item:first-child b"), "Random album", "first tile");
+    eq(await t.page.textContent("#grid .item:first-child span"), "from " + nAlb(TD.FAV.length), "number of albums");
+    await t.page.click("#grid .item:first-child .card");
+    await t.settle(300);
+    ok(!(await t.page.$("#dlg[open]")), "no popup");
+  },
+  R,
+);
+
+test(
+  "GRD-03 random album: play button picks from the view",
+  async (t) => {
+    await t.page.hover("#grid .item:first-child");
+    await t.page.click("#grid .item:first-child .play:not(.addq)");
+    await t.waitToast(/^Playing: .+ \u2013 .+$/);
+    const plays = await t.page.evaluate(() => shown.map((a) => decodeURIComponent(a.play)));
+    ok(
+      t.cmds(/^\/Add\?playnow=1/).some((c) => plays.includes(c)),
+      "play command of an album of the view",
+    );
+    await t.settle(1200);
+    eq(
+      t.player.state.requests.filter((x) => /^\/Status$|^\/Volume$/.test(x)),
+      [],
+      "no one-off /Status or /Volume after the command (long polling reports the change)",
+    );
+  },
+  W,
+);
+
+test(
+  "GRD-04 random album: add last, album without queue URL",
+  async (t) => {
+    await t.page.hover("#grid .item:first-child");
+    await t.page.click("#grid .item:first-child .addq");
+    await t.waitToast(/^Added to queue: .+ \u2013 .+$/);
+    eq(t.cmds(/where=last/).length, 1, "add last sent");
+    await t.page.evaluate(() =>
+      render([{ t: "Test album", a: "Test artist", n: "", img: "", key: "LocalMusic:x", cm: "", play: "/Add?test=1", menu: {} }]),
+    );
+    await t.page.hover("#grid .item:first-child");
+    await t.page.click("#grid .item:first-child .addq");
+    await t.waitToast("Could not add Test album");
+    eq(t.cmds(/where=last/).length, 1, "nothing sent");
+  },
+  W,
+);
+
+test(
+  "GRD-06 lazy rendering in batches of 60",
+  async (t) => {
+    // The view is rendered five times over, so it has more than one batch; a large window fills itself
+    // with more than one batch, so only whole batches and not everything are expected
+    await t.chip("New");
+    await t.settle();
+    const total = await t.page.evaluate(() => {
+      const list = Array(5).fill(shown).flat();
+      render(list);
+      return list.length;
+    });
+    await t.settle();
+    const rendered = await t.page.$$eval("#grid .item", (x) => x.length - 1);
+    ok(rendered > 0 && rendered % 60 === 0 && rendered < total, `rendered ${rendered} of ${total}`);
+  },
+  R,
+);
+
+test(
+  "GRD-07 cover hover buttons: play, add last, heart",
+  async (t) => {
+    const tile = "#grid .item:nth-child(2)";
+    await t.page.hover(tile);
+    ok(await t.page.isVisible(tile + " .play:not(.addq):not(.favc)"), "play");
+    ok(await t.page.isVisible(tile + " .addq"), "add last");
+    ok(await t.page.isVisible(tile + " .favc"), "heart");
+  },
+  R,
+);
+
+test(
+  "GRD-08 GRD-09 cover buttons: play the album, add it last",
+  async (t) => {
+    const tile = "#grid .item:nth-child(2)";
+    const a = await t.page.evaluate(() => ({ t: shown[0].t, play: decodeURIComponent(shown[0].play) }));
+    await t.page.hover(tile);
+    await t.page.click(tile + " .play:not(.addq):not(.favc)");
+    await t.waitToast("Playing: " + a.t);
+    ok(t.player.state.commands.includes(a.play), "play URL of the album");
+    await t.page.click(tile + " .addq");
+    await t.waitToast("Added to queue: " + a.t);
+    eq(t.cmds(/where=last/).length, 1, "add last sent");
+  },
+  W,
+);
+
+// ---------- 4.5 Favourites (FAV) ----------
+test(
+  "FAV-01 favourite shows a filled heart",
+  async (t) => {
+    const tile = "#grid .item:nth-child(2)";
+    const title = await t.page.textContent(tile + " .card:not(.ar) b");
+    await t.page.hover(tile);
+    eq(await t.page.getAttribute(tile + " .favc", "aria-pressed"), "true", "filled heart");
+    eq(await t.page.getAttribute(tile + " .favc", "aria-label"), "Remove from favourites: " + title, "label");
+  },
+  R,
+);
+
+test(
+  "FAV-02 FAV-06 remove a favourite via the player, no local storage",
+  async (t) => {
+    const tile = "#grid .item:nth-child(2)";
+    await t.page.hover(tile);
+    await t.page.click(tile + " .favc");
+    await t.waitToast("Removed from favourites");
+    eq(t.cmds(/^\/DeleteFavourite/).length, 1, "DeleteFavourite sent");
+    await t.page.waitForFunction((s) => document.querySelector(s).getAttribute("aria-pressed") === "false", tile + " .favc");
+    const cm = t.reqs(/CM\/LocalMusic-Album/);
+    ok(cm.length === 1 && !/isFavourite=1/.test(cm[0]), "context menu read again without isFavourite=1");
+    eq(
+      await t.page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("fav:"))),
+      [],
+      "no local favourites",
+    );
+    if (REAL) {
+      // add the favourite again
+      await t.page.click(tile + " .favc");
+      await t.waitToast("Added to favourites");
+    }
+  },
+  W,
+);
+
+test(
+  "FAV-03 add a favourite via the player",
+  async (t) => {
+    await t.all();
+    // a library album among the rendered tiles that is no favourite
+    const i = await t.page.evaluate(
+      (lib) => shown.findIndex((a, k) => k < 60 && a.key.startsWith(lib) && a.menu["favourite-add"]) + 2,
+      TD.LIB,
+    );
+    ok(i > 1, "library album that is no favourite");
+    const heart = `#grid .item:nth-child(${i}) .favc`;
+    await t.page.hover(`#grid .item:nth-child(${i})`);
+    eq(await t.page.getAttribute(heart, "aria-pressed"), "false", "empty heart");
+    await t.page.click(heart);
+    await t.waitToast("Added to favourites");
+    eq(t.cmds(/^\/AddFavourite/).length, 1, "AddFavourite sent");
+    await t.page.waitForFunction((s) => document.querySelector(s).getAttribute("aria-pressed") === "true", heart);
+    eq(t.reqs(/CM\/LocalMusic-Album.*isFavourite=1/).length, 1, "context menu read again with isFavourite=1");
+    if (REAL) {
+      // remove the favourite again
+      await t.page.click(heart);
+      await t.waitToast("Removed from favourites");
+    }
+  },
+  W,
+);
+
+test(
+  "FAV-04 USB album has no heart",
+  async (t) => {
+    await t.chip("New");
+    await t.settle();
+    const i = await t.page.evaluate((usb) => shown.findIndex((a) => usb && a.key.startsWith(usb)), TD.USB);
+    ok(i >= 0, "USB album in New");
+    const tile = "#grid .item:nth-child(" + (i + 2) + ")";
+    await t.page.evaluate((s) => document.querySelector(s)?.scrollIntoView(), tile);
+    await t.page.hover(tile);
+    ok(!(await t.page.isVisible(tile + " .favc")), "heart hidden");
+  },
+  U,
+);
+
+test("FAV-05 failed toggle: toast, heart unchanged", async (t) => {
+  t.player.state.overrides.push({ match: /^\/DeleteFavourite/, status: 500 });
+  const tile = "#grid .item:nth-child(2)";
+  await t.page.hover(tile);
+  await t.page.click(tile + " .favc");
+  await t.waitToast("Failed");
+  eq(await t.page.getAttribute(tile + " .favc", "aria-pressed"), "true", "heart unchanged");
+});
+
+// ---------- 4.6 Artist view (ART) ----------
+test(
+  "ART-01 ART-02 ART-04 artist: albums via the artist's browse menu, favourites marked, cached",
+  async (t) => {
+    ok(TD.ART, "a favourite whose artist has albums");
+    const tile = await t.page.$$eval(
+      "#grid .item",
+      (x, a) => x.findIndex((e) => e.querySelector(".card.ar span")?.textContent === a),
+      TD.ART,
+    );
+    ok(tile > 0, "artist tile in the favourites");
+    const before = t.player.state.requests.length;
+    await t.page.click(`#grid .item:nth-child(${tile + 1}) .card.ar`);
+    await t.waitMsg(/^\d+ albums? by /);
+    eq(await t.msg(), nAlb(TD.ART_ALBUMS.length) + " by " + TD.ART, "status line");
+    const albums = await t.page.evaluate(() =>
+      shown.map((a) => ({ t: a.t, a: a.a, fav: favOf(a).on, ok: !!(a.play && a.menu["addAll-last"]) })),
+    );
+    eq(albums.map((a) => a.t).sort(), TD.ART_ALBUMS.map((a) => a.text).sort(), "albums of the artist");
+    ok(
+      albums.every((a) => a.a === TD.ART && a.ok),
+      "only albums of the artist, play and queue URLs from the player",
+    );
+    const r = t.player.state.requests.slice(before).map((x) => decodeURIComponent(x));
+    eq(
+      r.filter((x) => /bySection:Album|S:Album\//.test(x)),
+      [],
+      "All list not loaded",
+    );
+    eqCount(
+      r.filter((x) => /^\/Browse/.test(x) && !/CM\/LocalMusic-Album/.test(x)).length,
+      2 * TD.SRC.length,
+      "artist menu + albums link per source",
+    );
+    // The artist list does not mark favourites (Bruno E17): the app compares with the player's favourites
+    // (library only) and reads the context menu of each favourite with &isFavourite=1.
+    eq(
+      r.filter((x) => /^\/library\/v1\/Albums\?/.test(x) && !/start=/.test(x)),
+      [`/library/v1/Albums?service=${TD.LIB}&category=FAVOURITES`],
+      "favourites of the library asked once",
+    );
+    eq(
+      r.filter((x) => /CM\/LocalMusic-Album/.test(x)).sort(),
+      TD.FAV_ART.map(
+        (a) => "/Browse?withContextMenuItems=1&key=" + a.contextMenuKey.replace(/&isFavourite=1/, "") + "&isFavourite=1",
+      ).sort(),
+      "context menu read only for the favourites",
+    );
+    eq(
+      albums
+        .filter((a) => a.fav)
+        .map((a) => a.t)
+        .sort(),
+      TD.FAV_ART.map((a) => a.text).sort(),
+      "favourites marked, the others not",
+    );
+    const fav = TD.FAV_ART[0];
+    const i = await t.tileOf(fav.text);
+    await t.page.hover(`#grid .item:nth-child(${i})`);
+    eq(await t.page.getAttribute(`#grid .item:nth-child(${i}) .favc`, "aria-pressed"), "true", "filled heart");
+    ok(
+      await t.page.evaluate(
+        (x) => /^\/DeleteFavourite/.test(shown.find((a) => a.t === x).menu["favourite-delete"] || ""),
+        fav.text,
+      ),
+      "remove URL from the player's context menu",
+    );
+    await t.chip("New");
+    await t.settle();
+    const n = t.player.state.requests.length;
+    await t.page.evaluate((a) => showArtist(a), TD.ART);
+    await t.waitMsg(/^\d+ albums? by /);
+    eq(
+      t.player.state.requests.slice(n).filter((x) => /^\/Browse/.test(x)).length,
+      0,
+      "second time from the session cache",
+    );
+  },
+  R,
+);
+
+test(
+  "ART-03 artist link in the popup closes it and shows the artist",
+  async (t) => {
+    await t.page.evaluate(() => scrollTo(0, 200));
+    await t.all();
+    await openLibAlbum(t);
+    await t.page.click("#da button");
+    await t.waitMsg(" by " + TD.ALB_LIB.a);
+    ok(!(await t.page.$("#dlg[open]")), "popup closed");
+    eq(await t.page.evaluate(() => scrollY), 0, "scrolled to the top");
+  },
+  R,
+);
+
+// ---------- 4.7 Album popup (POP) ----------
+test("POP-01 popup opens from cover and title: details, source line, loading text", async (t) => {
+  t.player.state.overrides.push({ match: /MG\/LocalMusic-Album/, delay: 800 });
+  await t.all();
+  const i = await t.tileOf(TD.ALB_LIB.t);
+  await t.page.click(`#grid .item:nth-child(${i}) .cw .card`);
   await t.page.waitForSelector("#dlg[open]");
+  ok(/Loading tracks/.test(await t.page.textContent("#tracks")), "loading text");
+  eq(await t.page.textContent("#dt"), TD.ALB_LIB.t, "title");
+  eq(await t.page.textContent("#da button"), TD.ALB_LIB.a, "artist link");
+  const lib = TD.SRC.find((s) => /LibraryIcon/.test(s.image)).text;
+  eq((await t.page.textContent("#ds")).trim(), lib, "source line");
+  ok(await t.page.$("#ds svg"), "source icon");
   await t.page.waitForSelector("#tracks li button");
-  ok(
-    /^\d+ tracks? \u00B7 \d+:\d\d$/.test(await t.page.textContent("#dsum")),
-    "track count and total time above the tracks",
-  );
-  ok(/library/i.test(await t.page.textContent("#ds")), "source line");
-  await t.page.waitForSelector("#tracks li button");
-  eq(
-    await t.page
-      .$$eval("#dlg .dl > .cov button, #dlg .info button", (b) => b.map((x) => x.getAttribute("aria-label") || x.title))
-      .then((l) => l.filter((x) => !/^Albums by|^Show albums by/.test(x))),
-    [],
-    "no play / queue / heart buttons in the popup",
-  );
-  ok(!(await t.page.$("#dg")), "no genre line");
-  const popupReqs = () =>
-    t.player.state.requests.filter((x) =>
-      /^\/library\/v1\/Songs|^\/Browse.*LocalMusic-Album/.test(decodeURIComponent(x)),
-    ).length;
-  const n = popupReqs();
   await t.page.click("#close");
-  await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic"))));
-  await t.page.waitForSelector("#tracks li button");
-  eq(popupReqs(), n, "same album again: from the session cache");
-  const tr = t.player.state.requests.filter(
-    (x) => /^\/Browse/.test(x) && /MG\/LocalMusic-Album/.test(decodeURIComponent(x)),
-  );
-  ok(tr.length > 0 && tr.every((x) => /withContextMenuItems=0/.test(x)), "track list without context menus");
+  await t.page.click(`#grid .item:nth-child(${i}) > .card:not(.ar)`);
+  await t.page.waitForSelector("#dlg[open]");
+  eq(await t.page.textContent("#dt"), TD.ALB_LIB.t, "title opens it too");
 });
+
+test(
+  "POP-02 POP-03 POP-10 track list, no buttons, no genre line, session cache",
+  async (t) => {
+    await t.all();
+    await openLibAlbum(t);
+    const rows = await t.page.$$eval("#tracks li button", (b) =>
+      b.map((x) => [x.querySelector("span").firstChild.textContent, x.querySelector("i").textContent]),
+    );
+    eq(
+      rows,
+      TD.TRK.map((x) => [x.text, x.duration ? fmtTime(+x.duration) : ""]),
+      "tracks with durations",
+    );
+    eq(
+      await t.page.textContent("#dsum"),
+      `${TD.TRK.length} ${TD.TRK.length === 1 ? "track" : "tracks"} \u00B7 ${fmtTime(TD.TRK.reduce((n, x) => n + (+x.duration || 0), 0))}`,
+      "track count and total time",
+    );
+    eq(
+      await t.page
+        .$$eval("#dlg .dl > .cov button, #dlg .info button", (b) => b.map((x) => x.getAttribute("aria-label") || x.title))
+        .then((l) => l.filter((x) => !/^Albums by|^Show albums by/.test(x))),
+      [],
+      "no play / queue / heart buttons in the popup",
+    );
+    ok(!(await t.page.$("#dg")), "no genre line");
+    const popupReqs = () =>
+      t.player.state.requests.filter((x) => /^\/library\/v1\/Songs|^\/Browse.*LocalMusic-Album/.test(decodeURIComponent(x)))
+        .length;
+    const n = popupReqs();
+    await t.page.click("#close");
+    await openLibAlbum(t);
+    eq(popupReqs(), n, "same album again: from the session cache");
+    const tr = t.reqs(/^\/Browse.*MG\/LocalMusic-Album/);
+    ok(tr.length > 0 && tr.every((x) => /withContextMenuItems=0/.test(x)), "track list without context menus");
+  },
+  R,
+);
 
 // Browsers send the system language as Accept-Language; with German the player answers the track list
 // of an album with an empty menu (Bruno E25), so the app asks in English (E26).
 test(
-  "popup: track list also in a browser set to German",
+  "POP-11 track list also in a browser set to German",
   async (t) => {
-    await t.chip("All");
-    await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
-    await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic"))));
+    await t.all();
+    await openAlbumBy(t, "x.key === a.key", TD.ALB_LIB);
     await t.page.waitForFunction(() => !/Loading/.test(document.querySelector("#tracks").textContent));
     const rows = await t.page.$$eval("#tracks li button", (b) => b.map((x) => x.getBoundingClientRect().height));
     ok(rows.length > 0 && rows.every((h) => h > 0), `visible track rows: ${JSON.stringify(rows)}`);
     ok(/^\d+ tracks? \u00B7 \d+:\d\d$/.test(await t.page.textContent("#dsum")), "track count above the tracks");
   },
-  { locale: "de-DE" },
+  { ...R, locale: "de-DE" },
 );
 
-test("popup: year, quality tag and technical data from /library/v1/Songs", async (t) => {
-  await t.chip("All");
-  await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
-  await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic") && a.t === "1")));
+test(
+  "POP-04 POP-05 year, quality tag and technical data from /library/v1/Songs",
+  async (t) => {
+    const c = await t.page.evaluate(() => ({ FORMATS, LOSSY }));
+    const x = songDetails(TD.SONGS, c.FORMATS, c.LOSSY);
+    await t.all();
+    await openLibAlbum(t);
+    eq((await t.page.textContent("#dy")).trim(), x.year, "year");
+    eq(
+      await t.page.$$eval("#dtech > *", (e) => e.map((y) => (y.className.startsWith("q") ? "q" : ""))),
+      [...x.tags.map(() => "q"), ""],
+      "quality tags first, then the technical data",
+    );
+    eq(await t.page.$$eval("#dtech .q", (e) => e.map((y) => y.textContent)), x.tags, "quality tags");
+    eq(await t.page.textContent("#dtech span:not(.q)"), x.tech, "technical data");
+    ok(
+      t.player.state.requests.includes(`/library/v1/Songs?service=${TD.LIB}&` + TD.ALB_LIB.key.split("?")[1]),
+      "songs requested for the album",
+    );
+    ok(!t.player.state.requests.some((r) => /CM%2FLocalMusic-Album/.test(r)), "no context menu request");
+  },
+  R,
+);
+
+test(
+  "POP-04 POP-07 mixed album: year range, several formats, tags and ranges",
+  async (t) => {
+    const c = await t.page.evaluate(() => ({ FORMATS, LOSSY }));
+    const x = songDetails(t.player.state.overrides[0].edit(TD.SONGS), c.FORMATS, c.LOSSY);
+    ok(/\u2013/.test(x.year) && / \/ /.test(x.tech) && x.tags.length > 1, "test data is mixed");
+    await t.all();
+    await openLibAlbum(t);
+    eq((await t.page.textContent("#dy")).trim(), x.year, "year range");
+    eq(await t.page.$$eval("#dtech .q", (e) => e.map((y) => y.textContent)), x.tags, "one tag per quality");
+    eq(await t.page.textContent("#dtech span:not(.q)"), x.tech, "formats and ranges");
+  },
+  {
+    // first song: other year, format, quality, bit depth and sample rate
+    overrides: [
+      {
+        match: /^\/library\/v1\/Songs\?service=LocalMusic/,
+        edit: (x) =>
+          x
+            .replace(/samplerate="\d+" samplebits="\d+"/, 'samplerate="96000" samplebits="24"')
+            .replace(/atype="\w+"/, 'atype="alac"')
+            .replace(/<date>[^<]*<\/date>/, "<date>1000</date>")
+            .replace(/<quality>[^<]*<\/quality>/, "<quality>hd</quality>"),
+      },
+    ],
+  },
+);
+
+test(
+  "POP-06 USB album (MP3) shows MP3 tag and no bit depth",
+  async (t) => {
+    const c = await t.page.evaluate(() => ({ FORMATS, LOSSY }));
+    const x = songDetails(TD.SONGS_USB, c.FORMATS, c.LOSSY);
+    await t.chip("New");
+    await t.settle();
+    await t.page.evaluate((usb) => openAlbum(shown.find((a) => a.key.startsWith(usb))), TD.USB);
+    await t.page.waitForFunction(() => document.querySelector("#dtech").textContent);
+    eq(await t.page.$$eval("#dtech .q", (e) => e.map((y) => y.textContent)), x.tags, "quality tags");
+    eq(await t.page.textContent("#dtech span:not(.q)"), x.tech, "technical data (no bit depth for lossy formats)");
+  },
+  U,
+);
+
+test("POP-08 artist per track only where it differs from the album artist", async (t) => {
+  const title = TD.SONG_TITLES[1];
+  t.player.state.songArtists = { [title]: TD.OTHER_ARTIST };
+  await t.all();
+  await openLibAlbum(t);
+  eq(await t.page.$$eval("#tracks .ta", (e) => e.map((x) => x.textContent)), [TD.OTHER_ARTIST], "one track artist");
+  ok((await t.page.textContent("#tracks li:nth-child(2)")).includes(TD.OTHER_ARTIST), "on track 2");
+});
+
+test(
+  "POP-09 click on a track plays it",
+  async (t) => {
+    await t.all();
+    await openLibAlbum(t);
+    await t.page.click("#tracks li:first-child button");
+    await t.waitToast("Track started");
+    ok(t.player.state.commands.includes(decodeURIComponent(TD.TRK[0].autoplayURL || TD.TRK[0].playURL)), "track URL");
+  },
+  W,
+);
+
+test(
+  "POP-12 close with button, backdrop and Esc (panel behind stays open)",
+  async (t) => {
+    await t.all();
+    await openLibAlbum(t);
+    await t.page.click("#close");
+    ok(!(await t.page.$("#dlg[open]")), "closed with the button");
+    await openLibAlbum(t);
+    await t.page.mouse.click(3, 3);
+    await t.page.waitForFunction(() => !document.querySelector("#dlg").open);
+    await t.page.click("#gear");
+    await openLibAlbum(t);
+    await t.page.keyboard.press("Escape");
+    await t.page.waitForFunction(() => !document.querySelector("#dlg").open);
+    ok(await t.page.$eval("#side", (e) => e.classList.contains("open")), "settings panel still open");
+  },
+  R,
+);
+
+test("POP-13 track list or songs fail", async (t) => {
+  await t.all();
+  t.player.state.overrides.push({ match: /MG\/LocalMusic-Album/, status: 500, times: 1 });
+  await openAlbumBy(t, "x.key === a.key", TD.ALB_LIB);
+  await t.waitToast("Could not load tracks");
+  eq(await t.page.$$eval("#tracks li", (x) => x.length), 0, "empty list");
+  await t.page.click("#close");
+  t.player.state.overrides.push({ match: /^\/library\/v1\/Songs/, status: 500 });
+  const other = TD.ALL.find((a) => a.browseKey !== TD.ALB_LIB.key);
+  await openAlbumBy(t, "x.key === a", other.browseKey);
   await t.page.waitForSelector("#tracks li button");
-  eq((await t.page.textContent("#dy")).trim(), "1977", "year");
-  eq(
-    await t.page.$$eval("#dtech > *", (e) => e.map((x) => x.className)),
-    ["q", ""],
-    "quality tag first, then the technical data",
-  );
-  eq(await t.page.textContent("#dtech .q"), "CD", "quality tag");
-  eq(
-    await t.page.textContent("#dtech span:not(.q)"),
-    "FLAC \u00B7 16 bit / 44.1 kHz \u00B7 Stereo \u00B7 \u00D8 858 kbit/s",
-    "technical data",
-  );
-  ok(
-    t.player.state.requests.some((r) =>
-      r.startsWith("/library/v1/Songs?service=LocalMusic&album=1&artist=Peter+Gabriel"),
-    ),
-    "songs requested for the album",
-  );
-  ok(
-    !t.player.state.requests.some((r) => /CM%2FLocalMusic-Album/.test(r)),
-    "no context menu request (favourite state is on the cover)",
-  );
+  eq(await t.page.textContent("#dy"), "", "no year");
+  eq(await t.page.textContent("#dtech"), "", "no technical data");
 });
 
-test("popup: USB album (MP3) shows MP3 tag and no bit depth", async (t) => {
-  await t.chip("New");
-  await t.settle();
-  await t.page.evaluate((usb) => openAlbum(shown.find((a) => a.key.startsWith(usb))), USB);
-  await t.page.waitForFunction(() => document.querySelector("#dtech").textContent);
-  eq(await t.page.textContent("#dtech .q"), "MP3", "MP3 tag");
-  ok(
-    /^MP3 \u00B7 44\.1 kHz \u00B7 Stereo \u00B7 \u00D8 \d+ kbit\/s$/.test(
-      await t.page.textContent("#dtech span:not(.q)"),
-    ),
-    "technical data without bit depth",
-  );
-});
+// ---------- 4.8 Search (SRH) ----------
+test(
+  "SRH-01 search uses the player search, no random tile, no chip",
+  async (t) => {
+    await t.page.fill("#q", TD.TERM);
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(`for \u201C${TD.TERM}\u201D`);
+    ok((await t.page.textContent("#grid .item:first-child b")) !== "Random album", "no random tile");
+    eq(t.reqs(new RegExp("[?&]q=" + TD.TERM + "(&|$)")).length, TD.SRC.length, "search request per source");
+    eq(await t.page.$$eval("#az button[aria-pressed=true]", (x) => x.length), 0, "no chip pressed");
+    ok(/^\d+ albums? for/.test(await t.msg()), "status line");
+  },
+  R,
+);
 
-test("popup: artist per track only where it differs from the album artist", async (t) => {
-  t.player.state.songArtists = { "Solsbury Hill": "Kate Bush" };
-  await t.chip("All");
-  await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
-  await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic") && a.t === "1")));
-  await t.page.waitForSelector("#tracks li button");
-  eq(await t.page.$$eval("#tracks .ta", (e) => e.map((x) => x.textContent)), ["Kate Bush"], "one track artist");
-  ok((await t.page.textContent("#tracks li:nth-child(2)")).includes("Kate Bush"), "on track 2");
-});
-
-// Firefox upgrades <img src="http://…"> on a file:// page to https (mixed content); the player has no https,
-// so covers set as plain http image URLs stay empty there.
-test("covers: grid, popup and now playing show the player's images", async (t) => {
-  const loaded = (sel) =>
-    t.page.waitForFunction((s) => {
-      const i = document.querySelector(s);
-      return i && i.complete && i.naturalWidth > 0;
-    }, sel);
-  await loaded("#grid .item .cov img");
-  await loaded("#cov");
-  await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic"))));
-  await loaded("#dimg");
-  ok(
-    t.player.state.requests.some((r) => /^\/Artwork\?.*followRedirects=1/.test(r)),
-    "covers come from /Artwork with followRedirects=1",
-  );
-});
-
-test("covers: the now playing cover is loaded once for footer and full-screen view", async (t) => {
-  await t.page.waitForFunction(() =>
-    ["#cov", "#fimg"].every((s) => /^blob:/.test(document.querySelector(s).getAttribute("src") || "")),
-  );
-  await t.settle(500);
-  eq(t.player.state.requests.filter((r) => /^\/Artwork\?.*fn=/.test(r)).length, 1, "one /Artwork request");
-});
-
-test("cover heart: favourite album filled, toggles via the player (no local storage)", async (t) => {
-  // Default view is Favourites: the first album tile is a favourite
-  const tile = "#grid .item:nth-child(2)";
-  await t.page.hover(tile);
-  eq(await t.page.getAttribute(tile + " .favc", "aria-pressed"), "true", "filled heart");
-  await t.page.click(tile + " .favc");
-  await t.settle();
-  ok(
-    t.player.state.commands.some((c) => /^\/DeleteFavourite/.test(c)),
-    "DeleteFavourite sent",
-  );
-  eq(
-    await t.page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("fav:"))),
-    [],
-    "no local favourites",
-  );
-});
-
-test("cover heart: USB album has no heart", async (t) => {
-  await t.chip("New");
-  await t.settle();
-  const i = await t.page.evaluate((usb) => shown.findIndex((a) => a.key.startsWith(usb)), USB);
-  ok(i >= 0, "USB album in New");
-  const tile = "#grid .item:nth-child(" + (i + 2) + ")";
-  await t.page.hover(tile);
-  ok(!(await t.page.isVisible(tile + " .favc")), "heart hidden");
-});
-
-test("cover: hover buttons play / add last / heart", async (t) => {
-  const tile = "#grid .item:nth-child(2)";
-  await t.page.hover(tile);
-  ok(await t.page.isVisible(tile + " .play:not(.addq):not(.favc)"), "play");
-  ok(await t.page.isVisible(tile + " .addq"), "add last");
-  ok(await t.page.isVisible(tile + " .favc"), "heart");
-  await t.page.click(tile + " .addq");
-  await t.settle();
-  ok(
-    t.player.state.commands.some((c) => /where=last/.test(c)),
-    "add last sent",
-  );
-});
-
-test("artist: click shows the albums of the artist via the artist's browse menu, not the All list", async (t) => {
-  // Favourites (default view) show "1" by Peter Gabriel; All is not loaded
-  const tile = await t.page.$$eval("#grid .item", (x) =>
-    x.findIndex((e) => e.querySelector(".card.ar span")?.textContent === "Peter Gabriel"),
-  );
-  ok(tile > 0, "Peter Gabriel tile in the favourites");
-  const before = t.player.state.requests.length;
-  await t.page.click(`#grid .item:nth-child(${tile + 1}) .card.ar`);
-  await t.page.waitForFunction(() => /^\d+ albums? by /.test(document.querySelector("#msg").textContent));
-  const all = await t.page.evaluate(() => shown.map((a) => a.a));
-  eq(all.length, 4, "the 4 recorded albums of Peter Gabriel");
-  ok(
-    all.every((a) => a === "Peter Gabriel"),
-    "only albums of the artist",
-  );
-  const r = t.player.state.requests.slice(before).map((x) => decodeURIComponent(x));
-  eq(
-    r.filter((x) => /bySection:Album|S:Album\//.test(x)),
-    [],
-    "All list not loaded",
-  );
-  eq(
-    r.filter((x) => /^\/Browse/.test(x) && !/CM\/LocalMusic-Album/.test(x)).length,
-    4,
-    "artist menu + albums link per source (2 sources)",
-  );
-  ok(
-    await t.page.evaluate(() => shown.every((a) => a.play && a.menu["addAll-last"])),
-    "play and queue URLs from the player",
-  );
-  // The artist list does not mark favourites (Bruno E17): the app compares with the player's favourites
-  // (library only) and reads the context menu of each favourite with &isFavourite=1.
-  eq(
-    r.filter((x) => /^\/library\/v1\/Albums\?/.test(x)),
-    ["/library/v1/Albums?service=LocalMusic&category=FAVOURITES"],
-    "favourites of the library asked once",
-  );
-  eq(
-    r.filter((x) => /CM\/LocalMusic-Album/.test(x)),
-    ["/Browse?withContextMenuItems=1&key=LocalMusic:CM/LocalMusic-Album?album=1&artist=Peter+Gabriel&isFavourite=1"],
-    "context menu read only for the favourite",
-  );
-  eq(
-    await t.page.evaluate(() => shown.map((a) => a.t + ":" + favOf(a).on)),
-    ["1:true", "2:false", "3:false", "4:false"],
-    "favourite marked, the others not",
-  );
-  const heart = await t.page.$$eval("#grid .item", (x) =>
-    x.findIndex((e) => e.querySelector(".card:not(.ar) b")?.textContent === "1"),
-  );
-  ok(heart > 0, "tile of the favourite");
-  await t.page.hover(`#grid .item:nth-child(${heart + 1})`);
-  eq(await t.page.getAttribute(`#grid .item:nth-child(${heart + 1}) .favc`, "aria-pressed"), "true", "filled heart");
-  ok(
-    await t.page.evaluate(() =>
-      /^\/DeleteFavourite/.test(shown.find((a) => a.t === "1").menu["favourite-delete"] || ""),
-    ),
-    "remove URL from the player's context menu",
-  );
-  await t.chip("New");
-  await t.settle();
-  const n = t.player.state.requests.length;
-  await t.page.evaluate(() => showArtist("Peter Gabriel"));
-  await t.page.waitForFunction(() => /^\d+ albums? by /.test(document.querySelector("#msg").textContent));
-  eq(
-    t.player.state.requests.slice(n).filter((x) => /^\/Browse/.test(x)).length,
-    0,
-    "second time from the session cache",
-  );
-});
-
-test("search: uses the player search, no random tile", async (t) => {
-  await t.page.fill("#q", "a");
+test("SRH-02 the albums list of the result is read once per source (no second request)", async (t) => {
+  await t.page.fill("#q", TD.TERM);
   await t.page.press("#q", "Enter");
-  await t.page.waitForFunction(() => /for/.test(document.querySelector("#msg").textContent));
-  ok((await t.page.textContent("#grid .item:first-child b")) !== "Random album", "no random tile");
-  ok(
-    t.player.state.requests.some((r) => /Search/.test(decodeURIComponent(r))),
-    "search request",
-  );
-});
-
-test("search: the albums list of the result is read once per source (no second request)", async (t) => {
-  await t.page.fill("#q", "a");
-  await t.page.press("#q", "Enter");
-  await t.page.waitForFunction(() => /for/.test(document.querySelector("#msg").textContent));
-  const r = t.player.state.requests.map((x) => decodeURIComponent(x));
-  const searches = r.filter((x) => /[?&]q=/.test(x)).length;
+  await t.waitMsg(/for/);
+  const searches = t.reqs(/[?&]q=/).length;
   ok(searches >= 1, "search request");
-  eq(r.filter((x) => /Albums%3Fexpr=|Albums\?expr=/.test(x)).length, searches, "one albums request per search request");
+  eq(t.reqs(/Albums(%3F|\?)expr=/).length, searches, "one albums request per search request");
 });
 
-test("search: while typing only from 3 characters and after a pause, Enter always", async (t) => {
-  const searches = () => t.player.state.requests.filter((r) => /[?&]q=/.test(r)).length;
-  const n0 = searches();
-  await t.page.type("#q", "lo", { delay: 60 });
-  await t.settle(1200);
-  eq(searches() - n0, 0, "no search for 2 characters");
-  await t.page.type("#q", "ve", { delay: 60 });
-  await t.page.waitForTimeout(300); // not stretched by UI_SLOW: must stay below SEARCH_DELAY (800 ms)
-  eq(searches() - n0, 0, "no search before the pause");
-  await t.page.waitForFunction(() => /for/.test(document.querySelector("#msg").textContent));
-  const n1 = searches();
-  ok(n1 - n0 >= 1, "one search after the pause");
-  await t.page.fill("#q", "");
-  await t.page.type("#q", "u2", { delay: 60 });
-  await t.page.press("#q", "Enter");
-  await t.page.waitForFunction(() => /“u2”/.test(document.querySelector("#msg").textContent));
-  ok(searches() > n1, "Enter searches with 2 characters");
-});
-
-test("footer: now playing and quality tag, no source icon", async (t) => {
-  await t.page.waitForFunction((x) => document.querySelector("#nt1").textContent === x, st("title1"));
-  const q = { cd: "CD", hd: "HD" }[st("quality")] || (/^MP3/.test(st("streamFormat")) ? "MP3" : "");
-  if (q) eq((await t.page.textContent("#nq")).trim(), q, "quality tag");
-  eq(
-    await t.page.$$eval(
-      "#ctl svg",
-      (x) =>
-        x.filter((e) =>
-          /^(Source|USB|Bibliothek|Library)/i.test(
-            e.parentElement.getAttribute("aria-label") || e.parentElement.title || "",
-          ),
-        ).length,
-    ),
-    0,
-    "no source icon in the player bar",
-  );
-});
-
-// Listening mode of the player (/audioPreset, fixture 27): current mode as a display-only tag before the
-// volume controls; name and tooltip are the displayName values of the answer.
-const LM = fs.readFileSync(
-  path.join(
-    __dirname,
-    "fixtures",
-    fs.readdirSync(path.join(__dirname, "fixtures")).find((f) => f.startsWith("27-")),
-  ),
-  "utf8",
+test(
+  "SRH-03 search only from SEARCH_MIN characters: while typing after a pause, Enter at once",
+  async (t) => {
+    const { min, delay } = await t.page.evaluate(() => ({ min: SEARCH_MIN, delay: SEARCH_DELAY }));
+    const searches = () => t.reqs(/[?&]q=/).length;
+    const n0 = searches();
+    const word = "love".padEnd(min + 1, "s");
+    await t.page.type("#q", word.slice(0, min - 1), { delay: 60 });
+    await t.settle(1200);
+    eq(searches() - n0, 0, `no search below ${min} characters`);
+    await t.page.type("#q", word.slice(min - 1), { delay: 60 });
+    await t.page.waitForTimeout(delay / 3); // not stretched by UI_SLOW: must stay below SEARCH_DELAY
+    eq(searches() - n0, 0, "no search before the pause");
+    await t.waitMsg(/for/);
+    const n1 = searches();
+    ok(n1 - n0 >= 1, "one search after the pause");
+    await t.page.fill("#q", "");
+    await t.page.type("#q", word.slice(0, min - 1), { delay: 60 });
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(`Type at least ${min} characters to search.`);
+    eq(searches(), n1, "no search below the minimum, also with Enter");
+    await t.page.type("#q", word.slice(min - 1, min));
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(`\u201C${word.slice(0, min)}\u201D`);
+    ok(searches() > n1, "Enter searches at once from the minimum");
+  },
+  R,
 );
-const lmName = (mode) => (LM.match(new RegExp('displayName="([^"]*)" name="' + mode + '"')) || [])[1];
-const lmTitle = (LM.match(/<setting [^>]*displayName="([^"]*)"/) || [])[1];
 
-test("footer: listening mode tag before the volume controls, name and tooltip from /audioPreset", async (t) => {
-  await t.page.waitForFunction(() => !document.querySelector("#lm").hidden);
-  eq((await t.page.textContent("#lm")).trim(), lmName("MUSIC"), "current mode");
-  eq(await t.page.getAttribute("#lm", "title"), lmTitle, "tooltip");
-  ok(
-    await t.page.$eval("#lm", (e) => e.parentElement.matches("#ctl .vl") && e.nextElementSibling?.id === "vd"),
-    "tag sits right before the volume-down button",
-  );
-  ok(
-    await t.page.$eval("#lm", (e) => e.tagName !== "BUTTON" && !e.onclick && e.getAttribute("tabindex") === null),
-    "display only (no button)",
-  );
+test(
+  "SRH-04 empty field restores the selected view without a request",
+  async (t) => {
+    await t.page.fill("#q", TD.TERM);
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(/for/);
+    const lists = () => t.reqs(/^\/(Browse|library)/).length;
+    const n = lists();
+    await t.page.fill("#q", "");
+    await t.waitMsg(nAlb(TD.FAV.length));
+    eq(await t.page.getAttribute('#az button[aria-label="Favourites"]', "aria-pressed"), "true", "chip pressed again");
+    eq(await t.page.evaluate(() => shown.length), TD.FAV.length, "albums of the view");
+    eq(lists(), n, "no request");
+  },
+  R,
+);
+
+test(
+  "SRH-05 sectioned search result: albums of every filled section",
+  async (t) => {
+    await t.page.fill("#q", TD.TERM);
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(/for/);
+    ok(t.reqs(/SRCHSEC1/).length > 0, "filled section read");
+    eq(t.reqs(/SRCHSEC2/).length, 0, "empty section skipped");
+    // the mock answers the albums of fixture 07 for the filled section of every source
+    const albums = itemsOf(fx("07"), ofType("album"));
+    eq(await t.msg(), `${nAlb(albums.length * TD.SRC.length)} for \u201C${TD.TERM}\u201D`, "albums of the filled sections");
+    const titles = albums.map((a) => a.text);
+    ok((await t.tiles()).every((x) => titles.includes(x)), "tiles from the section");
+  },
+  {
+    overrides: [
+      {
+        match: /Albums(%3F|\?)expr=/,
+        body:
+          '<browse type="sections"><item browseKey="LocalMusic:SRCHSEC1" text="A" text2="1" type="section"></item>' +
+          '<item browseKey="LocalMusic:SRCHSEC2" text="B" text2="0" type="section"></item></browse>',
+      },
+      { match: /SRCHSEC1/, body: fx("07") },
+    ],
+  },
+);
+
+test(
+  "SRH-06 album items in the search answer are shown directly",
+  async (t) => {
+    await t.page.fill("#q", TD.TERM);
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(/for/);
+    ok((await t.tiles()).includes("Direct Album"), "album of the answer");
+    eq(t.reqs(/Albums(%3F|\?)expr=/).length, 0, "no albums link followed");
+  },
+  {
+    overrides: [
+      {
+        match: /[?&]q=/,
+        body: '<browse><item type="album" text="Direct Album" text2="Test Artist" browseKey="LocalMusic:MG/LocalMusic-Album?album=Direct+Album&amp;artist=Test+Artist" playURL="/Add?test=1"></item></browse>',
+      },
+    ],
+  },
+);
+
+test("SRH-07 only the newest search updates the grid", async (t) => {
+  t.player.state.overrides.push({ match: /q=slowterm/, delay: 1500 });
+  await t.page.fill("#q", "slowterm");
+  await t.page.press("#q", "Enter");
+  await t.page.fill("#q", "fast");
+  await t.page.press("#q", "Enter");
+  await t.waitMsg("\u201Cfast\u201D");
+  await t.settle(2500);
+  ok(/\u201Cfast\u201D/.test(await t.msg()), "second search stays");
 });
 
-test("footer: listening mode follows syncStat of /Status, /audioPreset read only on a change", async (t) => {
+test("SRH-08 search error", async (t) => {
+  t.player.state.overrides.push({ match: /[?&]q=/, status: 500 });
+  await t.page.fill("#q", TD.TERM);
+  await t.page.press("#q", "Enter");
+  await t.waitMsg("Search failed: Player responded with 500");
+  ok(await t.page.$eval("#msg", (e) => e.className === "err"), "shown as error");
+});
+
+test(
+  "SRH-08 source without search",
+  async (t) => {
+    await t.page.fill("#q", TD.TERM);
+    await t.page.press("#q", "Enter");
+    await t.waitMsg("Connect first \u2013 or the player offers no search.");
+  },
+  { overrides: [{ match: /key=(LocalMusic|1A2B_3C4D):$/, edit: (x) => x.replace(/ searchKey="[^"]*"/, "") }] },
+);
+
+// ---------- 4.9 Player footer (FTR) ----------
+test(
+  "FTR-01 FTR-03 now playing, quality tag, no source icon",
+  async (t) => {
+    const st = t.st;
+    ok(st("title1") || st("name"), "something is playing (precondition)");
+    await t.page.waitForFunction((x) => document.querySelector("#nt1").textContent === x, st("title1") || st("name"));
+    eq(await t.page.textContent("#nt2"), [st("title2"), st("title3")].filter(Boolean).join(" \u2013 "), "line 2");
+    const q = /^MP3\b/.test(st("streamFormat")) ? "MP3" : { cd: "CD", hd: "HD", hr: "HD" }[st("quality")] || "";
+    if (q) eq((await t.page.textContent("#nq")).trim(), q, "quality tag");
+    eq(
+      await t.page.$$eval(
+        "#ctl svg",
+        (x) =>
+          x.filter((e) =>
+            /^(Source|USB|Bibliothek|Library)/i.test(e.parentElement.getAttribute("aria-label") || e.parentElement.title || ""),
+          ).length,
+      ),
+      0,
+      "no source icon in the player bar",
+    );
+  },
+  R,
+);
+
+test("FTR-02 quality tag for every quality value of /Status", async (t) => {
+  for (const [quality, format, tag] of [
+    ["cd", "FLAC 16/44.1", "CD"],
+    ["hd", "FLAC 24/96", "HD"],
+    ["hr", "FLAC 24/192", "HD"],
+    ["mqa", "MQA 24/96", "MQA"],
+    ["dolbyAtmos", "Dolby Atmos", "Dolby"],
+    ["320000", "MP3 320 kb/s", "MP3"],
+    ["other", "PCM", ""],
+  ]) {
+    t.player.state.statusPatch = { quality, streamFormat: format };
+    await t.page.waitForFunction(
+      ([f, tg]) => {
+        const q = document.querySelector("#nq");
+        return q.title === f && (tg ? !q.hidden && q.textContent === tg : q.hidden);
+      },
+      [format, tag],
+    );
+  }
+});
+
+test(
+  "FTR-04 nothing playing: placeholder, no cover, no tag, no full screen",
+  async (t) => {
+    await t.waitText("#nt1", "Nothing playing");
+    eq(await t.page.textContent("#nt2"), "", "line 2 empty");
+    ok(await t.page.$eval("#cov", (e) => e.hidden), "no cover");
+    ok(await t.page.$eval("#nq", (e) => e.hidden), "no quality tag");
+    await t.page.click("#cvb");
+    ok(await t.page.$eval("#full", (e) => e.hidden), "full screen does not open");
+  },
+  { playing: false },
+);
+
+test(
+  "FTR-05 play / pause button shows an SVG icon and sends /Pause",
+  async (t) => {
+    await t.page.evaluate(() => setState("pause"));
+    ok(await t.page.$eval("#pp", (b) => !!b.querySelector("svg") && !b.textContent.trim()), "play icon is an SVG");
+    const play = await t.page.innerHTML("#pp");
+    await t.page.evaluate(() => setState("play"));
+    ok((await t.page.innerHTML("#pp")) !== play, "pause icon differs from play icon");
+    // the icon follows the state the player answers (mock: paused)
+    if (!REAL) t.player.state.overrides.push({ match: /^\/Pause/, body: "<state>pause</state>", times: 1 });
+    await t.page.waitForFunction(() => document.querySelector("#nt1").textContent);
+    const before = await t.page.innerHTML("#pp");
+    await t.page.click("#pp");
+    await t.page.waitForFunction((p) => document.querySelector("#pp").innerHTML !== p, before);
+    eq(t.cmds(/^\/Pause\?toggle=1/).length, 1, "/Pause?toggle=1 sent, icon follows the answer");
+    if (REAL) {
+      // back to the former state
+      await t.page.click("#pp");
+      await t.page.waitForFunction((p) => document.querySelector("#pp").innerHTML === p, before);
+    }
+  },
+  W,
+);
+
+test(
+  "FTR-06 previous / next",
+  async (t) => {
+    await t.page.click("#bk");
+    await t.page.click("#sk");
+    await t.settle();
+    ok(t.player.state.commands.includes("/Back") && t.player.state.commands.includes("/Skip"), "/Back and /Skip sent");
+  },
+  W,
+);
+
+test("FTR-07 progress strip follows the position", async (t) => {
+  await t.page.waitForFunction((n) => document.querySelector("#prog").getAttribute("aria-valuemax") === n, t.st("totlen"));
+  const p = await t.page.$eval("#prog", (e) => ({
+    now: +e.getAttribute("aria-valuenow"),
+    max: +e.getAttribute("aria-valuemax"),
+    w: parseFloat(e.style.getPropertyValue("--w")),
+  }));
+  ok(p.now >= +t.st("secs") && p.now <= p.max, "position from secs");
+  ok(Math.abs(p.w - (p.now / p.max) * 100) < 1.5, `strip width ${p.w} %`);
+  const step = () =>
+    t.page.evaluate(() => {
+      const a = curPos(),
+        end = Date.now() + 200;
+      while (Date.now() < end); // no status update can come in between
+      return curPos() - a;
+    });
+  ok((await step()) > 0.1, "advances while playing");
+  t.player.state.statusPatch = { state: "pause" };
+  await t.page.waitForFunction(() => !pos.playing);
+  eq(await step(), 0, "stands while paused");
+});
+
+test(
+  "FTR-11 tooltip of the progress strip shows the position",
+  async (t) => {
+    await t.page.waitForFunction(() => document.querySelector("#prog").classList.contains("seek"));
+    const r = await t.page.$eval("#prog", (e) => {
+      const b = e.getBoundingClientRect();
+      return { x: b.left, y: b.top + b.height / 2, w: b.width };
+    });
+    const total = +(await t.page.getAttribute("#prog", "aria-valuemax"));
+    await t.page.mouse.move(r.x + r.w / 2, r.y);
+    const tip = await t.page.getAttribute("#prog", "title");
+    ok(
+      new RegExp(`^\\d+:\\d\\d / ${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}$`).test(tip),
+      "tooltip " + tip,
+    );
+    eq(t.cmds(/seek=/), [], "no seek request");
+  },
+  R,
+);
+
+test(
+  "FTR-08 seek by click",
+  async (t) => {
+    await t.page.waitForFunction(() => document.querySelector("#prog").classList.contains("seek"));
+    const r = await t.page.$eval("#prog", (e) => {
+      const b = e.getBoundingClientRect();
+      return { x: b.left, y: b.top + b.height / 2, w: b.width };
+    });
+    const total = +(await t.page.getAttribute("#prog", "aria-valuemax"));
+    await t.page.mouse.click(r.x + r.w / 2, r.y);
+    await t.settle();
+    const s = +(t.cmds(/^\/Play\?seek=/)[0] || "").split("=")[1];
+    ok(Math.abs(s - total / 2) <= 2, `seek to the middle (${s} of ${total})`);
+    await t.page.mouse.click(r.x + r.w - 1, r.y);
+    await t.settle();
+    const last = +t.cmds(/^\/Play\?seek=/).pop().split("=")[1];
+    ok(last <= total - 1, `limited to the end (${last})`);
+  },
+  W,
+);
+
+test(
+  "FTR-09 seek with the arrow keys",
+  async (t) => {
+    await t.page.waitForFunction(() => document.querySelector("#prog").classList.contains("seek"));
+    await t.page.focus("#prog");
+    const p0 = await t.page.evaluate(() => curPos());
+    await t.page.keyboard.press("ArrowRight");
+    await t.settle();
+    const right = +t.cmds(/^\/Play\?seek=/)[0].split("=")[1];
+    ok(right >= p0 + 4 && right <= p0 + 7, `+5 s (${right}, position ${Math.round(p0)})`);
+    await t.page.keyboard.press("ArrowLeft");
+    await t.settle();
+    const left = +t.cmds(/^\/Play\?seek=/)[1].split("=")[1];
+    ok(left < right, `-5 s (${left})`);
+  },
+  W,
+);
+
+test(
+  "FTR-10 no seeking when the player reports canSeek 0",
+  async (t) => {
+    await t.page.waitForFunction(() => document.querySelector("#prog").getAttribute("aria-disabled") === "true");
+    await t.page.$eval("#prog", (e) => {
+      const b = e.getBoundingClientRect();
+      e.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: b.left + b.width / 2, clientY: b.top }));
+    });
+    await t.page.focus("#prog");
+    await t.page.keyboard.press("ArrowRight");
+    await t.settle();
+    eq(t.cmds(/seek=/), [], "no seek request");
+  },
+  { statusPatch: { canSeek: "0" } },
+);
+
+test(
+  "FTR-12 volume slider: rate limited while dragging, not overwritten by status",
+  async (t) => {
+    await t.page.waitForFunction(() => !document.querySelector("#vs").disabled && document.querySelector("#nt1").textContent);
+    // a few steps up from the current volume (restored after the test on a real player)
+    const v0 = +(await t.page.inputValue("#vs")),
+      v1 = Math.min(100, v0 + 5);
+    await t.page.evaluate(
+      ([a, b]) => {
+        const s = document.querySelector("#vs");
+        s.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+        for (let v = a + 1; v <= b; v++) {
+          s.value = v;
+          s.dispatchEvent(new Event("input"));
+        }
+      },
+      [v0, v1],
+    );
+    await t.settle(500);
+    eq(t.reqs(/^\/Volume\?level=/), ["/Volume?level=" + v1], "one request for the burst, last value");
+    await t.settle(2500); // a status update arrives
+    eq(await t.page.inputValue("#vs"), String(v1), "slider kept while dragging");
+    await t.page.evaluate(() => {
+      const s = document.querySelector("#vs");
+      s.dispatchEvent(new Event("change"));
+      window.dispatchEvent(new PointerEvent("pointerup"));
+    });
+    await t.settle();
+    eq(t.reqs(/^\/Volume\?level=/).length, 2, "once more on release");
+  },
+  W,
+);
+
+test(
+  "FTR-13 volume buttons, slider follows the answer",
+  async (t) => {
+    await t.page.waitForFunction(() => !document.querySelector("#vs").disabled && document.querySelector("#nt1").textContent);
+    if (!REAL) t.player.state.overrides.push({ match: /^\/Volume\?db=2$/, body: "<volume>42</volume>" });
+    const v0 = await t.page.inputValue("#vs");
+    await t.page.click("#vu");
+    await t.page.waitForFunction((v) => document.querySelector("#vs").value !== v, v0);
+    await t.page.click("#vd");
+    await t.settle();
+    ok(t.reqs(/^\/Volume\?db=2$/).length === 1 && t.reqs(/^\/Volume\?db=-2$/).length === 1, "db=2 and db=-2 sent");
+  },
+  W,
+);
+
+test(
+  "FTR-14 fixed volume disables the controls",
+  async (t) => {
+    await t.page.waitForFunction(() => ["#vs", "#vd", "#vu"].every((s) => document.querySelector(s).disabled));
+    await t.waitText("#nt1", t.st("title1"));
+  },
+  { statusPatch: { volume: "-1" } },
+);
+
+// Listening mode of the player (/audioPreset): current mode as a display-only tag before the volume
+// controls; name and tooltip are the displayName values of the answer.
+test(
+  "FTR-15 listening mode tag before the volume controls, name and tooltip from /audioPreset",
+  async (t) => {
+    if (!TD.LM) {
+      // player without listening modes
+      await t.settle(1500);
+      ok(await t.page.$eval("#lm", (e) => e.hidden), "tag hidden");
+      return;
+    }
+    await t.page.waitForFunction(() => !document.querySelector("#lm").hidden);
+    const cur = (TD.LM.match(/<setting [^>]*value="([^"]*)"/) || [])[1];
+    eq((await t.page.textContent("#lm")).trim(), lmName(cur), "current mode");
+    eq(await t.page.getAttribute("#lm", "title"), (TD.LM.match(/<setting [^>]*displayName="([^"]*)"/) || [])[1], "tooltip");
+    ok(
+      await t.page.$eval("#lm", (e) => e.parentElement.matches("#ctl .vl") && e.nextElementSibling?.id === "vd"),
+      "tag sits right before the volume-down button",
+    );
+    ok(
+      await t.page.$eval("#lm", (e) => e.tagName !== "BUTTON" && !e.onclick && e.getAttribute("tabindex") === null),
+      "display only (no button)",
+    );
+  },
+  R,
+);
+
+test("FTR-16 listening mode follows syncStat of /Status, /audioPreset read only on a change", async (t) => {
   await t.page.waitForFunction(() => !document.querySelector("#lm").hidden);
   const count = () => t.player.state.requests.filter((x) => x === "/audioPreset").length;
   eq(count(), 1, "read once on connect");
   await t.settle(3500); // two more long polls with the same syncStat
   eq(count(), 1, "no further reads while syncStat stays");
-  t.player.state.listeningMode = "MOVIE";
+  const other = [...TD.LM.matchAll(/name="(\w+)"/g)]
+    .map((m) => m[1])
+    .find((n) => n !== "preset" && n !== t.player.state.listeningMode);
+  t.player.state.listeningMode = other;
   t.player.state.syncStat++;
-  await t.page.waitForFunction((x) => document.querySelector("#lm").textContent === x, lmName("MOVIE"));
+  await t.page.waitForFunction((x) => document.querySelector("#lm").textContent === x, lmName(other));
   eq(count(), 2, "read again after the syncStat change");
-  eq(
-    t.player.state.commands.filter((c) => /alsa_setting/.test(c)),
-    [],
-    "no listening mode command",
-  );
+  eq(t.cmds(/alsa_setting/), [], "no listening mode command");
 });
 
 test(
-  "footer: no listening mode tag on a player without listening modes",
+  "FTR-17 no listening mode tag on a player without listening modes",
   async (t) => {
     await t.settle(1500);
     ok(t.player.state.requests.includes("/audioPreset"), "asked once");
@@ -658,179 +1883,554 @@ test(
   { listeningModes: false },
 );
 
-test("footer: play / pause button shows an SVG icon and sends /Pause", async (t) => {
-  await t.page.evaluate(() => setState("pause"));
+test("FTR-18 long polling with etag, pause between requests, longer after an error", async (t) => {
+  const status = () =>
+    t.player.state.requests.map((r, i) => ({ r, at: t.player.state.times[i] })).filter((x) => /^\/Status\?/.test(x.r));
+  await t.settle(3000);
+  const s = status();
+  ok(/^\/Status\?timeout=100$/.test(s[0].r), "first request without etag");
+  const etag = (TD.STATUS.match(/<status etag="([^"]*)"/) || [])[1];
+  eq(s[1].r, "/Status?timeout=100&etag=" + encodeURIComponent(etag), "then with the etag of the last answer");
   ok(
-    await t.page.$eval("#pp", (b) => !!b.querySelector("svg") && !b.textContent.trim()),
-    "play icon is an SVG, no text glyph",
+    s.slice(1).every((x, i) => x.at - s[i].at >= 990),
+    "at least 1 s between requests",
   );
-  const play = await t.page.innerHTML("#pp");
-  await t.page.evaluate(() => setState("play"));
-  ok((await t.page.innerHTML("#pp")) !== play, "pause icon differs from play icon");
-  await t.page.click("#pp");
-  await t.settle();
-  ok(
-    t.player.state.commands.some((c) => /^\/Pause/.test(c)),
-    "/Pause sent",
-  );
-});
-
-test("queue: remove button (x) replaces the duration on hover, removes the track via /Delete?id=", async (t) => {
-  await t.page.click("#qbtn");
-  await t.page.waitForSelector("#qlist li");
-  await t.page.mouse.move(0, 0);
-  const op = () => t.page.$eval("#qlist li:nth-child(2) .rm", (e) => getComputedStyle(e).opacity);
-  eq(await op(), "0", "hidden without hover");
-  await t.page.hover("#qlist li:nth-child(2)");
-  eq(await op(), "1", "shown on hover");
+  const o = { match: /^\/Status\?/, status: 500, times: 1 };
+  t.player.state.overrides.push(o);
+  const t0 = Date.now();
+  while (!o.hits && Date.now() - t0 < 5000) await t.page.waitForTimeout(100);
+  const failed = status().length - 1;
+  while (status().length <= failed + 1 && Date.now() - t0 < 15000) await t.page.waitForTimeout(200);
+  const a = status();
+  ok(a.length > failed + 1, "polling goes on after the error");
+  ok(a[failed + 1].at - a[failed].at >= 4900, `5 s pause after an error (${a[failed + 1].at - a[failed].at} ms)`);
   eq(
-    await t.page.$eval("#qlist li:nth-child(2) .qd", (e) => getComputedStyle(e).visibility),
-    "hidden",
-    "duration hidden on hover",
+    t.player.state.requests.filter((x) => /^\/Status$|^\/Volume$/.test(x)),
+    [],
+    "no one-off /Status or /Volume",
   );
-  eq(
-    await t.page.$eval("#qlist li:nth-child(3) .qd", (e) => getComputedStyle(e).visibility),
-    "visible",
-    "other durations visible",
-  );
-  const r = await t.page.$eval(
-    "#qlist li:nth-child(3)",
-    (li) => li.getBoundingClientRect().right - li.querySelector(".qd").getBoundingClientRect().right,
-  );
-  ok(r <= 16, "duration at the right edge (" + r + " px)");
-  await t.page.click("#qlist li:nth-child(2) .rm");
-  await t.settle();
-  ok(t.player.state.commands.includes("/Delete?id=1"), "/Delete?id=1 sent");
 });
 
-test("queue: after remove, shuffle and clear the queue is loaded once (through the new playlist id)", async (t) => {
-  await t.page.click("#qbtn");
-  await t.page.waitForSelector("#qlist li");
-  await t.settle(2500);
-  const loads = () => t.player.state.requests.filter((x) => /^\/Playlist\?/.test(x)).length;
-  for (const [name, act] of [
-    [
-      "remove",
-      async () => {
-        await t.page.hover("#qlist li:nth-child(2)");
-        await t.page.click("#qlist li:nth-child(2) .rm");
-      },
-    ],
-    ["shuffle", () => t.page.click("#qshuf")],
-    ["clear", () => t.page.click("#qclear")],
-  ]) {
-    const n = loads();
-    await act();
-    await t.settle(3500);
-    eq(loads() - n, 1, "queue loads after " + name);
-  }
-});
-
-test("queue: shuffle on / off via the player, button follows /Status", async (t) => {
-  await t.page.click("#qbtn");
-  await t.page.waitForSelector("#qlist li");
-  eq(await t.page.getAttribute("#qshuf", "aria-pressed"), "false", "shuffle off at start");
-  await t.page.click("#qshuf");
-  await t.page.waitForSelector("#qshuf[aria-pressed=true]", { timeout: 6000 });
-  ok(t.player.state.commands.includes("/Shuffle?state=1"), "/Shuffle?state=1 sent");
-  await t.page.click("#qshuf");
-  await t.page.waitForSelector("#qshuf[aria-pressed=false]", { timeout: 6000 });
-  ok(t.player.state.commands.includes("/Shuffle?state=0"), "/Shuffle?state=0 sent");
-});
-
-test("queue: repeat off -> queue -> track -> off via the player, button follows /Status", async (t) => {
-  await t.page.click("#qbtn");
-  await t.page.waitForSelector("#qlist li");
-  eq(await t.page.getAttribute("#qrep", "aria-label"), "Repeat: off", "repeat off at start");
-  for (const [state, label] of [
-    ["0", "queue"],
-    ["1", "track"],
-    ["2", "off"],
-  ]) {
-    await t.page.click("#qrep");
-    await t.page.waitForSelector(`#qrep[aria-label="Repeat: ${label}"]`, { timeout: 6000 });
-    ok(t.player.state.commands.includes("/Repeat?state=" + state), "/Repeat?state=" + state + " sent");
-    eq(await t.page.getAttribute("#qrep", "aria-pressed"), String(state !== "2"), "highlighted unless off");
-  }
-});
-
-test("full screen: opens from the footer cover, footer hidden until bottom edge", async (t) => {
-  await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, st("title1"));
-  await t.page.click("#cvb");
-  ok(await t.page.isVisible("#full"), "full screen visible");
-  const x = VIEWPORT.width / 2,
-    h = VIEWPORT.height;
-  await t.page.mouse.move(x, h * 0.4);
-  await t.settle(300);
-  const top = () => t.page.$eval("#ctl", (e) => Math.round(e.getBoundingClientRect().top));
-  ok((await top()) >= h, "footer hidden");
-  await t.page.mouse.move(x, h - 1);
-  await t.settle(300);
-  ok((await top()) < h, "footer shown at bottom edge");
-  await t.page.keyboard.press("Escape");
-  ok(!(await t.page.isVisible("#full")), "closed with Esc");
-});
-
+// ---------- 4.10 Full screen (FUL) ----------
 test(
-  "queue: pinned panel, durations, save as playlist",
+  "FUL-01 FUL-02 FUL-03 full screen: opens from the footer cover, footer at the bottom edge, Esc",
   async (t) => {
-    await t.page.click("#qbtn");
-    await t.page.waitForFunction(() => document.querySelectorAll("#qlist li").length > 0);
-    eq(await t.page.$$eval("#qlist li", (x) => x.length), 12, "12 queue entries");
-    ok(/^\d+:\d\d$/.test((await t.page.textContent("#qlist li .qd")).trim()), "duration m:ss");
-    await t.page.click("#msg");
-    ok(await t.page.isVisible("#qside"), "stays open when clicking outside (pinned)");
-    await t.page.click("#qsave");
-    await t.settle();
-    ok(
-      t.player.state.commands.some((c) => c.startsWith("/Save?name=Unit test list")),
-      "save sent",
+    await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
+    await t.page.click("#cvb");
+    ok(await t.page.isVisible("#full"), "full screen visible");
+    eq(
+      [await t.page.textContent("#ft2"), await t.page.textContent("#ft3")],
+      [t.st("title2"), t.st("title3")],
+      "lines 2 and 3",
     );
-    ok(/Saved playlist/.test(await t.page.textContent("#toast")), "toast");
+    const x = VIEWPORT.width / 2,
+      h = VIEWPORT.height;
+    await t.page.mouse.move(x, h * 0.4);
+    await t.settle(300);
+    const top = () => t.page.$eval("#ctl", (e) => Math.round(e.getBoundingClientRect().top));
+    ok((await top()) >= h, "footer hidden");
+    await t.page.mouse.move(x, h - 1);
+    await t.settle(400);
+    const shownAt = await top();
+    ok(shownAt < h, "footer shown at bottom edge");
+    await t.page.mouse.move(x, (shownAt + h) / 2 - 8);
+    await t.settle(300);
+    ok((await top()) < h, "stays while the pointer is over the footer");
+    await t.page.evaluate(() => document.documentElement.dispatchEvent(new MouseEvent("mouseleave")));
+    await t.settle(400);
+    ok((await top()) >= h, "hidden when the pointer leaves the window");
+    await t.page.keyboard.press("Escape");
+    ok(!(await t.page.isVisible("#full")), "closed with Esc");
   },
-  { promptValue: "Unit test list" },
+  R,
 );
 
-test("queue: delete button for a loaded (broken, empty) playlist", async (t) => {
+test(
+  "FUL-03 close by a click in the view and by the footer cover",
+  async (t) => {
+    await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
+    await t.page.click("#cvb");
+    await t.page.mouse.click(VIEWPORT.width / 2, VIEWPORT.height * 0.4);
+    ok(!(await t.page.isVisible("#full")), "closed by a click in the view");
+    await t.page.click("#cvb");
+    ok(await t.page.isVisible("#full"), "open again");
+    await t.page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height - 1);
+    await t.settle(500);
+    await t.page.click("#cvb");
+    ok(!(await t.page.isVisible("#full")), "closed by the footer cover");
+  },
+  R,
+);
+
+test(
+  "FUL-04 keyboard: Enter and Space on the footer cover",
+  async (t) => {
+    await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
+    await t.page.focus("#cvb");
+    await t.page.keyboard.press("Enter");
+    ok(await t.page.isVisible("#full"), "opened with Enter");
+    eq(await t.page.getAttribute("#cvb", "aria-label"), "Close full-screen player", "label when open");
+    await t.page.focus("#cvb");
+    await t.page.keyboard.press(" ");
+    ok(!(await t.page.isVisible("#full")), "closed with Space");
+    eq(await t.page.getAttribute("#cvb", "aria-label"), "Show full-screen player", "label when closed");
+  },
+  R,
+);
+
+test("FUL-05 full screen closes when playback stops", async (t) => {
+  await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
+  await t.page.click("#cvb");
+  ok(await t.page.isVisible("#full"), "open");
+  t.player.state.playing = false;
+  await t.page.waitForFunction(() => document.querySelector("#full").hidden);
+  await t.page.click("#cvb");
+  ok(!(await t.page.isVisible("#full")), "cannot be opened while nothing plays");
+});
+
+// ---------- 4.11 Queue panel (QUE) ----------
+test(
+  "QUE-01 QUE-03 QUE-04 pinned panel, list, durations",
+  async (t) => {
+    await t.openQueue();
+    eq(await t.page.getAttribute("#qbtn", "aria-label"), "Unpin queue", "button label");
+    eq(await t.page.evaluate(() => localStorage.getItem("qpin")), "1", "pin stored");
+    ok(t.player.state.requests.includes("/Playlist?start=0&end=199"), "first page of the queue");
+    await t.page.waitForFunction((n) => document.querySelectorAll("#qlist li").length === n, TD.QUEUE.length);
+    eq(
+      await t.page.$$eval("#qlist li .qn", (x) => x.map((e) => e.textContent)),
+      TD.QUEUE.map((q) => String(+q.id + 1)),
+      "numbers",
+    );
+    ok(/^\d+:\d\d$/.test((await t.page.textContent("#qlist li .qd")).trim()), "duration m:ss");
+    const total = TD.QUEUE.reduce((n, q) => n + q.time, 0);
+    eq(
+      await t.page.textContent("#qcount"),
+      `${TD.QUEUE.length} ${TD.QUEUE.length === 1 ? "track" : "tracks"}\n${fmtTime(total)}`,
+      "number of tracks and total time",
+    );
+    await t.page.click("#msg");
+    ok(await t.page.isVisible("#qside"), "stays open when clicking outside (pinned)");
+    if (VIEWPORT.width >= 800)
+      ok(
+        await t.page.evaluate(
+          () =>
+            document.querySelector("#grid").getBoundingClientRect().right <=
+            document.querySelector("#qside").getBoundingClientRect().left + 1,
+        ),
+        "grid moves aside",
+      );
+  },
+  R,
+);
+
+test(
+  "QUE-11 save the queue as playlist",
+  async (t) => {
+    await t.openQueue();
+    const pl = t.reqs(/key=BluOS:$/).length;
+    await t.page.click("#qsave");
+    await t.waitToast(new RegExp(`^Saved playlist \u201C${TEST_LIST}\u201D \\(\\d+ tracks?\\)$`));
+    ok(/^Queue \d{4}-\d\d-\d\d \d\d:\d\d$/.test(t.dialogs.log[0].value), "default name " + t.dialogs.log[0].value);
+    eq(t.cmds(new RegExp(`^/Save\\?name=${TEST_LIST}$`)).length, 1, "save sent");
+    await t.settle();
+    ok(t.reqs(/key=BluOS:$/).length > pl, "playlist chips reloaded");
+  },
+  { ...W, promptValue: TEST_LIST, cleanup: (get) => get("/Delete?service=BluOS&name=" + encodeURIComponent(TEST_LIST)) },
+);
+
+test(
+  "QUE-02 pinned panel is restored after a reload",
+  async (t) => {
+    await t.openQueue();
+    await t.page.reload();
+    ok(await t.page.isVisible("#qside"), "panel open after reload");
+    await t.page.click("#go");
+    await t.page.waitForFunction((n) => document.querySelectorAll("#qlist li").length === n, TD.QUEUE.length);
+  },
+  R,
+);
+
+test(
+  "QUE-05 current track highlighted",
+  async (t) => {
+    await t.openQueue();
+    await t.page.waitForFunction(
+      (id) => document.querySelector(`#qlist li[data-id="${id}"]`)?.classList.contains("cur"),
+      t.st("song"),
+    );
+    eq(await t.page.$$eval("#qlist li.cur", (x) => x.length), 1, "one current entry");
+  },
+  R,
+);
+
+test(
+  "QUE-06 click on a queue entry plays it",
+  async (t) => {
+    await t.openQueue();
+    await t.page.click("#qlist li:nth-child(3) .it");
+    await t.settle();
+    ok(t.player.state.commands.includes("/Play?id=" + TD.QUEUE[2].id), "/Play?id= sent");
+  },
+  W,
+);
+
+test(
+  "QUE-07 remove button (x) replaces the duration on hover, removes the track via /Delete?id=",
+  async (t) => {
+    await t.openQueue();
+    await t.page.mouse.move(0, 0);
+    const op = () => t.page.$eval("#qlist li:nth-child(2) .rm", (e) => getComputedStyle(e).opacity);
+    eq(await op(), "0", "hidden without hover");
+    await t.page.hover("#qlist li:nth-child(2)");
+    eq(await op(), "1", "shown on hover");
+    eq(await t.page.$eval("#qlist li:nth-child(2) .qd", (e) => getComputedStyle(e).visibility), "hidden", "duration hidden");
+    eq(
+      await t.page.$eval("#qlist li:nth-child(3) .qd", (e) => getComputedStyle(e).visibility),
+      "visible",
+      "other durations visible",
+    );
+    const r = await t.page.$eval(
+      "#qlist li:nth-child(3)",
+      (li) => li.getBoundingClientRect().right - li.querySelector(".qd").getBoundingClientRect().right,
+    );
+    ok(r <= 16, "duration at the right edge (" + r + " px)");
+    await t.page.click("#qlist li:nth-child(2) .rm");
+    await t.settle();
+    ok(t.player.state.commands.includes("/Delete?id=" + TD.QUEUE[1].id), "/Delete?id= sent");
+  },
+  W,
+);
+
+test(
+  "QUE-08 QUE-15 after remove, shuffle and clear the queue is loaded once",
+  async (t) => {
+    await t.openQueue();
+    await t.settle(2500);
+    const loads = () => t.player.state.requests.filter((x) => /^\/Playlist\?start=0&/.test(x)).length;
+    for (const [name, act] of [
+      [
+        "remove",
+        async () => {
+          await t.page.hover("#qlist li:nth-child(2)");
+          await t.page.click("#qlist li:nth-child(2) .rm");
+        },
+      ],
+      ["shuffle", () => t.page.click("#qshuf")],
+      ["clear", () => t.page.click("#qclear")],
+    ]) {
+      const n = loads();
+      await act();
+      await t.settle(3500);
+      eq(loads() - n, 1, "queue loads after " + name);
+    }
+    eq(t.cmds(/^\/Clear/).length, 1, "/Clear after confirmation");
+    ok(/Clear the whole queue/.test(t.dialogs.log.pop().message), "confirm text");
+  },
+  W,
+);
+
+test(
+  "QUE-15 clear cancelled: nothing sent",
+  async (t) => {
+    await t.openQueue();
+    await t.page.click("#qclear");
+    await t.settle();
+    eq(t.cmds(/^\/Clear/), [], "no /Clear");
+  },
+  { ...R, dialog: "dismiss" },
+);
+
+test(
+  "QUE-09 shuffle on / off via the player, button follows /Status",
+  async (t) => {
+    await t.openQueue();
+    const on = (await t.page.getAttribute("#qshuf", "aria-pressed")) === "true";
+    for (const s of [!on, on]) {
+      await t.page.click("#qshuf");
+      await t.waitToast(s ? "Shuffle on" : "Shuffle off");
+      await t.page.waitForSelector(`#qshuf[aria-pressed=${s}]`, { timeout: 6000 });
+      ok(t.player.state.commands.includes("/Shuffle?state=" + (s ? 1 : 0)), "/Shuffle?state=" + (s ? 1 : 0) + " sent");
+    }
+  },
+  W,
+);
+
+test(
+  "QUE-10 repeat off -> queue -> track -> off via the player, button follows /Status",
+  async (t) => {
+    await t.openQueue();
+    const labels = { 2: "off", 0: "queue", 1: "track" },
+      next = { 2: "0", 0: "1", 1: "2" };
+    const label = (await t.page.getAttribute("#qrep", "aria-label")).replace("Repeat: ", "");
+    let v = Object.keys(labels).find((k) => labels[k] === label);
+    ok(v !== undefined, "repeat state at start: " + label);
+    for (let i = 0; i < 3; i++) {
+      v = next[v];
+      await t.page.click("#qrep");
+      await t.page.waitForSelector(`#qrep[aria-label="Repeat: ${labels[v]}"]`, { timeout: 6000 });
+      ok(t.player.state.commands.includes("/Repeat?state=" + v), "/Repeat?state=" + v + " sent");
+      eq(await t.page.getAttribute("#qrep", "aria-pressed"), String(v !== "2"), "highlighted unless off");
+    }
+  },
+  W,
+);
+
+test(
+  "QUE-12 save cancelled: no request",
+  async (t) => {
+    await t.openQueue();
+    await t.page.click("#qsave");
+    await t.settle();
+    eq(t.cmds(/^\/Save/), [], "no /Save");
+  },
+  { ...R, dialog: "dismiss" },
+);
+
+test(
+  "QUE-12 ERR-04 save not successful: popup with request, status and answer",
+  async (t) => {
+    await t.openQueue();
+    await t.page.click("#qsave");
+    await t.page.waitForSelector("#apidlg[open]");
+    eq(await t.page.textContent("#apit"), "Saving the playlist did not succeed", "title");
+    eq(await t.page.textContent("#apiu"), "/Save?name=" + encodeURIComponent(TEST_LIST), "request without host");
+    ok(/^200/.test(await t.page.textContent("#apis")), "HTTP status");
+    eq(await t.page.textContent("#apib"), "<saved><entries>0</entries></saved>", "raw answer");
+    ok(await t.page.evaluate(() => document.activeElement.id !== "apiclose"), "close button not focused");
+    await t.page.click("#apiclose");
+    t.player.state.overrides[0] = { match: /^\/Save/, status: 500, body: "" };
+    await t.page.click("#qsave");
+    await t.page.waitForSelector("#apidlg[open]");
+    eq(await t.page.textContent("#apib"), "(empty response)", "empty answer");
+    ok(/^500/.test(await t.page.textContent("#apis")), "HTTP 500");
+  },
+  { promptValue: TEST_LIST, overrides: [{ match: /^\/Save/, body: "<saved><entries>0</entries></saved>" }] },
+);
+
+test(
+  "QUE-13 PLS-02 delete the loaded playlist: confirm, request, toast, chips reloaded",
+  async (t) => {
+  // real player: a playlist saved for this test (never one of the owner's)
+  const pl = REAL ? { text: TEST_LIST, playURL: "/Load?service=BluOS&name=" + TEST_LIST } : TD.PL[TD.PL.length - 1];
   await t.page.click("#qbtn");
   await t.settle();
-  await t.page.click('#az .plc:has-text("TTT")');
+  // real player: the saved queue already carries a playlist name
+  if (!REAL) ok(await t.page.$eval("#qdel", (e) => e.hidden), "no delete button without a loaded playlist");
+  await t.page.click(`#az .plc span:text-is("${pl.text}")`);
+  await t.waitToast("Playing playlist: " + pl.text);
+  ok(t.player.state.commands.includes(decodeURIComponent(pl.playURL)), "play URL of the playlist");
   await t.page.waitForFunction(() => !document.querySelector("#qdel").hidden, null, { timeout: 4000 });
+  const n = t.reqs(/key=BluOS:$/).length;
   await t.page.click("#qdel");
+  await t.waitToast(`Deleted playlist \u201C${pl.text}\u201D`);
+  ok(t.dialogs.log.pop().message.includes(pl.text), "confirm names the playlist");
+  ok(t.player.state.commands.includes(`/Delete?service=BluOS&name=${pl.text}`), "delete sent with the name");
+  ok(await t.page.$eval("#qdel", (e) => e.hidden), "button hidden");
   await t.settle();
-  ok(
-    t.player.state.commands.some((c) => c === "/Delete?service=BluOS&name=TTT"),
-    "delete sent with the name",
-  );
-});
+  ok(t.reqs(/key=BluOS:$/).length > n, "chips reloaded");
+  },
+  {
+    ...W,
+    before: (get) => get("/Save?name=" + encodeURIComponent(TEST_LIST)),
+    cleanup: (get) => get("/Delete?service=BluOS&name=" + encodeURIComponent(TEST_LIST)),
+  },
+);
 
-test("settings: chip switches hide genres / quality / playlists", async (t) => {
-  await t.page.click("#gear");
-  const visible = () =>
-    t.page.$$eval("#az > button", (x) =>
-      x.filter((e) => e.offsetParent).map((e) => e.getAttribute("aria-label") || e.textContent),
+test(
+  "QUE-14 delete cancelled: nothing sent",
+  async (t) => {
+    await t.page.click("#qbtn");
+    await t.settle();
+    await t.page.click(`#az .plc span:text-is("${TD.PL[0].text}")`);
+    await t.page.waitForFunction(() => !document.querySelector("#qdel").hidden, null, { timeout: 6000 });
+    await t.page.click("#qdel");
+    await t.settle();
+    eq(t.cmds(/^\/Delete\?service=/), [], "no delete");
+  },
+  { ...W, dialog: "dismiss" },
+);
+
+test(
+  "QUE-14 delete not successful: popup",
+  async (t) => {
+    await t.page.click("#qbtn");
+    await t.settle();
+    await t.page.click(`#az .plc span:text-is("${TD.PL[0].text}")`);
+    await t.page.waitForFunction(() => !document.querySelector("#qdel").hidden, null, { timeout: 4000 });
+    await t.page.click("#qdel");
+    await t.page.waitForSelector("#apidlg[open]");
+    eq(await t.page.textContent("#apit"), "Deleting the playlist did not succeed", "title");
+    eq(await t.page.textContent("#apib"), "<error>Test failure</error>", "raw answer");
+  },
+  { overrides: [{ match: /^\/Delete\?service=/, body: "<error>Test failure</error>" }] },
+);
+
+test(
+  "QUE-16 empty queue: buttons disabled, no count",
+  async (t) => {
+    await t.page.click("#qbtn");
+    await t.page.waitForFunction(() => document.querySelector("#qsave").disabled);
+    ok(
+      await t.page.evaluate(() => ["#qsave", "#qclear", "#qshuf", "#qrep"].every((s) => document.querySelector(s).disabled)),
+      "save, clear, shuffle, repeat disabled",
     );
-  await t.page.click("#gsw");
-  await t.page.click("#qsw");
-  await t.page.click("#psw");
-  eq(await visible(), ["All", "Favourites", "New"], "only special chips left");
-  await t.page.reload();
-  await t.settle(200);
-  eq(await t.page.getAttribute("#gsw", "aria-checked"), "false", "remembered after reload");
-});
+    eq(await t.page.textContent("#qcount"), "", "no count");
+  },
+  { mock: (s) => (s.queueEmpty = true) },
+);
 
-test("settings: source switch off -> only the other source", async (t) => {
-  await t.page.click("#gear");
-  await t.page.click("#srcl .srow:nth-child(2) .sw"); // USB off
-  await t.settle(800);
-  await t.page.keyboard.press("Escape"); // close the panel
-  await t.page.waitForFunction(() => /favourites/.test(document.querySelector("#msg").textContent));
-  const c = await t.$$text("#az button");
-  ok(!c.includes("Soundtrack") || c.includes("Alternative Rock"), "chips rebuilt");
-  await t.chip("New");
-  await t.settle();
-  ok(!(await t.tiles()).includes("Hellboy II: The Golden Army"), "no USB album");
-});
+test(
+  "QUE-16 long queue: pages of 200, at most 2000 entries",
+  async (t) => {
+    await t.page.click("#qbtn");
+    await t.page.waitForFunction(() => document.querySelectorAll("#qlist li").length === 2000, null, { timeout: 15000 });
+    eq(
+      [...new Set(t.reqs(/^\/Playlist\?/))].sort(),
+      Array.from({ length: 10 }, (_, i) => `/Playlist?start=${i * 200}&end=${i * 200 + 199}`).sort(),
+      "ten pages",
+    );
+    ok((await t.page.textContent("#qcount")).startsWith("2500 tracks"), "count of the whole queue");
+  },
+  { mock: (s) => (s.queueSize = 2500) },
+);
+
+test(
+  "QUE-16 queue cannot be loaded",
+  async (t) => {
+    await t.page.click("#qbtn");
+    await t.waitText("#qcount", "Could not load queue");
+  },
+  { overrides: [{ match: /^\/Playlist\?/, status: 500 }] },
+);
+
+// ---------- 4.12 Playlist chips (PLS) ----------
+test(
+  "PLS-02 playing a playlist reloads the open queue once",
+  async (t) => {
+    await t.openQueue();
+    await t.settle(2500);
+    const loads = () => t.player.state.requests.filter((x) => /^\/Playlist\?start=0&/.test(x)).length;
+    const n = loads();
+    await t.page.click(`#az .plc span:text-is("${TD.PL[0].text}")`);
+    await t.waitToast("Playing playlist: " + TD.PL[0].text);
+    await t.settle(3000);
+    eq(loads() - n, 1, "queue reloaded once (new playlist id, or after 1.5 s when it stays)");
+  },
+  W,
+);
+
+test(
+  "PLS-02 play URL from the context menu when the playlist has no playURL",
+  async (t) => {
+    await t.page.click(`#az .plc span:text-is("${TD.PL[0].text}")`);
+    await t.settle();
+    eq(t.cmds(/^\/Add\?clear=0&playlist=/).length, 1, "play action of the context menu");
+  },
+  {
+    overrides: [
+      {
+        match: /key=BluOS:$/,
+        edit: (x) => x.replace(/ playURL="[^"]*"/g, "").replace(/type="add-now"/g, 'type="play-now"'),
+      },
+    ],
+  },
+);
+
+test(
+  "PLS-03 player without saved playlists: no chips, no statistic",
+  async (t) => {
+    eq(await t.page.$$eval("#az .plc, #az .plg", (x) => x.length), 0, "no playlist chips, no separator");
+    await t.page.click("#gear");
+    await t.page.click("#aboutb");
+    await t.waitText("#infodlg", /Composers\s*[\d,]/);
+    ok(!/Playlists/.test(await t.page.textContent("#info")), "no Playlists statistic");
+  },
+  { overrides: [{ match: TOP, edit: (x) => x.replace(/\s*<item browseKey="BluOS:"[^>]*><\/item>/, "") }] },
+);
+
+test(
+  "PLS-04 playlist chips stay at the end after a source change",
+  async (t) => {
+    await t.page.click("#gear");
+    await t.page.click("#srcl .srow:nth-child(2) .sw");
+    await t.settle(800);
+    await t.page.click("#srcl .srow:nth-child(2) .sw");
+    await t.waitMsg(/in favourites/);
+    eq(await t.page.$$eval("#az .plc", (x) => x.length), TD.PL.length, "chips");
+    ok(await t.page.$eval("#az", (n) => n.lastElementChild.classList.contains("plc")), "at the end");
+  },
+  U,
+);
+
+test(
+  "PLS-05 saved playlists over several pages",
+  async (t) => {
+    eq(
+      await t.page.$$eval("#az .plc span", (x) => x.map((e) => e.textContent)),
+      [...TD.PL.map((p) => p.text), "Page two"],
+      "playlists of both pages",
+    );
+  },
+  {
+    overrides: [
+      { match: /key=BluOS:$/, edit: (x) => x.replace(/<browse /, '<browse nextKey="BluOS:page2" ') },
+      {
+        match: /key=BluOS:page2$/,
+        body: '<browse><item text="Page two" playURL="/Load?service=BluOS&amp;name=Page+two" type="playlist"></item></browse>',
+      },
+    ],
+  },
+);
+
+// ---------- 4.13 Settings panel (SET) ----------
+test(
+  "SET-01 settings panel opens and closes (button, back, scrim, Esc)",
+  async (t) => {
+    const open = () => t.page.$eval("#side", (e) => e.classList.contains("open"));
+    for (const [name, close] of [
+      ["back button", () => t.page.click("#sclose")],
+      ["scrim", () => t.page.mouse.click(VIEWPORT.width - 10, VIEWPORT.height / 2)],
+      ["Esc", () => t.page.keyboard.press("Escape")],
+    ]) {
+      await t.page.click("#gear");
+      ok(await open(), "open before " + name);
+      eq(await t.page.getAttribute("#gear", "aria-expanded"), "true", "aria-expanded");
+      await t.settle(300);
+      await close();
+      await t.settle(300);
+      ok(!(await open()), "closed with the " + name);
+      eq(await t.page.getAttribute("#gear", "aria-expanded"), "false", "aria-expanded after " + name);
+    }
+  },
+  R,
+);
+
+test(
+  "SET-02 SET-03 chip switches hide genres / quality / playlists, stored, on again",
+  async (t) => {
+    await t.page.click("#gear");
+    const visible = () =>
+      t.page.$$eval("#az > button", (x) =>
+        x.filter((e) => e.offsetParent).map((e) => e.getAttribute("aria-label") || e.textContent),
+      );
+    const before = await visible();
+    await t.page.click("#gsw");
+    await t.page.click("#qsw");
+    await t.page.click("#psw");
+    eq(await visible(), ["All", "Favourites", "New"], "only special chips left");
+    await t.page.reload();
+    await t.settle(200);
+    for (const s of ["#gsw", "#qsw", "#psw"]) eq(await t.page.getAttribute(s, "aria-checked"), "false", s + " remembered");
+    await t.connect();
+    await t.openPanel();
+    await t.page.click("#gsw");
+    await t.page.click("#qsw");
+    await t.page.click("#psw");
+    eq(await visible(), before, "all chips back");
+  },
+  R,
+);
 
 // Layout of the album wall for one cover size and design: tile width, no horizontal scrolling,
 // background brightness of the design and contrast of the album titles (WCAG AA: 4.5).
@@ -868,125 +2468,546 @@ const DESIGNS = [
   { theme: "system", scheme: "dark", dark: true },
 ];
 
-test("settings: every cover size in every design, no horizontal scrolling, readable titles", async (t) => {
-  await t.chip("All");
-  await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
-  for (const d of DESIGNS) {
-    await t.page.emulateMedia({ colorScheme: d.scheme });
-    const widths = [];
-    for (const size of ["s", "m", "l"]) {
-      await t.page.click("#gear");
-      await t.page.click(`#themes [data-theme="${d.theme}"]`);
-      await t.page.click(`#sizes [data-size="${size}"]`);
-      await t.page.keyboard.press("Escape");
-      await t.settle(300);
-      const l = await wallLayout(t.page);
-      const at = `${d.theme} (system ${d.scheme}), ${size.toUpperCase()}`;
-      ok(l.overflow <= 0, `${at}: no horizontal scrolling (${l.overflow} px too wide)`);
-      eq(l.dark, d.dark, `${at}: dark background`);
-      ok(l.contrast >= 4.5, `${at}: title contrast ${l.contrast} (at least 4.5)`);
-      widths.push(l.tile);
+test(
+  "SET-04 SET-05 LAY-01 every cover size in every design, no horizontal scrolling, readable titles",
+  async (t) => {
+    await t.all();
+    for (const d of DESIGNS) {
+      await t.page.emulateMedia({ colorScheme: d.scheme });
+      const widths = [];
+      for (const size of ["s", "m", "l"]) {
+        await t.page.click("#gear");
+        await t.page.click(`#themes [data-theme="${d.theme}"]`);
+        await t.page.click(`#sizes [data-size="${size}"]`);
+        eq(await t.page.getAttribute(`#sizes [data-size="${size}"]`, "aria-pressed"), "true", "size segment pressed");
+        await t.page.keyboard.press("Escape");
+        await t.settle(300);
+        const l = await wallLayout(t.page);
+        const at = `${d.theme} (system ${d.scheme}), ${size.toUpperCase()}`;
+        ok(l.overflow <= 0, `${at}: no horizontal scrolling (${l.overflow} px too wide)`);
+        eq(l.dark, d.dark, `${at}: dark background`);
+        ok(l.contrast >= 4.5, `${at}: title contrast ${l.contrast} (at least 4.5)`);
+        widths.push(l.tile);
+      }
+      ok(widths[0] < widths[1] && widths[1] < widths[2], `${d.theme}: S < M < L (${widths.join(" / ")} px)`);
     }
-    ok(widths[0] < widths[1] && widths[1] < widths[2], `${d.theme}: S < M < L (${widths.join(" / ")} px)`);
-  }
-  eq(
-    await t.page.evaluate(() => [localStorage.getItem("theme"), localStorage.getItem("tile")]),
-    ["system", "l"],
-    "stored",
-  );
-});
+    eq(
+      await t.page.evaluate(() => [localStorage.getItem("theme"), localStorage.getItem("tile")]),
+      ["system", "l"],
+      "stored",
+    );
+  },
+  R,
+);
 
-test("about: popup with name, version, copyright, GitHub link, player info and stats", async (t) => {
-  await t.page.click("#gear");
-  await t.page.click("#aboutb");
-  await t.page.waitForSelector("#infodlg[open]");
-  // versions and statistics arrive after the popup opens
-  await t.page.waitForFunction(
-    () =>
-      /BluOS version\s*\d/.test(document.querySelector("#infodlg").textContent) &&
-      /Playlists/.test(document.querySelector("#infodlg").textContent),
-  );
-  const txt = await t.page.textContent("#infodlg");
-  ok(
-    /BluAlbum/.test(txt) && /Version v\d+\.\d+\.\d+/.test(txt) && /Copyright © 2026 Ingmar Gebert/.test(txt),
-    "header lines",
-  );
-  ok(/Albums/.test(txt) && /Playlists/.test(txt), "stats");
-  ok(/BluOS version\s*4\.18\.18/.test(txt) && /API version\s*v0\.5\.43/.test(txt), "player versions");
-  ok(txt.includes("Room") && txt.includes(await t.page.evaluate(() => playerName)), "room name");
-  const link = await t.page.$eval("#infodlg a#repo", (a) => ({ href: a.href, text: a.textContent, target: a.target }));
-  eq(
-    link,
-    { href: "https://github.com/ogig33/blu-album", text: "github.com/ogig33/blu-album", target: "_blank" },
-    "GitHub link",
-  );
-});
+test(
+  "SET-06 stored cover size and design are restored before connecting",
+  async (t) => {
+    eq(await t.page.getAttribute("html", "data-theme"), "dark", "design");
+    eq(
+      await t.page.evaluate(() => document.documentElement.style.getPropertyValue("--tile")),
+      await t.page.evaluate(() => TILE.l),
+      "cover size",
+    );
+    eq(await t.page.getAttribute('#themes [data-theme="dark"]', "aria-pressed"), "true", "design segment");
+    eq(await t.page.getAttribute('#sizes [data-size="l"]', "aria-pressed"), "true", "size segment");
+  },
+  { ...R, connect: false, storage: { theme: "dark", tile: "l" } },
+);
 
-test("about: update check only on click, newer / same version / failure", async (t) => {
-  const version = await t.page.evaluate(() => APP.version);
-  await t.page.click("#gear");
-  await t.page.click("#aboutb");
-  await t.page.waitForSelector("#infodlg[open]");
-  await t.settle(300);
-  eq(t.gh.urls, [], "no GitHub request before the click");
-  const check = async () => {
-    await t.page.click("#updb");
+test(
+  "SET-07 invalid stored values fall back to System and M",
+  async (t) => {
+    eq(await t.page.getAttribute("html", "data-theme"), null, "System design");
+    eq(
+      await t.page.evaluate(() => document.documentElement.style.getPropertyValue("--tile")),
+      await t.page.evaluate(() => TILE.m),
+      "size M",
+    );
+    eq(await t.page.getAttribute('#themes [data-theme="system"]', "aria-pressed"), "true", "design segment");
+    eq(await t.page.getAttribute('#sizes [data-size="m"]', "aria-pressed"), "true", "size segment");
+  },
+  { ...R, connect: false, storage: { theme: "x", tile: "x" } },
+);
+
+test(
+  "SET-08 SET-09 library settings and version in the panel",
+  async (t) => {
+    await t.page.click("#gear");
+    const onoff = await t.page.evaluate(() => ONOFF);
+    await t.waitText("#libset", "Music Library Settings");
+    const rows = await t.page.$$eval("#libset dt", (x) => x.map((e) => [e.textContent, e.nextElementSibling.textContent]));
+    const share = TD.SET.share && /^\s*$|no shares|keine/i.test(TD.SET.share) ? "None" : TD.SET.share || "None";
+    eq(
+      rows,
+      [
+        ["Network shares", share],
+        ["Optimize artwork", onoff[TD.SET.resizeall] || TD.SET.resizeall],
+        ["Server mode", onoff[TD.SET.server] || TD.SET.server],
+      ].filter((x) => x[1]),
+      "library settings",
+    );
+    eq(await t.page.textContent("#ver"), "v" + (await t.page.evaluate(() => APP.version)), "version");
+  },
+  R,
+);
+
+test(
+  "SET-08 no network shares: None",
+  async (t) => {
+    await t.page.click("#gear");
+    await t.waitText("#libset", "Network shares");
+    eq(await t.page.$eval("#libset dt", (e) => e.nextElementSibling.textContent), "None", "network shares");
+  },
+  {
+    overrides: [{ match: /^\/Settings$/, edit: (x) => x.replace(/(<setting id="sharecfg"[^>]*description=")[^"]*"/, '$1"') }],
+  },
+);
+
+// ---------- 4.14 About popup (ABT) ----------
+test(
+  "ABT-01 about: name, version, copyright, GitHub link, notice, player info",
+  async (t) => {
+    await t.page.click("#gear");
+    await t.page.click("#aboutb");
+    await t.page.waitForSelector("#infodlg[open]");
+    await t.waitText("#infodlg", /BluOS version\s*\S/);
+    await t.waitText("#infodlg", "Playlists");
+    const app = await t.page.evaluate(() => APP);
+    const txt = await t.page.textContent("#infodlg");
+    ok(txt.includes(app.name) && txt.includes("Version v" + app.version) && /Copyright © \d{4} \S/.test(txt), "header lines");
+    ok(/Albums/.test(txt) && /Playlists/.test(txt), "stats");
+    ok(txt.includes("BluOS version" + TD.VER.bluos) && txt.includes("API version" + TD.VER.api), "player versions");
+    ok(txt.includes("Room" + TD.SET.room), "room name");
+    ok(/independent project/.test(await t.page.textContent("#infodlg .legal")), "independence notice");
+    const link = await t.page.$eval("#infodlg a#repo", (a) => ({ href: a.href, text: a.textContent, target: a.target }));
+    eq(link, { href: app.repo, text: app.repo.replace(/^https:\/\//, ""), target: "_blank" }, "GitHub link");
+  },
+  R,
+);
+
+test(
+  "ABT-02 statistics and versions are loaded when the popup opens, once",
+  async (t) => {
+    const count = () => t.reqs(/^\/(GitVersion|Version)$|bySection:(Album|Artist|Song|Composer)/).length;
+    eq(count(), 0, "nothing before the popup");
+    await t.page.click("#gear");
+    await t.page.click("#aboutb");
+    await t.waitText("#infodlg", /Composers\s*[\d,]/);
+    await t.waitText("#infodlg", "BluOS version");
+    eq(count(), 2 + TD.STAT_LISTS, "versions + the statistics lists of every source");
+    await t.page.click("#infoclose");
+    await t.page.click("#aboutb");
+    await t.settle(300);
+    eq(count(), 2 + TD.STAT_LISTS, "second opening: no new requests");
+  },
+  R,
+);
+
+test(
+  "ABT-03 statistic values",
+  async (t) => {
+    await t.page.click("#gear");
+    await t.page.click("#aboutb");
     await t.page.waitForFunction(
       () =>
-        !/Checking/.test(document.querySelector("#updmsg").textContent) &&
-        document.querySelector("#updmsg").textContent,
+        /Composers/.test(document.querySelector("#info").textContent) &&
+        !/\u2026/.test(document.querySelector("#info").textContent),
+      null,
+      { timeout: REAL ? 120000 : 30000 },
     );
-    return t.page.textContent("#updmsg");
-  };
-  const url = "https://github.com/ogig33/blu-album/releases/tag/v99.0.0";
-  t.gh.answer = { status: 200, body: { tag_name: "v99.0.0", html_url: url } };
-  eq(await check(), "Update available: v99.0.0", "newer release");
-  eq(await t.page.$eval("#updmsg a", (a) => [a.href, a.target]), [url, "_blank"], "release link");
-  eq(t.gh.urls, ["https://api.github.com/repos/ogig33/blu-album/releases/latest"], "one request to the latest release");
-  t.gh.answer = { status: 200, body: { tag_name: "v" + version, html_url: url } };
-  eq(await check(), "You have the latest version.", "same version");
-  t.gh.answer = { status: 403, body: { message: "rate limit" } };
-  eq(await check(), "Update check failed (HTTP 403).", "failed request");
-});
+    const got = Object.fromEntries(
+      await t.page.$$eval("#info dt", (x) => x.map((e) => [e.textContent, e.nextElementSibling.textContent])),
+    );
+    for (const k of Object.keys(TD.STATS)) eq(got[k], TD.STATS[k], k);
+  },
+  R,
+);
 
-test("covers: image URLs only on the player or http(s), /Artwork with followRedirects", async (t) => {
-  const r = await t.page.evaluate(() => [
-    imgUrl("/Artwork?service=LocalMusic&album=A%20B&artist=C"),
-    imgUrl("/images/LibraryIcon.png"),
-    imgUrl("https://cdn.example.com/cover.jpg"),
-    imgUrl("//evil.example.com/x.png"),
-    imgUrl("javascript:alert(1)"),
-    imgUrl("data:image/svg+xml,<svg/>"),
-    imgUrl(""),
-  ]);
-  const b = `http://${IP}:11000`;
-  eq(
-    r,
-    [
-      b + "/Artwork?service=LocalMusic&album=A%20B&artist=C&followRedirects=1",
-      b + "/images/LibraryIcon.png",
-      "https://cdn.example.com/cover.jpg",
-      "",
-      "",
-      "",
-      "",
+test(
+  "ABT-03 statistics: placeholder while loading, dash when not available",
+  async (t) => {
+    await t.page.click("#gear");
+    await t.page.click("#aboutb");
+    const dd = (k) =>
+      t.page.evaluate(
+        (x) => [...document.querySelectorAll("#info dt")].find((e) => e.textContent === x)?.nextElementSibling.textContent,
+        k,
+      );
+    await t.page.waitForFunction(() => /Songs/.test(document.querySelector("#info").textContent));
+    eq(await dd("Composers"), "\u2026", "loading");
+    await t.page.waitForFunction(() =>
+      [...document.querySelectorAll("#info dt")].some(
+        (e) => e.textContent === "Songs" && e.nextElementSibling.textContent === "\u2013",
+      ),
+    );
+    await t.page.waitForFunction(() =>
+      [...document.querySelectorAll("#info dt")].some(
+        (e) => e.textContent === "Composers" && /\d/.test(e.nextElementSibling.textContent),
+      ),
+    );
+  },
+  {
+    overrides: [
+      { match: /bySection:Composer/, delay: 2000 },
+      { match: /bySection:Song/, status: 500 },
     ],
-    "image URLs",
-  );
-  // The image itself is shown as a blob URL (read with fetch, see showImg); data-src is the player URL
-  // data-src is set once the lazy loader reaches the cover (slower on CI runners)
-  await t.page.waitForFunction(() => document.querySelector("#grid .item:not(:first-child) .cov img")?.dataset.src);
-  const src = await t.page.$eval("#grid .item:not(:first-child) .cov img", (i) => i.dataset.src);
-  ok(src.startsWith(b + "/Artwork?") && src.endsWith("&followRedirects=1"), "grid cover from /Artwork: " + src);
+  },
+);
+
+test(
+  "ABT-04 statistics are loaded again after a source change",
+  async (t) => {
+    await t.page.click("#gear");
+    await t.page.click("#aboutb");
+    await t.waitText("#infodlg", /Composers\s*[\d,]/);
+    const n = t.reqs(/bySection:Artist/).length;
+    await t.page.click("#infoclose");
+    await t.page.click("#srcl .srow:nth-child(2) .sw");
+    await t.waitMsg(/in favourites/);
+    await t.page.click("#aboutb");
+    await t.waitText("#infodlg", /Composers\s*[\d,]/);
+    ok(t.reqs(/bySection:Artist/).length > n, "statistics requested again");
+  },
+  U,
+);
+
+test(
+  "ABT-05 update check only on click, newer / same version / failure",
+  async (t) => {
+    const version = await t.page.evaluate(() => APP.version);
+    const repo = await t.page.evaluate(() => RELEASES_LATEST);
+    await t.page.click("#gear");
+    await t.page.click("#aboutb");
+    await t.page.waitForSelector("#infodlg[open]");
+    await t.settle(300);
+    eq(t.gh.urls, [], "no GitHub request before the click");
+    const check = async () => {
+      await t.page.click("#updb");
+      await t.page.waitForFunction(
+        () => !/Checking/.test(document.querySelector("#updmsg").textContent) && document.querySelector("#updmsg").textContent,
+      );
+      return t.page.textContent("#updmsg");
+    };
+    const newer = "v" + version.split(".").map((x, i) => (i === 0 ? +x + 1 : 0)).join(".");
+    const url = "https://example.com/releases/" + newer;
+    t.gh.answer = { status: 200, body: { tag_name: newer, html_url: url } };
+    t.gh.delay = 500;
+    await t.page.click("#updb");
+    ok(await t.page.$eval("#updb", (b) => b.disabled), "button disabled while checking");
+    await t.waitText("#updmsg", "Update available: " + newer);
+    ok(!(await t.page.$eval("#updb", (b) => b.disabled)), "enabled again");
+    t.gh.delay = 0;
+    eq(await t.page.$eval("#updmsg a", (a) => [a.href, a.target]), [url, "_blank"], "release link");
+    eq(t.gh.urls, [repo], "one request to the latest release");
+    t.gh.answer = { status: 200, body: { tag_name: "v" + version, html_url: url } };
+    eq(await check(), "You have the latest version.", "same version");
+    t.gh.answer = { status: 403, body: { message: "rate limit" } };
+    eq(await check(), "Update check failed (HTTP 403).", "failed request");
+  },
+  R,
+);
+
+test(
+  "ABT-06 update check without network or without a release",
+  async (t) => {
+    await t.page.click("#gear");
+    await t.page.click("#aboutb");
+    await t.page.click("#updb");
+    await t.waitText("#updmsg", /^Update check failed \(.+\)\.$/);
+    t.gh.answer = { status: 200, body: {} };
+    await t.page.click("#updb");
+    await t.waitText("#updmsg", "Update check failed (no release).");
+  },
+  R,
+);
+
+// ---------- 4.15 Error handling (ERR) ----------
+test("ERR-01 failed command: toast", async (t) => {
+  t.player.state.overrides.push({ match: /^\/Add/, status: 500 });
+  const tile = "#grid .item:nth-child(2)";
+  await t.page.hover(tile);
+  await t.page.click(tile + " .play:not(.addq):not(.favc)");
+  await t.waitToast(/^Failed$/);
 });
 
-test("no JavaScript errors in a full session", async (t) => {
-  for (const c of ["All", "New", "CD", "Alternative Rock"]) {
-    await t.chip(c);
-    await t.settle(500);
-  }
-  eq(t.errors, [], "page errors");
+test(
+  "ERR-02 commands before connecting: toast, no request",
+  async (t) => {
+    await t.page.click("#sclose");
+    await t.page.click("#pp");
+    await t.waitToast("Connect first");
+    await t.page.click("#qbtn");
+    await t.page.click("#qsave");
+    await t.waitToast("Connect first");
+    eq(t.player.state.requests, [], "no request");
+  },
+  { ...R, connect: false },
+);
+
+test("ERR-03 player error answer: message of the player", async (t) => {
+  t.player.state.overrides.push({ match: /recent=1/, body: "<e><message>Test player error</message></e>" });
+  await t.chip("New");
+  await t.waitMsg("Loading failed: Test player error");
+  t.player.state.overrides.push({ match: /^\/Shuffle/, body: "<e><message>Test player error</message></e>" });
+  await t.page.click("#qbtn");
+  await t.page.click("#qshuf");
+  await t.waitToast(/^Failed$/);
 });
+
+test(
+  "ERR-05 every player request asks for English answers",
+  async (t) => {
+    await t.all();
+    await openLibAlbum(t);
+    const other = t.player.state.requests
+      .map((r, i) => [r, t.player.state.langs[i]])
+      .filter(([r, l]) => !/^\/Artwork/.test(r) && !/^en\b/i.test(l));
+    eq(other, [], "requests without Accept-Language: en");
+  },
+  R,
+);
+
+test(
+  "ERR-06 no genres: message, panel open",
+  async (t) => {
+    await t.connect(IP, false);
+    await t.waitMsg("Could not open the music source: No genres found. Has the library finished indexing?");
+    ok(await t.page.$eval("#side", (e) => e.classList.contains("open")), "panel open");
+  },
+  { connect: false, overrides: [{ match: /GG\/Genres$/, body: "<browse></browse>" }] },
+);
+
+// ---------- 4.16 Security & robustness (SEC) ----------
+test(
+  "SEC-01 image URLs only on the player or http(s), /Artwork with followRedirects",
+  async (t) => {
+    const r = await t.page.evaluate(() => [
+      imgUrl("/Artwork?service=LocalMusic&album=A%20B&artist=C"),
+      imgUrl("/images/LibraryIcon.png"),
+      imgUrl("https://cdn.example.com/cover.jpg"),
+      imgUrl("//evil.example.com/x.png"),
+      imgUrl("javascript:alert(1)"),
+      imgUrl("data:image/svg+xml,<svg/>"),
+      imgUrl(""),
+    ]);
+    eq(
+      r,
+      [
+        BASE + "/Artwork?service=LocalMusic&album=A%20B&artist=C&followRedirects=1",
+        BASE + "/images/LibraryIcon.png",
+        "https://cdn.example.com/cover.jpg",
+        "",
+        "",
+        "",
+        "",
+      ],
+      "image URLs",
+    );
+    // The image itself is shown as a blob URL (read with fetch, see showImg); data-src is the player URL
+    // data-src is set once the lazy loader reaches the cover (slower on CI runners)
+    await t.page.waitForFunction(() => document.querySelector("#grid .item:not(:first-child) .cov img")?.dataset.src);
+    const src = await t.page.$eval("#grid .item:not(:first-child) .cov img", (i) => i.dataset.src);
+    ok(src.startsWith(BASE + "/Artwork?") && src.endsWith("&followRedirects=1"), "grid cover from /Artwork: " + src);
+  },
+  R,
+);
+
+// Firefox upgrades <img src="http://…"> on a file:// page to https (mixed content); the player has no https,
+// so covers set as plain http image URLs stay empty there.
+test(
+  "SEC-02 covers: grid, popup and now playing show the player's images as blob URLs",
+  async (t) => {
+    const loaded = (sel) =>
+      t.page.waitForFunction((s) => {
+        const i = document.querySelector(s);
+        return i && i.complete && i.naturalWidth > 0 && /^blob:/.test(i.src);
+      }, sel);
+    await loaded("#grid .item .cov img");
+    await loaded("#cov");
+    await openAlbumBy(t, 'x.key.startsWith("LocalMusic")');
+    await loaded("#dimg");
+    ok(t.reqs(/^\/Artwork\?.*followRedirects=1/).length > 0, "covers come from /Artwork with followRedirects=1");
+  },
+  R,
+);
+
+test(
+  "SEC-02 FUL-01 the now playing cover is loaded once for footer and full-screen view",
+  async (t) => {
+    await t.page.waitForFunction(() =>
+      ["#cov", "#fimg"].every((s) => /^blob:/.test(document.querySelector(s).getAttribute("src") || "")),
+    );
+    await t.settle(500);
+    const img = t.st("image").replace(/^\/Artwork\?/, "");
+    eq(
+      t.player.state.requests.filter((r) => r.startsWith("/Artwork?") && decodeURIComponent(r).includes(decodeURIComponent(img))).length,
+      1,
+      "one /Artwork request for the now playing cover",
+    );
+  },
+  R,
+);
+
+test(
+  "SEC-03 broken covers: grid image removed, footer cover hidden",
+  async (t) => {
+    await t.page.waitForFunction(() => document.querySelector("#cov").hidden);
+    await t.page.waitForFunction(() => !document.querySelector("#grid .item:not(:first-child) .cov img"));
+    eq((await t.tiles()).length, TD.FAV.length, "tiles stay");
+  },
+  { overrides: [{ match: /^\/Artwork/, status: 404, type: "text/plain" }] },
+);
+
+test(
+  "SEC-04 blocked storage: the app works",
+  async (t) => {
+    await t.page.click("#gear");
+    await t.page.click('#themes [data-theme="dark"]');
+    await t.page.click("#qsw");
+    eq(await t.page.getAttribute("html", "data-theme"), "dark", "design applied");
+    eq(t.errors, [], "no JavaScript errors");
+  },
+  { ...R, blockStorage: true },
+);
+
+test(
+  "SEC-05 values of older versions are removed on start",
+  async (t) => {
+    const keys = await t.page.evaluate(() => Object.keys(localStorage));
+    eq(
+      keys.filter((k) => /^(fav|src|genres):/.test(k)),
+      [],
+      "fav:, src:, genres: removed",
+    );
+    ok(keys.includes("ip") && keys.includes("keep"), "other values kept");
+  },
+  { ...R, connect: false, storage: { ip: IP, keep: "1", "fav:x": "1", "src:y": "1", "genres:z": "1" } },
+);
+
+// ---------- 4.17 Layout & accessibility (LAY) ----------
+// Contrast of a text element against the background behind it (semi-transparent layers composited).
+const contrastOf = (page, sel) =>
+  page.$eval(sel, (el) => {
+    const rgba = (c) => {
+      const v = (c.match(/[\d.]+/g) || []).map(Number);
+      return { r: v[0], g: v[1], b: v[2], a: v.length > 3 ? v[3] : 1 };
+    };
+    const layers = [];
+    for (let e = el; e; e = e.parentElement) {
+      const c = rgba(getComputedStyle(e).backgroundColor);
+      if (c.a > 0) layers.push(c);
+    }
+    let bg = { r: 255, g: 255, b: 255 };
+    for (const c of layers.reverse())
+      bg = { r: c.r * c.a + bg.r * (1 - c.a), g: c.g * c.a + bg.g * (1 - c.a), b: c.b * c.a + bg.b * (1 - c.a) };
+    const lum = (c) =>
+      [c.r, c.g, c.b]
+        .map((v) => {
+          v /= 255;
+          return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+        })
+        .reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+    const [a, b] = [lum(rgba(getComputedStyle(el).color)), lum(bg)].sort((x, y) => y - x);
+    return Math.round(((a + 0.05) / (b + 0.05)) * 10) / 10;
+  });
+
+test(
+  "LAY-01 popup, queue and footer: readable titles, no horizontal scrolling",
+  async (t) => {
+    await t.all();
+    for (const theme of ["light", "dark"]) {
+      await t.page.click("#gear");
+      await t.page.click(`#themes [data-theme="${theme}"]`);
+      await t.page.keyboard.press("Escape");
+      if (!(await t.page.isVisible("#qside"))) await t.openQueue();
+      await t.settle(300);
+      for (const sel of ["#nt1", "#qlist li b"]) {
+        const c = await contrastOf(t.page, sel);
+        ok(c >= 4.5, `${theme}: ${sel} contrast ${c}`);
+      }
+      ok(
+        await t.page.evaluate(() => document.scrollingElement.scrollWidth <= document.scrollingElement.clientWidth),
+        theme + ": no horizontal scrolling with the queue pinned",
+      );
+      await openLibAlbum(t);
+      for (const sel of ["#dt", "#tracks li button span"]) {
+        const c = await contrastOf(t.page, sel);
+        ok(c >= 4.5, `${theme}: ${sel} contrast ${c}`);
+      }
+      await t.page.click("#close");
+    }
+  },
+  R,
+);
+
+test(
+  "LAY-02 every control has a name and its state, chips reachable with Tab",
+  async (t) => {
+    await t.openQueue();
+    const missing = await t.page.evaluate(() =>
+      [...document.querySelectorAll("button, [role=button], [role=slider], [role=switch], input")]
+        .filter((e) => e.getClientRects().length && !e.hidden)
+        .filter((e) => !(e.getAttribute("aria-label") || e.textContent.trim() || e.title || (e.labels && e.labels.length)))
+        .map((e) => e.outerHTML.slice(0, 80)),
+    );
+    eq(missing, [], "controls without a name");
+    ok(
+      await t.page.evaluate(
+        () =>
+          [...document.querySelectorAll("#az button")].every((b) => b.hasAttribute("aria-pressed")) &&
+          [...document.querySelectorAll("#side .sw")].every((b) => b.hasAttribute("aria-checked")) &&
+          ["#gear", "#qbtn"].every((s) => document.querySelector(s).hasAttribute("aria-expanded")),
+      ),
+      "state attributes",
+    );
+    await t.page.focus("#az button");
+    // Safari moves to buttons only with Option-Tab (its default setting "Press Tab to highlight each item" is off)
+    await t.page.keyboard.press(t.key === "safari" ? "Alt+Tab" : "Tab");
+    eq(
+      await t.page.evaluate(() => document.activeElement === document.querySelectorAll("#az button")[1]),
+      true,
+      "Tab moves to the next chip",
+    );
+  },
+  R,
+);
+
+// ---------- 4.18 Regression & session (REG) ----------
+test(
+  "REG-01 connect: no playback command on page load (regression)",
+  async (t) => {
+    await t.settle(1200);
+    eq(t.cmds(/^\/(Add|Play|Load)/), [], "playback commands after load");
+  },
+  R,
+);
+
+test(
+  "REG-02 connect: only the requests the first view needs (no genre crawl, stats, versions, one-off status)",
+  async (t) => {
+    await t.settle(1200);
+    eq(t.reqs(/MG\/Genres\?genre=/).length, 0, "no genre crawl");
+    eq(t.reqs(/^\/(GitVersion|Version)$/), [], "no version requests");
+    eq(t.reqs(/bySection:(Album|Artist|Song|Composer)/), [], "no statistics requests");
+    eq(t.reqs(/^\/Status$|^\/Volume$/), [], "no one-off /Status or /Volume");
+    ok(t.reqs(/^\/Status\?timeout=100/).length > 0, "status long polling runs");
+    ok(t.reqs(/^\/Settings$/).length > 0, "settings (room name)");
+  },
+  R,
+);
+
+test(
+  "REG-03 no JavaScript errors in a full session",
+  async (t) => {
+    for (const c of ["All", "New", "CD", TD.GEN[0]]) {
+      await t.chip(c);
+      await t.settle(500);
+    }
+    eq(t.errors, [], "page errors");
+  },
+  R,
+);
 
 // Screenshots of the main views (only with --shots); file names: <browser>-<viewport>-<view>.png
 async function views(t) {
@@ -999,8 +3020,7 @@ async function views(t) {
     await t.page.keyboard.press("Escape");
     await t.settle(500);
   };
-  await t.chip("All");
-  await t.page.waitForFunction(() => /^\d[\d,]* albums?\b/.test(document.querySelector("#msg").textContent));
+  await t.all();
   for (const theme of ["light", "dark"]) {
     // album wall in every cover size
     for (const size of ["s", "m", "l"]) {
@@ -1009,13 +3029,11 @@ async function views(t) {
       await shot(`${theme}-1-albums-${size}`);
     }
     await setting('#sizes [data-size="m"]');
-    await t.page.evaluate(() => openAlbum(shown.find((a) => a.key.startsWith("LocalMusic") && a.t === "1")));
-    await t.page.waitForSelector("#tracks li button");
+    await openLibAlbum(t);
     await t.settle(500);
     await shot(`${theme}-2-album-popup`);
     await t.page.click("#close");
-    await t.page.click("#qbtn");
-    await t.page.waitForSelector("#qlist li");
+    await t.openQueue();
     await t.settle(500);
     await shot(`${theme}-3-queue`);
     await t.page.click("#qbtn");
@@ -1030,10 +3048,47 @@ async function views(t) {
     await t.page.keyboard.press("Escape");
   }
 }
-if (SHOTS) test("views: screenshots of the main views", views);
+if (SHOTS) test("ENV views: screenshots of the main views", views, R);
+
+// ---------- real player: save and restore its state (write tests) ----------
+// Like the Bruno folder "2 Write": the queue is saved as a playlist before the write tests and loaded
+// again after each of them; playback position, pause state, shuffle, repeat and volume are set back.
+async function saveState(get) {
+  const s = stOf(await get("/Status"));
+  const state = {
+    volume: s("volume"),
+    repeat: s("repeat"),
+    shuffle: s("shuffle"),
+    song: s("song"),
+    secs: s("secs"),
+    playing: /^(play|stream)$/.test(s("state")),
+  };
+  const q = (await get("/Playlist?start=0&end=0")) || "";
+  state.queue = +((q.match(/<playlist [^>]*length="(\d+)"/) || [])[1] || 0);
+  if (state.queue && !/<entries>[1-9]/.test((await get("/Save?name=" + SAVE_NAME)) || ""))
+    throw new Error("could not save the queue of the player");
+  return state;
+}
+async function restoreState(get, s) {
+  await get("/Clear");
+  if (s.queue) {
+    await get("/Load?service=BluOS&name=" + SAVE_NAME);
+    await sleep(1500);
+  }
+  if (stOf(await get("/Status"))("shuffle") !== s.shuffle) await get("/Shuffle?state=" + (s.shuffle === "1" ? 1 : 0));
+  if (s.repeat) await get("/Repeat?state=" + s.repeat);
+  if (s.queue && s.song !== "") {
+    await get(`/Play?seek=${Math.floor(+s.secs || 0)}&id=${s.song}`);
+    if (!s.playing) {
+      await sleep(500);
+      await get("/Pause");
+    }
+  }
+  if (s.volume && s.volume !== "-1") await get("/Volume?level=" + s.volume);
+}
 
 // ---------- runner ----------
-async function runIn(key) {
+async function runIn(key, list, real) {
   const { label } = BROWSERS[key];
   console.log(`\n${label} · ${VP_ARG}`);
   let browser;
@@ -1044,11 +3099,18 @@ async function runIn(key) {
     return { label, pass: 0, fail: 1 };
   }
   let pass = 0,
-    fail = 0;
-  for (const tc of tests.filter((x) => !ONLY || x.name.includes(ONLY))) {
+    fail = 0,
+    skip = 0;
+  for (const tc of list) {
+    if (tc.opts.needs === "usb" && !TD.USB) {
+      skip++;
+      console.log(`  - ${tc.name} (skipped: the player has no USB drive)`);
+      continue;
+    }
     const t0 = Date.now();
     let t;
     try {
+      if (real && tc.opts.before) await tc.opts.before(real.get);
       t = await start(browser, tc.opts);
       t.key = key;
       await tc.fn(t);
@@ -1067,16 +3129,47 @@ async function runIn(key) {
       }
     } finally {
       if (t) await t.close();
+      if (real && tc.opts.real === "write") {
+        if (tc.opts.cleanup) await tc.opts.cleanup(real.get);
+        await restoreState(real.get, real.saved);
+      }
     }
   }
   await browser.close();
-  return { label, pass, fail };
+  return { label, pass, fail, skip };
+}
+
+// --list: names of the tests and whether they run against the real player
+if (process.argv.includes("--list")) {
+  for (const x of tests) console.log(`${(x.opts.real || "mock").padEnd(5)}  ${x.name}`);
+  process.exit(0);
 }
 
 (async () => {
+  const src = REAL ? createRecorder(BASE) : createPlayer();
+  if (REAL) {
+    console.log(`Real player ${IP}: ${WRITE ? "read and write tests" : "read-only tests"}; reading the test data …`);
+    if (!(await src.get("/Status"))) {
+      console.error(`The player ${IP} does not answer (network, IP address, Local Network permission of the terminal?)`);
+      process.exit(2);
+    }
+  }
+  const list = tests.filter(
+    (x) => (!ONLY || x.name.includes(ONLY)) && (!REAL || x.opts.real === "read" || (WRITE && x.opts.real === "write")),
+  );
+  if (REAL) console.log(`${list.length} of ${tests.filter((x) => !ONLY || x.name.includes(ONLY)).length} tests apply to the real player`);
+  // the state is saved first: its playlist is then part of the test data (chips, statistics)
+  let real = null;
+  if (WRITE && list.some((x) => x.opts.real === "write")) real = { get: src.get, saved: await saveState(src.get) };
+  TD = await buildTD(src.get);
   const results = [];
-  for (const key of PICK) results.push(await runIn(key));
+  try {
+    for (const key of PICK) results.push(await runIn(key, list, real));
+  } finally {
+    if (real) await src.get("/Delete?service=BluOS&name=" + SAVE_NAME);
+  }
   console.log("");
-  for (const r of results) console.log(`${r.label} · ${VP_ARG}: ${r.pass} passed, ${r.fail} failed`);
+  for (const r of results)
+    console.log(`${r.label} · ${VP_ARG}: ${r.pass} passed, ${r.fail} failed` + (r.skip ? `, ${r.skip} skipped` : ""));
   process.exit(results.some((r) => r.fail) ? 1 : 0);
 })();

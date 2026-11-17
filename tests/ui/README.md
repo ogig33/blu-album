@@ -4,6 +4,8 @@ Automated tests of the app's user interface. The app runs headless in **Chrome, 
 (WebKit), Edge and Firefox** against a **mock player** that answers every request with recorded answers
 of a real player (`fixtures/`). No player and no network are needed.
 
+Every function of the app is a test case in the test plan `docs/test-plan.md`; the name of each UI test starts with the IDs of the test cases it covers (e.g. `QUE-04`). Expected values are derived from the fixtures (object `TD` in `run.js`), never written into the tests.
+
 ## Files
 - `run.js` – the test scenarios and a small test runner
 - `mock-player.js` – the mock player (fixtures + derived answers, records all commands)
@@ -21,13 +23,24 @@ npm install
 npx playwright install webkit firefox
 npm test                            # tests ../../blualbum.html in Chrome, Safari (WebKit), Edge, Firefox
 node run.js --browser safari        # one browser: chrome, safari, edge or firefox (comma list allowed)
-node run.js --only queue            # only tests whose name contains "queue"
+node run.js --only QUE-             # only tests whose name contains "QUE-" (the queue block of the test plan)
 UI_SLOW=2 npm test                  # doubles the fixed waits (slow machines, CI)
 node run.js --viewport 1440x900@2   # window size and device pixel ratio (default 1200x800)
 node run.js --shots                 # also screenshots of the main views to test-results/views/
+node run.js --list                  # every test with its mark: read / write (also real player) or mock
 ```
 
 A failed test saves a screenshot of the page to `test-results/` (ignored by git). Tests must not assume a window size: use `VIEWPORT` for coordinates.
+
+## Against the real player
+The tests marked `read` (and with `--write` also those marked `write`) run against your own player instead of the mock (test environment ENV-4 of `docs/test-plan.md`). The expected values are read from the player before the tests start.
+
+```
+node run.js --player 192.168.1.50 --browser chrome           # read-only: changes nothing on the player
+node run.js --player 192.168.1.50 --browser chrome --write   # also tests that change data on the player
+```
+
+Before a run: something from the library is playing or paused, the queue has at least 3 entries, there is at least one saved playlist. A USB drive with albums is optional: without one the tests that need a second source are skipped. On macOS the terminal needs the "Local Network" permission (*System Settings → Privacy & Security → Local Network*). Write tests are those that send a request changing data on the player: player controls (play, pause, skip, seek, volume), queue, playlists, favourites, shuffle / repeat. With `--write` the queue is saved as playlist `__blualbum_ui_test__` first and loaded again after every write test (with position, pause state, shuffle, repeat and volume); the playlist is deleted at the end. Error cases, delays and a second player stay mock only.
 
 ## GitHub Actions
 `.github/workflows/ui-tests.yml` runs the tests on GitHub's runners, one job per system, browser and window size (1280x800 small laptop, 1440x900@2 Retina laptop, 1920x1080 desktop):

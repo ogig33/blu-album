@@ -25,6 +25,7 @@ Out of scope (do not build, suggest the alternative):
 - `docs/blu-album-api-usage.md` – every click of the app with its requests, measurements and endpoint choices. Private, git-ignored: missing in worktrees, cloud sessions and clones.
 - Top of the `<script>` in `blualbum.html` – module overview (order of the modules).
 - `tests/api/README.md` – Bruno collection: setup, folders, request prefixes, fixtures.
+- `docs/test-plan.md` – test plan: every function of the app as test cases per block (inputs, expected outputs, status Auto = UI test automation / Manual), test data dictionary; update it when a function or a UI test changes.
 - `tests/ui/README.md` – Playwright UI tests: run options, GitHub Actions matrix, updating fixtures.
 - `README.md` "Development" – overview of tests and GitHub workflows (UI tests, lint, format).
 

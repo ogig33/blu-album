@@ -4,6 +4,7 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 
 ## Unreleased
 - Fewer player requests for the search and the now playing cover.
+- Search only from 3 characters, also with Enter.
 
 ## 0.9.0
 - Code cleanup after ESLint (no change in behaviour).
