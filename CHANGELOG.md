@@ -3,6 +3,8 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Album popup shows the source icons of the player (USB, library).
+- Player bar shows the listening mode as the icon of the player instead of a text tag.
 - Fewer player requests for the search and the now playing cover.
 - Search only from 3 characters, also with Enter.
 

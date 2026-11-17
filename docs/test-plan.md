@@ -210,7 +210,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
-| POP-01 | Open from the cover or the title | Click the cover of TD-ALB-LIB; close; click its title | Popup with cover, title, artist link, source line (icon + source name of TD-SRC); "Loading tracks …" until the tracks arrive | – | Auto |
+| POP-01 | Open from the cover or the title | Click the cover of TD-ALB-LIB; close; click its title | Popup with cover, title, artist link, source line (icon of the player from the `image` of TD-SRC, inverted in the light design, + source name of TD-SRC); "Loading tracks …" until the tracks arrive | – | Auto |
 | POP-02 | Track list | Popup of TD-ALB-LIB | One row per track of TD-TRK ("N. Title", duration m:ss); summary "N tracks · total time"; request `/Browse` with `withContextMenuItems=0` | read | Auto |
 | POP-03 | No action buttons, no genre line | Popup open | No play / queue / heart button; no genre line | read | Auto |
 | POP-04 | Year | Popup of TD-ALB-LIB | Year = `date` of TD-SONGS; different years shown as range "first–last" | read (part) | Auto |
@@ -255,9 +255,9 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | FTR-12 | Volume slider | Drag the slider | `/Volume?level=<value>` at most every 150 ms while dragging and once on release; slider not overwritten by status while dragging | write | Auto |
 | FTR-13 | Volume buttons | Click volume down / up | `/Volume?db=-2` / `/Volume?db=2`; slider follows the answer | write | Auto |
 | FTR-14 | Fixed volume | `<volume>-1</volume>` in status | Slider and both buttons disabled | – | Auto |
-| FTR-15 | Listening mode tag | TD-LM | Tag = `displayName` of the current mode, tooltip = setting `displayName`; right before volume down; display only | read | Auto |
-| FTR-16 | Listening mode follows syncStat | Change the mode in the mock and raise `syncStat` | `/audioPreset` read once on connect and again only after the change; tag shows the new mode; no command sent | – | Auto |
-| FTR-17 | Player without listening modes | Option `listeningModes: false` (404) | Tag hidden and empty; no JavaScript error | – | Auto |
+| FTR-15 | Listening mode icon | TD-LM | Icon = `iconActive` of the current mode (blob URL, inverted in the light design), alt text = its `displayName`, tooltip = setting `displayName`: mode `displayName`; right before volume down; display only | read | Auto |
+| FTR-16 | Listening mode follows syncStat | Change the mode in the mock and raise `syncStat` | `/audioPreset` read once on connect and again only after the change; icon shows the new mode; no command sent | – | Auto |
+| FTR-17 | Player without listening modes | Option `listeningModes: false` (404) | Icon hidden, no image; no JavaScript error | – | Auto |
 | FTR-18 | Long polling | Connect; mock answers with an error once | `/Status?timeout=100`, then with `&etag=` of the last answer; at least 1 s between requests, 5 s after an error; no one-off `/Status` / `/Volume` | – | Auto |
 
 ### 4.10 Full screen (FUL)
@@ -334,7 +334,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | ERR-02 | Command before connecting | Not connected, click play/pause or save the queue | Toast "Connect first"; no request | read | Auto |
 | ERR-03 | Player error answer | Mock answers `<e><message>…</message></e>` | Treated as failure with the player's message (status line or toast) | – | Auto |
 | ERR-04 | Popup for unsuccessful answers | See QUE-12 / QUE-14 | Title, request path without host, HTTP status, raw body ("(empty response)" when empty); close button not focused | – | Auto |
-| ERR-05 | English answers | Any request | Header `Accept-Language: en` on every player request except the covers (`/Artwork`, read with a plain `fetch()`) | read | Auto |
+| ERR-05 | English answers | Any request | Header `Accept-Language: en` on every player request except the images (covers `/Artwork` and source icons `/images/…`, read with a plain `fetch()`) | read | Auto |
 | ERR-06 | No genres | Genre lists empty | Error "No genres found. Has the library finished indexing?"; panel open | – | Auto |
 
 ### 4.16 Security & robustness (SEC)

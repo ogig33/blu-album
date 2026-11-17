@@ -1499,6 +1499,7 @@ The image (200, e.g. `image/jpeg`); without `followRedirects=1` a **301** to `ht
 - Which identifying parameters appear depends on the service; take the URL from the `image` attribute of an answer and append `followRedirects=1` (official since v1.7, verified).
 - The image answer carries `Access-Control-Allow-Origin: *` (also for `Origin: null`, a page opened as a file), so a web page can read it with `fetch()` (verified). Firefox upgrades `<img src="http://…">` on a `file://` page to https (mixed content), which the player does not offer; `fetch()` is not upgraded.
 - Other image paths in answers (`/images/…`, `/Sources/images/…`) are static files on the player; they also take `width`, `height` and `style` (e.g. `Bluesound`).
+- Source icons: the top menu of `/Browse` names them in `image`, the menu of a source in `serviceIcon` – Library `/images/LibraryIcon.png`, USB `/images/USBIcon.png`. 96×96 PNG, white on transparent; `style=Default`, `Dark` and `Light` return the same file. They carry `Access-Control-Allow-Origin: *` like `/Artwork`, but no cache headers (verified 2026-11-17, BluOS 4.18.18).
 
 ### `GET /library/v1/Artwork`
 
@@ -1825,6 +1826,7 @@ No known parameters.
 **Notes**
 
 - Verified: answers the listening mode setting in the format of `/Settings`; `value` is the current mode.
+- Icons per mode: `icon` and `iconActive` (e.g. `/images/settings/icon_music-mode-active.png`), 96×96 PNG, white at 50 % (`icon`) or 70 % (`iconActive`) opacity on transparent; `Access-Control-Allow-Origin: *` (verified 2026-11-17).
 - Change it with [`/alsa_setting?preset=MOVIE`](#get-post-alsa_setting) (the `url` of the answer), with the `name` of one of the `value` elements. Verified (MUSIC → MOVIE and back): the player answers HTTP 205, `/audioPreset` shows the new mode after about 1 s.
 - `/Status` does not name the listening mode. A change still ends a `/Status` long poll: new `etag`, and the only changed field is `syncStat` (+1). A client can follow the mode by reading `/audioPreset` again when `syncStat` changes.
 - Only players with listening modes have it; here a fixed home theatre group, whose [`/SyncStatus`](#get-syncstatus) carries `<audioPresetUrl url="/audioPreset"/>`. `/ui/Configuration` lists it as `listeningModesURL="/audioPreset"` of `/ui/presets`.

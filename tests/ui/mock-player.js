@@ -17,7 +17,7 @@ const fx = (n) =>
     ),
     "utf8",
   );
-// 1x1 PNG for all artwork requests
+// 1x1 PNG for all artwork requests, the source icons and the listening mode icons
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
   "base64",
@@ -188,6 +188,7 @@ function createPlayer(opts = {}) {
   };
   const mockAnswer = (p, q, lang) => {
     if (p === "/Artwork") return { type: "image/png", body: PNG };
+    if (/^\/images\/((USB|Library)Icon|settings\/icon_[a-z]+-mode-active)\.png$/.test(p)) return { type: "image/png", body: PNG };
     if (p === "/Browse") return browse(q.get("key"), lang);
     if (p === "/library/v1/Albums") return library(q);
     if (p === "/library/v1/Songs") {

@@ -1262,7 +1262,17 @@ test("POP-01 popup opens from cover and title: details, source line, loading tex
   eq(await t.page.textContent("#da button"), TD.ALB_LIB.a, "artist link");
   const lib = TD.SRC.find((s) => /LibraryIcon/.test(s.image)).text;
   eq((await t.page.textContent("#ds")).trim(), lib, "source line");
-  ok(await t.page.$("#ds svg"), "source icon");
+  const libIcon = TD.SRC.find((s) => /LibraryIcon/.test(s.image)).image;
+  await t.page.waitForFunction(() => /^blob:/.test(document.querySelector("#ds img")?.src || ""));
+  ok((await t.page.$eval("#ds img", (i) => i.dataset.src)).endsWith(libIcon), "source icon of the player");
+  ok(t.reqs(new RegExp("^" + libIcon.replace(/[.?]/g, "\\$&"))).length > 0, "icon read from the player");
+  const iconFilter = (theme) =>
+    t.page.evaluate((th) => {
+      document.documentElement.setAttribute("data-theme", th);
+      return getComputedStyle(document.querySelector("#ds img")).filter;
+    }, theme);
+  eq(await iconFilter("light"), "invert(1)", "white icon inverted in the light design");
+  eq(await iconFilter("dark"), "none", "white icon as it is in the dark design");
   await t.page.waitForSelector("#tracks li button");
   await t.page.click("#close");
   await t.page.click(`#grid .item:nth-child(${i}) > .card:not(.ar)`);
@@ -1839,24 +1849,44 @@ test(
   { statusPatch: { volume: "-1" } },
 );
 
-// Listening mode of the player (/audioPreset): current mode as a display-only tag before the volume
-// controls; name and tooltip are the displayName values of the answer.
+// Listening mode of the player (/audioPreset): icon of the current mode (iconActive) before the volume
+// controls, display only; alt text and tooltip from the displayName values of the answer.
+const lmIcon = (mode) => (TD.LM.match(new RegExp(`name="${mode}"[^>]*iconActive="([^"]*)"`)) || [])[1];
+const lmShown = (t, mode) =>
+  t.page.waitForFunction(
+    (x) => {
+      const e = document.querySelector("#lm");
+      return !e.hidden && e.alt === x.name && e.dataset.src.endsWith(x.icon) && /^blob:/.test(e.src);
+    },
+    { name: lmName(mode), icon: lmIcon(mode) },
+  );
 test(
-  "FTR-15 listening mode tag before the volume controls, name and tooltip from /audioPreset",
+  "FTR-15 listening mode icon before the volume controls, icon, alt text and tooltip from /audioPreset",
   async (t) => {
     if (!TD.LM) {
       // player without listening modes
       await t.settle(1500);
-      ok(await t.page.$eval("#lm", (e) => e.hidden), "tag hidden");
+      ok(await t.page.$eval("#lm", (e) => e.hidden), "icon hidden");
       return;
     }
-    await t.page.waitForFunction(() => !document.querySelector("#lm").hidden);
     const cur = (TD.LM.match(/<setting [^>]*value="([^"]*)"/) || [])[1];
-    eq((await t.page.textContent("#lm")).trim(), lmName(cur), "current mode");
-    eq(await t.page.getAttribute("#lm", "title"), (TD.LM.match(/<setting [^>]*displayName="([^"]*)"/) || [])[1], "tooltip");
+    await lmShown(t, cur);
+    ok(t.reqs(new RegExp("^" + lmIcon(cur).replace(/[.?]/g, "\\$&") + "$")).length > 0, "iconActive read from the player");
+    eq(
+      await t.page.getAttribute("#lm", "title"),
+      (TD.LM.match(/<setting [^>]*displayName="([^"]*)"/) || [])[1] + ": " + lmName(cur),
+      "tooltip",
+    );
+    const filter = (theme) =>
+      t.page.evaluate((th) => {
+        document.documentElement.setAttribute("data-theme", th);
+        return getComputedStyle(document.querySelector("#lm")).filter;
+      }, theme);
+    eq(await filter("light"), "invert(1)", "white icon inverted in the light design");
+    eq(await filter("dark"), "none", "white icon as it is in the dark design");
     ok(
       await t.page.$eval("#lm", (e) => e.parentElement.matches("#ctl .vl") && e.nextElementSibling?.id === "vd"),
-      "tag sits right before the volume-down button",
+      "icon sits right before the volume-down button",
     );
     ok(
       await t.page.$eval("#lm", (e) => e.tagName !== "BUTTON" && !e.onclick && e.getAttribute("tabindex") === null),
@@ -1867,7 +1897,7 @@ test(
 );
 
 test("FTR-16 listening mode follows syncStat of /Status, /audioPreset read only on a change", async (t) => {
-  await t.page.waitForFunction(() => !document.querySelector("#lm").hidden);
+  await lmShown(t, t.player.state.listeningMode);
   const count = () => t.player.state.requests.filter((x) => x === "/audioPreset").length;
   eq(count(), 1, "read once on connect");
   await t.settle(3500); // two more long polls with the same syncStat
@@ -1877,17 +1907,17 @@ test("FTR-16 listening mode follows syncStat of /Status, /audioPreset read only 
     .find((n) => n !== "preset" && n !== t.player.state.listeningMode);
   t.player.state.listeningMode = other;
   t.player.state.syncStat++;
-  await t.page.waitForFunction((x) => document.querySelector("#lm").textContent === x, lmName(other));
+  await lmShown(t, other);
   eq(count(), 2, "read again after the syncStat change");
   eq(t.cmds(/alsa_setting/), [], "no listening mode command");
 });
 
 test(
-  "FTR-17 no listening mode tag on a player without listening modes",
+  "FTR-17 no listening mode icon on a player without listening modes",
   async (t) => {
     await t.settle(1500);
     ok(t.player.state.requests.includes("/audioPreset"), "asked once");
-    ok(await t.page.$eval("#lm", (e) => e.hidden && !e.textContent), "tag hidden");
+    ok(await t.page.$eval("#lm", (e) => e.hidden && !e.getAttribute("src")), "icon hidden");
     eq(t.errors, [], "no JavaScript errors");
   },
   { listeningModes: false },
@@ -2772,7 +2802,7 @@ test(
     await openLibAlbum(t);
     const other = t.player.state.requests
       .map((r, i) => [r, t.player.state.langs[i]])
-      .filter(([r, l]) => !/^\/Artwork/.test(r) && !/^en\b/i.test(l));
+      .filter(([r, l]) => !/^\/(Artwork|images\/)/.test(r) && !/^en\b/i.test(l)); // images: no text
     eq(other, [], "requests without Accept-Language: en");
   },
   R,

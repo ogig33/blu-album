@@ -26,6 +26,7 @@
   --dim:#9c9ca2;
   --acc:#d3b062;
   --accink:#1c1709;
+  --plicon:none;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
@@ -37,6 +38,7 @@
     --dim:#6a6f80;
     --acc:#b8860b;
     --accink:#fff;
+    --plicon:invert(1);
   }
 }
 :root[data-theme="light"] {
@@ -48,6 +50,7 @@
   --dim:#6a6f80;
   --acc:#b8860b;
   --accink:#fff;
+  --plicon:invert(1);
 }
 :root[data-theme="dark"] {
   --bar:#18191b;
@@ -58,6 +61,7 @@
   --dim:#9c9ca2;
   --acc:#d3b062;
   --accink:#1c1709;
+  --plicon:none;
 }
 /* ---------- Base ---------- */
 * {
@@ -791,21 +795,14 @@ button {
 .q[hidden] {
   display: none !important;
 }
-/* Listening mode of the player (TV / Music / Movie) before the volume controls: display only */
+/* Listening mode of the player (TV / Music / Movie) before the volume controls: icon of the player
+   (white, inverted in the light design by --plicon), display only */
 .lm {
   flex: none;
-  font:
-    700 11px/1 -apple-system,
-    "Segoe UI",
-    system-ui,
-    sans-serif;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  padding: 3px 6px;
-  border-radius: 5px;
-  border: 1px solid var(--line);
-  color: var(--dim);
+  width: 24px;
+  height: 24px;
   margin-right: 4px;
+  filter: var(--plicon);
 }
 .lm[hidden] {
   display: none;
@@ -859,7 +856,8 @@ button {
     inset 0 -1px 0 rgba(90, 25, 5, .4),
     0 1px 2px rgba(0, 0, 0, .45);
 }
-/* Source (USB / library) in the album popup: outline icon and name */
+/* Source (USB / library) in the album popup: icon of the player and name.
+   The player's icons are white; the light design inverts them (--plicon). */
 #ds {
   display: flex;
   align-items: center;
@@ -873,10 +871,12 @@ button {
 #ds:empty {
   display: none;
 }
-#dlg #ds svg {
+#dlg #ds img {
   width: 18px;
   height: 18px;
   flex: none;
+  filter: var(--plicon);
+  opacity: .65;
 }
 .q {
   flex: none;
@@ -1641,7 +1641,7 @@ dialog::backdrop {
     <div class="na" id="nt2"></div>
   </div>
   <div class="vl">
-    <span id="lm" class="lm" hidden></span>
+    <img id="lm" class="lm" alt="" hidden>
     <button id="vd" aria-label="Volume down" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     <input id="vs" type="range" min="0" max="100" step="1" value="0" aria-label="Volume" disabled>
     <button id="vu" aria-label="Volume up" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
@@ -1765,8 +1765,6 @@ const REPEAT = {
 // Playlist icon (queue button and saved playlist chips): list with a music note.
 const ICON_PLAYLIST = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h12M3 8.75h12M3 13.5h8.5M3 18.25h5" stroke-width="2.4"/><ellipse cx="15.6" cy="18.3" rx="3.9" ry="3.2" transform="rotate(-22 15.6 18.3)" fill="currentColor" stroke="none"/><path d="M18.6 17.5V5.2" stroke-width="2.2"/><path d="M17.5 4.6 21.9 2.7c.5-.2 1 .1 1 .7v3.7c0 .5-.3.8-.8.9-1.4.3-2.6.9-3.4 1.7L17.5 9z" fill="currentColor" stroke="none"/></svg>';
 // Source icons (USB stick / library = folder with music notes).
-const ICON_USB = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.5h6v6H9z"/><path d="M10.8 4.5h.01M13.2 4.5h.01" stroke-width="2"/><rect x="6.5" y="8.5" width="11" height="13" rx="2"/></svg>';
-const ICON_LIB = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9.5a2 2 0 0 0-2-2h-7l-2-2.5H5a2 2 0 0 0-2 2z"/><circle cx="9.3" cy="16.3" r="1.5" fill="currentColor" stroke="none"/><circle cx="14.8" cy="15.3" r="1.5" fill="currentColor" stroke="none"/><path d="M10.7 16.3v-5l5.5-1v5"/></svg>';
 // Favourites are managed only by the player: state and actions come from the album's context menu
 // (favourite-add / favourite-delete). Albums without these actions (e.g. on USB) have no heart.
 const HEART = '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>';
@@ -2010,10 +2008,10 @@ const sourceName = (keyOrSvc) => {
   const svc = (keyOrSvc || "").split(":")[0];
   return sources.find((x) => x.key.split(":")[0] === svc)?.name || "";
 };
-// Icon for a source (by service name or browse key): USB plug or books.
+// Icon of a source (by service name or browse key): the image of the top menu, e.g. /images/USBIcon.png.
 const sourceIcon = (keyOrSvc) => {
   const svc = (keyOrSvc || "").split(":")[0];
-  return /USBIcon/.test(sources.find((x) => x.key.split(":")[0] === svc)?.icon || "") ? ICON_USB : ICON_LIB;
+  return sources.find((x) => x.key.split(":")[0] === svc)?.icon || "";
 };
 // Joins album lists of several sources; with more than one source the result is re-sorted A-Z by title.
 const joinSources = (lists) => lists.length > 1 ? lists.flat().sort((x, y) => x.t.localeCompare(y.t)) : lists.flat();
@@ -2692,10 +2690,19 @@ async function openAlbum(a) {
   const sum = (n, secs) => n ? n + (+n === 1 ? " track" : " tracks") + (secs ? " \u00B7 " + fmtTime(secs) : "") : "";
   $("#dsum").textContent = sum(a.n, 0);
   albumDetails([]);
-  // Source (USB / library) with the same icon as in the player, set apart from the album metadata
-  const sn = sourceName(a.key), ds = $("#ds");
-  ds.innerHTML = sn ? sourceIcon(a.key) : "";
-  if (sn) ds.append(document.createTextNode(sn));
+  // Source (USB / library) with the icon of the player, set apart from the album metadata
+  const sn = sourceName(a.key), si = imgUrl(sourceIcon(a.key)), ds = $("#ds");
+  ds.textContent = "";
+  if (sn) {
+    if (si) {
+      const ic = document.createElement("img");
+      ic.alt = "";
+      ic.onerror = () => ic.remove();
+      ds.append(ic);
+      showImg(ic, si);
+    }
+    ds.append(document.createTextNode(sn));
+  }
   const ol = $("#tracks");
   ol.innerHTML = "<li style='padding:10px;color:var(--dim)'>Loading tracks \u2026</li>";
   if (!$("#dlg").open) {
@@ -3052,8 +3059,9 @@ function qLabel(q) {
   if (/^dolby/i.test(q)) return "Dolby";
   return "";
 }
-// Listening mode of the player (/audioPreset): the current mode's displayName as a tag, the setting's
-// displayName as tooltip. Players without listening modes do not answer it; the tag stays hidden.
+// Listening mode of the player (/audioPreset): the current mode's iconActive as an icon, its displayName
+// as alt text and in the tooltip (with the setting's displayName). Players without listening modes do not
+// answer it, and an icon that does not load is hidden too.
 async function loadListeningMode() {
   const seq = ++lmSeq, mine = base, el = $("#lm");
   let d = null;
@@ -3064,10 +3072,13 @@ async function loadListeningMode() {
   if (seq !== lmSeq || mine !== base) return;
   const set = d && d.querySelector('setting[name="preset"]');
   const cur = set && [...set.querySelectorAll(":scope > value")].find((v) => v.getAttribute("name") === set.getAttribute("value"));
-  const name = cur ? cur.getAttribute("displayName") || "" : "";
-  el.hidden = !name;
-  el.textContent = name;
-  el.title = name ? set.getAttribute("displayName") || "" : "";
+  const name = cur ? cur.getAttribute("displayName") || "" : "", icon = cur ? imgUrl(cur.getAttribute("iconActive")) : "";
+  const label = set ? set.getAttribute("displayName") || "" : "";
+  el.hidden = !icon;
+  el.alt = icon ? name : "";
+  el.title = icon ? (label ? label + ": " : "") + name : "";
+  el.onerror = () => el.hidden = true;
+  showImg(el, icon);
 }
 // Renders a /Status response: now playing, cover, quality, position, volume, current queue entry.
 function showNow(d) {
