@@ -682,7 +682,15 @@ button {
   cursor: pointer;
 }
 /* ---------- Full-screen now playing ---------- */
-/* Covers everything above the footer with a blurred layer: cover left half, title / artist / album right half. */
+/* Covers everything above the footer: cover left half, title / artist / album right half.
+   Background: the ambient colour of the cover (--amb, set by ambient()) mixed with the theme background,
+   so the text tokens stay readable in both themes. Registered as a colour so a new album fades over;
+   transparent (no colour, e.g. a cover of another host) leaves the plain theme background. */
+@property --amb {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
 #full {
   position: fixed;
   top: 0;
@@ -695,9 +703,11 @@ button {
   align-items: center;
   gap: 4vw;
   padding: 5vh 5vw;
-  background: color-mix(in srgb, var(--bg) 55%, transparent);
-  -webkit-backdrop-filter: blur(28px) saturate(1.2);
-  backdrop-filter: blur(28px) saturate(1.2);
+  --amb-at: 25% 50%;
+  background:
+    radial-gradient(130% 130% at var(--amb-at), color-mix(in oklab, var(--amb) 45%, var(--bg)), color-mix(in oklab, var(--amb) 12%, var(--bg))),
+    var(--bg);
+  transition: --amb 1.2s;
   cursor: pointer;
 }
 #full[hidden] {
@@ -763,6 +773,7 @@ button {
     grid-template-rows: auto auto;
     align-content: center;
     text-align: center;
+    --amb-at: 50% 30%;
   }
   #full .fcov {
     justify-self: center;
@@ -3173,6 +3184,35 @@ function showFull(open) {
   document.body.classList.remove("fullbar");
   $("#cvb").setAttribute("aria-label", open ? "Close full-screen player" : "Show full-screen player");
 }
+// Sets the background colour of the full-screen view (--amb) from the cover: the most frequent strong hue
+// (saturated, neither dark nor light), or the plain average for a grey cover. Without a readable cover
+// (null, or a cover of another host: the canvas is tainted) the theme background stays.
+function ambient(img) {
+  const f = $("#full"), w = 32, c = document.createElement("canvas");
+  c.width = c.height = w;
+  const x = c.getContext("2d");
+  let d;
+  try {
+    x.drawImage(img, 0, 0, w, w);
+    d = x.getImageData(0, 0, w, w).data;
+  } catch {
+    f.style.removeProperty("--amb");
+    return;
+  }
+  const n = d.length / 4, avg = [0, 0, 0], hues = Array.from({ length: 12 }, () => [0, 0, 0, 0]);
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    avg[0] += r; avg[1] += g; avg[2] += b;
+    if (mx === mn) continue;
+    const l = (mx + mn) / 510, s = (mx - mn) / (255 - Math.abs(mx + mn - 255));
+    const h = ((mx === r ? (g - b) / (mx - mn) : mx === g ? 2 + (b - r) / (mx - mn) : 4 + (r - g) / (mx - mn)) + 6) % 6;
+    const wt = s * s * (1 - Math.abs(l - .5) * 2), k = hues[Math.floor(h * 2) % 12];
+    k[0] += r * wt; k[1] += g * wt; k[2] += b * wt; k[3] += wt;
+  }
+  const best = hues.reduce((a, k) => (k[3] > a[3] ? k : a));
+  const rgb = best[3] > n * .02 ? best.slice(0, 3).map((v) => v / best[3]) : avg.map((v) => v / n);
+  f.style.setProperty("--amb", `rgb(${rgb.map(Math.round).join(" ")})`);
+}
 
 /* ---------- Search ---------- */
 // The player's own search.
@@ -3618,6 +3658,9 @@ document.addEventListener("mousemove", (e) => {
 document.documentElement.addEventListener("mouseleave", () => document.body.classList.remove("fullbar"));
 // A click anywhere on the full-screen view closes it.
 $("#full").onclick = () => showFull(false);
+// Background of the full-screen view follows the cover.
+$("#fimg").addEventListener("load", (e) => ambient(e.target));
+$("#fimg").addEventListener("error", () => ambient(null));
 // Restore the pinned queue panel.
 if (store.get("qpin") === "1") qpanel(true);
 // Restore the last IP and open the settings panel so the user can connect.

@@ -2050,6 +2050,84 @@ test("FUL-05 full screen closes when playback stops", async (t) => {
   ok(!(await t.page.isVisible("#full")), "cannot be opened while nothing plays");
 });
 
+test("FUL-06 background colour from the cover", async (t) => {
+  await t.page.waitForFunction(() => document.querySelector("#full").style.getPropertyValue("--amb"));
+  const [amb, cover] = await t.page.evaluate(() => {
+    // the mock cover has one colour: its pixel is the expected ambient colour
+    const c = document.createElement("canvas");
+    c.width = c.height = 1;
+    const x = c.getContext("2d");
+    x.drawImage(document.querySelector("#fimg"), 0, 0, 1, 1);
+    return [document.querySelector("#full").style.getPropertyValue("--amb"), [...x.getImageData(0, 0, 1, 1).data.slice(0, 3)]];
+  });
+  const got = (amb.match(/\d+/g) || []).map(Number);
+  eq(got.length, 3, "--amb is an rgb colour: " + amb);
+  ok(got.every((v, i) => Math.abs(v - cover[i]) <= 2), `--amb ${amb} matches the cover rgb(${cover.join(" ")})`);
+  await t.page.click("#cvb");
+  ok(
+    await t.page.$eval("#full", (e) => getComputedStyle(e).backgroundImage.startsWith("radial-gradient")),
+    "full screen has the gradient background",
+  );
+});
+
+// 1x1 PNG of one colour (covers of different colours for FUL-06)
+function png1(r, g, b) {
+  const zlib = require("zlib");
+  const crc = (buf) => {
+    let c = ~0;
+    for (const x of buf) {
+      c ^= x;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    return ~c >>> 0;
+  };
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4), td = Buffer.concat([Buffer.from(type), data]), c = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    c.writeUInt32BE(crc(td));
+    return Buffer.concat([len, td, c]);
+  };
+  const ihdr = Buffer.from([0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0]);
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", zlib.deflateSync(Buffer.from([0, r, g, b]))),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+test(
+  "FUL-06 background follows a new cover while the full screen is open",
+  async (t) => {
+    const amb = () => t.page.$eval("#full", (e) => e.style.getPropertyValue("--amb"));
+    await t.page.waitForFunction(() => document.querySelector("#full").style.getPropertyValue("--amb"));
+    await t.page.click("#cvb");
+    eq(await amb(), "rgb(200 30 30)", "colour of the first cover");
+    t.player.state.statusPatch = { image: "/Artwork?service=LocalMusic&amp;album=Blue" };
+    await t.page.waitForFunction(() => document.querySelector("#full").style.getPropertyValue("--amb") !== "rgb(200 30 30)", null, {
+      timeout: 5000,
+    });
+    eq(await amb(), "rgb(30 60 200)", "colour of the new cover");
+    ok(await t.page.isVisible("#full"), "still open");
+  },
+  {
+    overrides: [
+      { match: /^\/Artwork\?service=LocalMusic&album=Blue/, type: "image/png", body: png1(30, 60, 200) },
+      { match: /^\/Artwork/, type: "image/png", body: png1(200, 30, 30) },
+    ],
+  },
+);
+
+test(
+  "FUL-06 no readable cover: plain theme background",
+  async (t) => {
+    await t.page.waitForFunction(() => document.querySelector("#cov").hidden);
+    await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
+    eq(await t.page.$eval("#full", (e) => e.style.getPropertyValue("--amb")), "", "no ambient colour");
+  },
+  { overrides: [{ match: /^\/Artwork/, status: 404, type: "text/plain" }] },
+);
+
 // ---------- 4.11 Queue panel (QUE) ----------
 test(
   "QUE-01 QUE-03 QUE-04 pinned panel, list, durations",
