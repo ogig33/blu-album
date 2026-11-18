@@ -1176,13 +1176,22 @@ nav .gap {
   display: block;
 }
 .card b {
-  display: block;
   margin-top: 8px;
   font: 600 14px/1.25 Georgia, serif;
+}
+/* Title and artist: one line each; a cut text fades out and scrolls while the tile is hovered (fitLines()) */
+.card b,
+.card > span {
+  display: block;
+  white-space: nowrap;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+}
+.card .cut {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+}
+.mq {
+  display: inline-block;
 }
 .card.ar {
   margin-top: 1px;
@@ -1207,7 +1216,7 @@ nav .gap {
   color: var(--acc);
   text-decoration-color: var(--acc);
 }
-.card span {
+.card > span {
   color: var(--dim);
   font-size: 13px;
 }
@@ -1906,7 +1915,7 @@ let base = "", cache = {}, shown = [], activeKey = "", activeBtn = null;
 // epoch increases on every connect / source change so late async results can be ignored (see ctx()).
 let sources = [], srcs = [], epoch = 0;
 // Album grid: lazy rendering observer, a token that cancels an older render, observer that loads the covers.
-let lazyObs = null, lazyTok = 0, coverObs = null;
+let lazyObs = null, lazyTok = 0, coverObs = null, cutObs = null;
 // Saved playlists. playlistsKey: browse key ("" if the player has none), plSeq: request counter,
 // plChips: chip elements (re-added after the genre chips are rebuilt), plCount: number for the stats (null = unknown),
 // playlists: [{name, url}], plLoaded: the playlist loaded last (chip click or name reported with the queue).
@@ -2470,9 +2479,43 @@ async function showArtist(name) {
 /* ---------- Album grid ---------- */
 // Lazy rendering of the album tiles and the random album tile.
 
+// Title and artist of a tile stay on one line. A cut line fades out (CSS .cut, kept up to date by
+// cutObs) and scrolls to its end while the tile is hovered or has the keyboard focus for 300 ms:
+// hold 1 s, 30 px/s, hold 1 s, repeat. With reduced motion the full text is the tooltip instead.
+function fitLines(item) {
+  let timer = 0;
+  const stop = () => {
+    clearTimeout(timer);
+    item.querySelectorAll(".mq").forEach((m) => m.getAnimations().forEach((a) => a.cancel()));
+  };
+  const start = () => {
+    stop();
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    item.querySelectorAll(".cut").forEach((e) => (e.title = reduce ? e.textContent : ""));
+    if (reduce) return;
+    timer = setTimeout(() => item.querySelectorAll(".cut").forEach((e) => {
+      const d = e.scrollWidth - e.clientWidth + 24, move = (d / 30) * 1000, all = move + 2000;
+      // margin-left, not transform: Safari clips a transformed line to the part visible at the start
+      const end = -d + "px";
+      e.firstChild.animate([
+        { marginLeft: "0px" },
+        { marginLeft: "0px", offset: 1000 / all },
+        { marginLeft: end, offset: (1000 + move) / all },
+        { marginLeft: end },
+      ], { duration: all, iterations: Infinity });
+    }), 300);
+  };
+  item.addEventListener("mouseenter", start);
+  item.addEventListener("mouseleave", stop);
+  item.addEventListener("focusin", (ev) => ev.target.matches(":focus-visible") && start());
+  item.addEventListener("focusout", stop);
+}
+
 function render(list, noRandom) {
   const g = $("#grid");
   g.innerHTML = "";
+  if (cutObs) cutObs.disconnect();
+  cutObs = new ResizeObserver((e) => e.forEach(({ target: x }) => x.classList.toggle("cut", x.scrollWidth > x.clientWidth)));
   if (lazyObs) {
     lazyObs.disconnect();
     lazyObs = null;
@@ -2565,18 +2608,24 @@ function render(list, noRandom) {
     cw.append(fh);
     const tb = document.createElement("button");
     tb.className = "card";
-    const t = document.createElement("b");
-    t.textContent = a.t;
-    tb.append(t);
+    // Title and artist: one line each, text in a .mq span that fitLines() scrolls
+    const line = (tag, text) => {
+      const e = document.createElement(tag), m = document.createElement("span");
+      m.className = "mq";
+      m.textContent = text;
+      e.append(m);
+      cutObs.observe(e);
+      return e;
+    };
+    tb.append(line("b", a.t));
     tb.onclick = () => openAlbum(a);
     const ab = document.createElement("button");
     ab.className = "card ar";
-    const s = document.createElement("span");
-    s.textContent = a.a;
     ab.setAttribute("aria-label", "Albums by " + a.a);
-    ab.append(s);
+    ab.append(line("span", a.a));
     ab.onclick = () => showArtist(a.a);
     item.append(cw, tb, ab);
+    fitLines(item);
     if (sentinel.parentNode === g) g.insertBefore(item, sentinel);
     else g.append(item);
   }

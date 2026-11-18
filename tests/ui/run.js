@@ -815,6 +815,56 @@ test(
   R,
 );
 
+const LONG_T = "An Album Title That Is Far Too Long For One Line Of Any Tile";
+const LONG_A = "An Artist Name That Is Also Far Too Long For One Line";
+// Title and artist of one tile: line height, cut (fades out), running animations, tooltip
+const tileLines = (page, i) =>
+  page.$$eval(`#grid .item:nth-child(${i}) > .card > *`, (x) =>
+    x.map((e) => ({
+      lines: Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)),
+      cut: e.classList.contains("cut"),
+      running: e.getAnimations({ subtree: true }).length,
+      title: e.title,
+    })),
+  );
+
+test(
+  "GRD-10 long title and artist: one line each, fade out, scroll while hovering",
+  async (t) => {
+    const i = (await t.page.$$eval("#grid .item", (x, s) => x.findIndex((e) => e.querySelector("b")?.textContent === s), LONG_T)) + 1;
+    ok(i > 0, "tile with the long title");
+    let l = await tileLines(t.page, i);
+    eq(l.map((x) => x.lines), [1, 1], "title and artist one line each");
+    eq(l.map((x) => x.cut), [true, true], "both cut (fade out)");
+    eq(l.map((x) => x.running), [0, 0], "no scrolling without hover");
+    const short = await tileLines(t.page, i === 2 ? 3 : 2);
+    eq(short.map((x) => x.cut), [false, false], "short texts not cut");
+    await t.page.hover(`#grid .item:nth-child(${i}) .cov`);
+    await t.settle(600);
+    l = await tileLines(t.page, i);
+    eq(l.map((x) => x.running), [1, 1], "hover scrolls title and artist");
+    await t.page.mouse.move(1, 1);
+    await t.settle(100);
+    l = await tileLines(t.page, i);
+    eq(l.map((x) => x.running), [0, 0], "scrolling stops after hover");
+    await t.page.emulateMedia({ reducedMotion: "reduce" });
+    await t.page.hover(`#grid .item:nth-child(${i}) .cov`);
+    await t.settle(600);
+    l = await tileLines(t.page, i);
+    eq(l.map((x) => x.running), [0, 0], "reduced motion: no scrolling");
+    eq(l.map((x) => x.title), [LONG_T, LONG_A], "reduced motion: full text as tooltip");
+    await t.page.emulateMedia({ reducedMotion: "no-preference" });
+  },
+  {
+    overrides: [
+      {
+        match: /category=FAVOURITES/,
+        edit: (x) => x.replace(/<alb>[^<]*<\/alb>\s*<art>[^<]*<\/art>/, `<alb>${LONG_T}</alb><art>${LONG_A}</art>`),
+      },
+    ],
+  },
+);
+
 test(
   "CHP-03 GRD-05 no favourites: message, no tiles",
   async (t) => {

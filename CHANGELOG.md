@@ -9,6 +9,7 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 - Fix: the page behind an open popup no longer scrolls along.
 - Search only from 3 characters, also with Enter.
 - Full-screen player: calm background in the colour of the cover instead of the blurred page.
+- Album wall: title and artist on one line each; long texts fade out and scroll while the tile is hovered.
 
 ## 0.9.0
 - Code cleanup after ESLint (no change in behaviour).

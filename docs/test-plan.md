@@ -185,6 +185,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | GRD-07 | Hover buttons | Hover a library tile | Play, add last and heart visible | read | Auto |
 | GRD-08 | Play an album | Click play on a tile | The album's play URL (from `/Browse` or `libAlbum()`); toast "Playing: <title>" | write | Auto |
 | GRD-09 | Add an album last | Click add on a tile | `addAll-last` URL with `where=last`; toast "Added to queue: <title>" | write | Auto |
+| GRD-10 | Long title and artist | Mock favourites with a title and an artist longer than a tile; hover the tile, leave it; again with reduced motion | Title and artist one line each, cut lines fade out (`.cut`), short lines not cut; hover (after 300 ms) scrolls both cut lines, leaving stops it; reduced motion: no scrolling, full text as tooltip | – | Auto |
 
 ### 4.5 Favourites (FAV)
 
