@@ -1417,7 +1417,28 @@ GET /library/v1/Songs?service=<svc>&album=<album>&artist=<artist>&composer=<comp
     <quality>cd</quality>
     <fn>/var/mnt/nas-Music/By Artist/G/Peter Gabriel/1977_1/01-Moribund The Burgermeister.flac</fn>
   </song>
-  <!-- one <song> per track; depending on the song also discno, composer, compilation, albumartist -->
+  <!-- one <song> per track -->
+</songs>
+```
+
+A song of a sampler with composer tag (also verified):
+
+```xml
+<songs album="La Migliore Canzone Italiana di Natale" artist="Various" id="2031641" service="LocalMusic">
+  <song samplerate="44100" samplebits="16" channels="2" bitrate="747475" atype="flc">
+    <songID>2cd2463cc377db14c2ae64ac9a6c420b</songID>
+    <art>Laura Pausini, The Patrick Williams Orchestra</art>
+    <alb>La Migliore Canzone Italiana di Natale</alb>
+    <title>White Christmas</title>
+    <composer>Irving Berlin</composer>
+    <track>1</track>
+    <date>2023</date>
+    <time>142</time>
+    <compilation>1</compilation>
+    <albumartist>Various</albumartist>
+    <quality>cd</quality>
+    <fn>/var/mnt/nas-Music/Compilations/Christmas/2023_La Migliore Canzone Italiana di Natale/1-White Christmas.flac</fn>
+  </song>
 </songs>
 ```
 
@@ -1428,6 +1449,7 @@ Paged lists (`section`, `genre`, `all`) have `<nextlink>` and lack the technical
 - Empty with only `service`.
 - The lists (`section`, `genre`) lack the technical attributes and `songID`, `track`, `date`, `time`.
 - `quality` of MP3 files is the bitrate; recognise them by `atype`.
+- Tags per song only when the file has them (verified): `composer` (composer of the track), `discno` (disc number, e.g. on multi-disc albums), `albumartist` and `compilation` (`1` on samplers, e.g. album artist "Various"). `art` is always the track artist, the album artist without `albumartist` is the `art` of the album in `/library/v1/Albums`.
 
 ### `GET /Songs`
 

@@ -1,0 +1,50 @@
+meta {
+  name: E30 Songs of the sampler (tags)
+  type: http
+  seq: 107
+}
+
+get {
+  url: http://{{host}}:11000/library/v1/Songs
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const al = bru.getVar("eVarAlbum");
+  if (!al) { bru.runner.skipRequest(); return; }
+  req.setUrl(H + "/library/v1/Songs?service=LocalMusic&album=" + encodeURIComponent(al) + "&artist=Various");
+}
+
+script:post-response {
+  // Songs of the sampler from E29: track artists differ from the album artist – does the answer carry albumartist or compilation? Read only.
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("explore-30-various-album-songs.xml");
+  console.log(body.slice(0, 4000));
+  const tags = [...new Set([...body.matchAll(/<song\b[\s\S]*?<\/song>/g)].flatMap((m) => [...m[0].matchAll(/<([a-zA-Z]+)>/g)].map((x) => x[1])))];
+  console.log("elements per song: " + tags.join(", "));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("answer has a root element, no error", () => { expect(/<[A-Za-z]/.test(body)).to.equal(true); expect(/<error/i.test(body)).to.equal(false); });
+  test("has songs", () => expect(/<song\b/.test(body)).to.equal(true));
+}

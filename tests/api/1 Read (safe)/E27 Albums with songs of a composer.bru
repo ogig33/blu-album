@@ -1,0 +1,60 @@
+meta {
+  name: E27 Albums with songs of a composer
+  type: http
+  seq: 104
+}
+
+get {
+  url: http://{{host}}:11000/library/v1/Albums
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const axios = require("axios");
+  const c = String((await axios.get(H + "/library/v1/Composers?service=LocalMusic", { responseType: "text", transformResponse: (x) => x })).data || "");
+  const comp = ((c.match(/<composer>([^<]+)<\/composer>/) || [])[1] || "").replace(/&amp;/g, "&");
+  if (!comp) { bru.runner.skipRequest(); return; }
+  bru.setVar("eComposer", comp);
+  req.setUrl(H + "/library/v1/Albums?service=LocalMusic&composer=" + encodeURIComponent(comp));
+}
+
+script:post-response {
+  // Which tags does /library/v1/Songs give for classical music? Step 1: the first composer, then the albums with his songs. Read only.
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("explore-27-composer-albums.xml");
+  console.log(body.slice(0, 4000));
+  const first = (xml) => {
+    const a = (xml.match(/<album\b[^>]*>([\s\S]*?)<\/album>/) || [])[1] || "";
+    const pick = (t) => { const m = a.match(new RegExp("<" + t + ">([^<]*)</" + t + ">")); return m ? m[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'") : ""; };
+    return { album: pick("title") || pick("alb"), artist: pick("art") };
+  };
+  const f = first(body);
+  bru.setVar("eCompAlbum", f.album);
+  bru.setVar("eCompArtist", f.artist);
+  console.log("composer: " + bru.getVar("eComposer") + ", album: " + f.album + " / " + f.artist);
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("answer has a root element, no error", () => { expect(/<[A-Za-z]/.test(body)).to.equal(true); expect(/<error/i.test(body)).to.equal(false); });
+  test("at least one album", () => expect(/<album\b/.test(body)).to.equal(true));
+}
