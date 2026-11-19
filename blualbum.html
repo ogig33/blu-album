@@ -1777,9 +1777,10 @@ const SEARCH_MIN = 3, SEARCH_DELAY = 800;
 // Minimum tile width of the album grid; the grid fills the row with as many tiles as fit.
 const TILE = { s: "110px", m: "150px", l: "220px" };
 // Cover size asked from /Artwork for the album popup and now playing (footer and full screen): the player
-// scales its stored cover to it but never beyond the original, so this gets the full resolution (Bruno E31).
+// scales its stored cover to it but never beyond the original, so this gets the full resolution up to
+// 3000 px; larger originals are scaled down to it (Bruno E31).
 // The grid asks without a size (at most 600 px). The stored cover has 600 px when "Optimize Artwork" is on.
-const COVER_FULL = 10000;
+const COVER_FULL = 3000;
 // File formats of /library/v1/Songs (atype) and which of them are lossy (no bit depth shown).
 const FORMATS = { flc: "FLAC", mp3: "MP3", alac: "ALAC", aac: "AAC", m4a: "AAC", wav: "WAV", aif: "AIFF", aiff: "AIFF", ogg: "OGG", opus: "Opus", wma: "WMA", dsf: "DSD", dff: "DSD", ape: "APE", wv: "WavPack" };
 const LOSSY = ["MP3", "AAC", "OGG", "Opus", "WMA"];

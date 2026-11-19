@@ -2295,7 +2295,7 @@ test(
 test(
   "POP-15 FUL-07 full-size covers in the popup and now playing, grid covers without a size",
   async (t) => {
-    const full = (u) => /[?&]width=10000&height=10000&followRedirects=1$/.test(u || "");
+    const full = (u) => /[?&]width=3000&height=3000&followRedirects=1$/.test(u || "");
     await t.page.waitForFunction(() => document.querySelector("#fimg").dataset.src);
     const fimg = await t.page.$eval("#fimg", (e) => e.dataset.src);
     ok(full(fimg), "now playing asks the full size: " + fimg);
@@ -2308,7 +2308,7 @@ test(
     const dimg = await t.page.$eval("#dimg", (e) => e.dataset.src);
     ok(full(dimg), "popup asks the full size: " + dimg);
     await t.page.waitForFunction(() => /^blob:/.test(document.querySelector("#dimg").src || ""));
-    ok(t.reqs(/^\/Artwork\?.*&width=10000&height=10000&followRedirects=1$/).length >= 2, "full-size requests reach the player");
+    ok(t.reqs(/^\/Artwork\?.*&width=3000&height=3000&followRedirects=1$/).length >= 2, "full-size requests reach the player");
   },
   { ...R, needs: ["library"] },
 );

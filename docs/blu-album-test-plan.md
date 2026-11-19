@@ -224,7 +224,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | POP-11 | Browser in another language | Option `locale: de-DE` | Track list still filled (requests send `Accept-Language: en`) | read | Auto |
 | POP-12 | Close the popup | Close button; click on the backdrop; Esc | Popup closed each time; Esc does not close the settings panel behind it | read | Auto |
 | POP-14 | Page behind stays still | Page scrollable; popup open; mouse wheel over the backdrop and over the track list (also past its end) | Only the popup content scrolls; the page keeps its scroll position; after closing the page scrolls again | – | Auto |
-| POP-15 | Full-size cover | Open the popup of TD-ALB-LIB | Cover asked with `&width=10000&height=10000&followRedirects=1` (`COVER_FULL`); grid covers without a size | read | Auto |
+| POP-15 | Full-size cover | Open the popup of TD-ALB-LIB | Cover asked with `&width=3000&height=3000&followRedirects=1` (`COVER_FULL`); grid covers without a size | read | Auto |
 | POP-13 | Track list fails | Mock answers HTTP 500 for the album's `/Browse` | Empty list, toast "Could not load tracks"; songs missing (`/library/v1/Songs` fails) → no year / technical data, tracks still shown | – | Auto |
 
 ### 4.8 Search (SRH)
@@ -273,7 +273,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | FUL-04 | Keyboard | Focus the footer cover, Enter / Space | Opens / closes the view; label changes "Show / Close full-screen player" | read | Auto |
 | FUL-05 | Playback stops | Full screen open, status without title | View closes by itself; cannot be opened while nothing plays | – | Auto |
 | FUL-06 | Background from the cover | Something playing (mock cover with one colour); new cover while the view is open; cover fails (`/Artwork` 404) | Ambient colour `--amb` = colour of the cover, view background is a gradient of it mixed with the theme background; follows the new cover; without a readable cover (also covers of other hosts, e.g. radio) no colour, plain theme background | – | Auto |
-| FUL-07 | Full-size cover | Something playing (TD-STATUS) | Cover asked with `&width=10000&height=10000&followRedirects=1` (`COVER_FULL`), one request for the footer and the full screen | read | Auto |
+| FUL-07 | Full-size cover | Something playing (TD-STATUS) | Cover asked with `&width=3000&height=3000&followRedirects=1` (`COVER_FULL`), one request for the footer and the full screen | read | Auto |
 
 ### 4.11 Queue panel (QUE)
 
