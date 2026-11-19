@@ -26,9 +26,11 @@ const PNG = Buffer.from(
 const LIB = "LocalMusic",
   USB = "1A2B_3C4D";
 // Data the mock adds to the fixtures (exported, so the tests derive their expected values from it):
-// genres of the USB drive, the A-Z sections the USB drive lists, player software versions.
+// genres of the USB drive, the A-Z sections the USB drive lists, the albums with a year on the USB drive
+// (section "S", a decade the library fixture does not have), player software versions.
 const USB_GENRES = ["Soundtrack"];
 const USB_SECTIONS = ["A", "S"];
+const USB_YEARS = [{ t: "Soundtrack Classics", a: "Various", y: "1964" }];
 const VERSIONS = { bluos: "4.18.18", api: "v0.5.43" };
 const COMMANDS =
   /^\/(Add|Play|Pause|Skip|Back|Load|Save|Delete|AddFavourite|DeleteFavourite|Clear|Shuffle|Repeat|Volume\?)/;
@@ -180,7 +182,36 @@ function createPlayer(opts = {}) {
       if (svc === USB) return fx("15");
       return q.get("section") === "A" ? fx("13") : "<albums><sections></sections></albums>";
     }
+    if (q.get("section")) return yearSection(svc, q.get("section"));
     return "<albums></albums>";
+  };
+  // A section without a filter: like the real player (Bruno E34) every album with a year tag has date="<year>".
+  // Library: the albums of fixture 13 in section A; USB: USB_YEARS in section S; all other sections are empty.
+  const yearSection = (svc, sec) => {
+    if (svc !== USB) return sec === "A" ? fx("13").replace(/ quality="cd"/, "") : "<albums><sections></sections></albums>";
+    const albums = USB_YEARS.map((x) => `<album tracks="12" date="${x.y}"><title>${x.t}</title><art>${x.a}</art></album>`);
+    return `<albums limit="500" section="${sec}" service="${USB}"><sections>${sec === "S" ? `<section name="S">${albums.join("")}</section>` : ""}</sections></albums>`;
+  };
+  // Album list of a source sorted by decade (/ui/browseGrouped, url with sort=decade, Bruno E35): only the index is
+  // answered, one entry per decade counted from the years of yearSection(); albums without a year are left out.
+  const decadeIndex = (q) => {
+    const inner = new URL("http://x" + (q.get("url") || "")).searchParams,
+      svc = inner.get("service");
+    if (inner.get("sort") !== "decade") return "<screen></screen>";
+    const counts = {};
+    for (const m of yearSection(svc, svc === USB ? "S" : "A").matchAll(/<album [^>]*date="(\d{4})"/g)) {
+      const k = m[1].slice(0, 3) + "0";
+      counts[k] = (counts[k] || 0) + 1;
+    }
+    let off = 0;
+    const idx = Object.keys(counts)
+      .sort()
+      .map((k) => {
+        const it = `<item key="${k}" offset="${off}" length="${counts[k]}"></item>`;
+        off += counts[k];
+        return it;
+      });
+    return `<screen screenTitle="Albums" service="${svc}"><list offset="0" total="${off}"><index revision="1">${idx.join("")}</index></list></screen>`;
   };
   // Generated queue (state.queueSize songs), the part start..end as the player pages it
   const genQueue = (q) => {
@@ -216,6 +247,7 @@ function createPlayer(opts = {}) {
       return { type: "image/png", body: PNG };
     if (p === "/Browse") return browse(q.get("key"), lang);
     if (p === "/library/v1/Albums") return library(q);
+    if (p === "/ui/browseGrouped") return decadeIndex(q);
     if (p === "/library/v1/Songs") {
       let x = q.get("service") === USB ? fx("26") : discSongs(fx("25"));
       for (const [t, ar] of Object.entries(state.songArtists))
@@ -329,4 +361,4 @@ function createRecorder(base) {
 // (here USB_SECTIONS) of the recorded library sections.
 const usbSections = () =>
   fx("06").replace(/\s*<item[^>]*text="([^"]*)"[^>]*><\/item>/g, (it, name) => (USB_SECTIONS.includes(name) ? it : ""));
-module.exports = { createPlayer, createRecorder, fx, LIB, USB, USB_GENRES, USB_SECTIONS, VERSIONS, usbSections };
+module.exports = { createPlayer, createRecorder, fx, LIB, USB, USB_GENRES, USB_SECTIONS, USB_YEARS, VERSIONS, usbSections };

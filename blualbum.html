@@ -467,7 +467,8 @@ li.cur .qn {
   display: none;
 }
 #info h3,
-#settings h3 {
+#settings h3,
+#chips h3 {
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
@@ -475,17 +476,20 @@ li.cur .qn {
   color: var(--dim);
   margin: 16px 0 8px;
 }
-#settings {
+#settings,
+#chips {
   margin-top: 6px;
   border-top: 1px solid var(--line);
 }
-#settings .srow {
+#settings .srow,
+#chips .srow {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 40px;
 }
-#settings .srow > span {
+#settings .srow > span,
+#chips .srow > span {
   flex: 1;
 }
 #srcl {
@@ -1104,6 +1108,8 @@ nav button.sp[aria-pressed=true] {
 }
 /* Playlist chips: placed after the genre chips in the same row */
 body.noqc .qc,
+body.nodc .dc,
+body.nodc .dcg,
 body.nopl .plc,
 body.nopl .plg {
   display: none;
@@ -1126,7 +1132,7 @@ nav button.plc svg {
   color: var(--acc);
 }
 nav.nog button:not(.sp):not(.plc),
-nav.nog .gap:not(.plg) {
+nav.nog .gap:not(.plg):not(.dcg) {
   display: none;
 }
 /* Separator between chip groups: thin line in the icon colour */
@@ -1737,13 +1743,10 @@ dialog * {
     <p id="iphelp">The IP address of your player can be found from Help &gt; Diagnostics of your BluOS Controller app.</p>
     <button id="go" class="pri">Connect</button>
   </div>
-  <!-- Settings: source switches (filled by renderSources), chip switches, design -->
+  <!-- Settings: source switches (filled by renderSources), cover size, design -->
   <section id="settings">
     <h3>Settings</h3>
     <div id="srcl" role="group" aria-label="Music sources"></div>
-    <div class="srow"><span>Genre chips</span><button type="button" id="gsw" class="sw" role="switch" aria-checked="true" aria-label="Show genre chips"></button></div>
-    <div class="srow"><span>Quality chips</span><button type="button" id="qsw" class="sw" role="switch" aria-checked="true" aria-label="Show quality chips"></button></div>
-    <div class="srow"><span>Playlist chips</span><button type="button" id="psw" class="sw" role="switch" aria-checked="true" aria-label="Show playlist chips"></button></div>
     <div class="srow"><span>Cover size</span>
       <div id="sizes" role="group" aria-label="Cover size">
         <button type="button" data-size="s" title="Small" aria-label="Small covers">S</button>
@@ -1758,6 +1761,14 @@ dialog * {
       <button type="button" data-theme="dark" title="Night" aria-label="Night"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
       </div>
     </div>
+  </section>
+  <!-- Filter chips: one switch per chip group, in the order of the chip row -->
+  <section id="chips" role="group" aria-labelledby="chipsh">
+    <h3 id="chipsh">Filter chips</h3>
+    <div class="srow"><span>Quality</span><button type="button" id="qsw" class="sw" role="switch" aria-checked="false" aria-label="Show quality chips"></button></div>
+    <div class="srow"><span>Decades</span><button type="button" id="dsw" class="sw" role="switch" aria-checked="false" aria-label="Show decade chips"></button></div>
+    <div class="srow"><span>Genres</span><button type="button" id="gsw" class="sw" role="switch" aria-checked="false" aria-label="Show genre chips"></button></div>
+    <div class="srow"><span>Playlists</span><button type="button" id="psw" class="sw" role="switch" aria-checked="true" aria-label="Show playlist chips"></button></div>
   </section>
   <section id="libset" aria-live="polite"></section>
   <section id="about"><button type="button" id="aboutb" aria-haspopup="dialog" title="About this app"><span>About</span><span id="ver"></span></button></section>
@@ -1778,10 +1789,10 @@ dialog * {
  *   2. Helpers                         DOM shorthand, safe localStorage, XML attributes, formatting, status line and toast.
  *   3. State                           All mutable state of the app, declared in one place.
  *   4. Player API                      Requests to the player (HTTP GET on port 11000, XML answers).
- *   5. Connection & sources            Connecting to the player, music sources (USB / library) and their switches.
+ *   5. Connection & sources            Connecting to the player, music sources (USB / library) and their switches, decade chips.
  *   6. Albums from /Browse             Album lists (All, genres) from the player's browse menus.
- *   7. Albums from /library/v1/Albums  New, favourites and quality lists from the library endpoint.
- *   8. Views                           What the chips show: genre, All, New, Favourites, quality, artist.
+ *   7. Albums from /library/v1/Albums  New, favourites, quality and year lists from the library endpoint.
+ *   8. Views                           What the chips show: genre, All, New, Favourites, quality, decade, artist.
  *   9. Album grid                      Lazy rendering of the album tiles and the random album tile.
  *  10. Favourites                      Favourite state and toggling for the heart on the cover.
  *  11. Popups                          Album popup and the popup for unsuccessful player answers.
@@ -1947,7 +1958,8 @@ async function showImg(el, url) {
 // All mutable state of the app, declared in one place.
 
 // Player and current view.
-// base: player URL ("" = not connected), cache: albums per view (genre name, "__all", "__q:cd" ...),
+// base: player URL ("" = not connected), cache: albums per view (genre name, "__all", "__q:cd" ...;
+// "__years": promise of every album with its year, shared by the decade chips),
 // shown: albums currently rendered, activeKey: id of the selected view (drops outdated async results),
 // activeBtn: selected chip.
 let base = "", cache = {}, shown = [], activeKey = "", activeBtn = null;
@@ -1962,6 +1974,8 @@ let lazyObs = null, lazyTok = 0, coverObs = null, cutObs = null;
 // plChips: chip elements (re-added after the genre chips are rebuilt), plCount: number for the stats (null = unknown),
 // playlists: [{name, url}], plLoaded: the playlist loaded last (chip click or name reported with the queue).
 let playlistsKey = "", plSeq = 0, plChips = [], plCount = null, playlists = [], plLoaded = "";
+// Decade chips: ctx() for which they were built or are loading ("" = not yet).
+let dcCtx = "";
 // Playback position: secs at time t (ms), so the current position can be interpolated between status updates.
 let pos = { secs: 0, total: 0, t: 0, playing: false, canSeek: false };
 // Volume slider: drag state and rate limiting (at most one request per 150 ms while dragging).
@@ -2263,12 +2277,49 @@ async function openSources() {
     msg("Select a genre.");
     // Keep the playlist chips at the end of the row (they may have arrived while this function was waiting).
     renderPlChips();
+    decadeChips();
     // Default view: Favourites, or the first genre. Never pick by position: a playlist chip would start playback.
     nav.querySelector(hasAlbums ? "button[aria-label=Favourites]" : "button:not(.plc)")?.click();
   } catch (e) {
     if (mine !== ctx()) return;
     msg(errMsg("Could not open the music source: ", e), true);
     panel(true);
+  }
+}
+// Chip label of a decade: "1980" -> "80s"; the full decade when two decades share the short form (1920s, 2020s).
+const decLabel = (k, all) => (all.filter((x) => x.slice(2) === k.slice(2)).length > 1 ? k : k.slice(2)) + "s";
+// Decade chips (setting, off by default), behind a separator after the quality chips: the decades of the
+// player's album list sorted by decade (/ui/browseGrouped with sort=decade inside url, Bruno E35: one index
+// entry per decade, albums without a year left out), 1 request per source; decades of all sources combined.
+async function decadeChips() {
+  if ($("#dsw").getAttribute("aria-checked") !== "true" || dcCtx === ctx()) return;
+  const on = srcs.filter((x) => x.albumsKey);
+  if (!on.length) return;
+  const mine = dcCtx = ctx();
+  try {
+    const lists = await Promise.all(on.map(async (x) => {
+      const s = encodeURIComponent(x.svc);
+      const d = await api("/ui/browseGrouped?browseIndex=1&menuGroupId=" + s + "&service=" + s + "&title=Albums&type=Album&url=" + encodeURIComponent("/library/v1/Albums?service=" + x.svc + "&sort=decade"));
+      return [...d.querySelectorAll("index > item")].map((i) => attr(i, "key")).filter((k) => /^\d{4}$/.test(k));
+    }));
+    const gap = $("#az .gap:not(.plg)");
+    if (mine !== ctx() || !gap) return;
+    const keys = [...new Set(lists.flat())].sort();
+    const dg = document.createElement("span");
+    dg.className = "gap dcg";
+    gap.before(dg, ...keys.map((k) => {
+      const b = document.createElement("button");
+      b.setAttribute("aria-pressed", "false");
+      b.textContent = decLabel(k, keys);
+      b.title = "Albums from the " + k + "s";
+      b.className = "sp dc";
+      b.onclick = () => loadDecade(k, b);
+      return b;
+    }));
+  } catch (e) {
+    if (mine !== ctx()) return;
+    dcCtx = "";
+    toast(errMsg("Decades not loaded: ", e));
   }
 }
 
@@ -2335,7 +2386,7 @@ const genreAlbumsAll = async (name) => joinSources(await Promise.all(srcs.map((x
 })));
 
 /* ---------- Albums from /library/v1/Albums ---------- */
-// New, favourites and quality lists from the library endpoint.
+// New, favourites, quality and year lists from the library endpoint.
 
 // /library/v1/Albums returns only album + artist (+ isFavourite). Everything else the app needs
 // (cover, play URL, track list, context menu) follows fixed patterns of the player's Browse results.
@@ -2347,6 +2398,8 @@ function libAlbum(el, svc) {
     t,
     a: ar,
     n: el.getAttribute("tracks") || "",
+    // Year of the album (sectioned lists only, Bruno E34; "" without a year tag)
+    y: el.getAttribute("date") || "",
     img: "/Artwork?service=" + svc + "&" + q,
     key: svc + ":MG/LocalMusic-Album?" + q,
     cm: svc + ":CM/LocalMusic-Album?" + q + (fav ? "&isFavourite=1" : ""),
@@ -2374,6 +2427,7 @@ async function libAlbums(svc, filter, max) {
 // Filters like quality only work per A-Z section: every section of the source that contains albums
 // (albumSections, names "#", "A" ... as the player reports them) is requested, 6 at a time, and the
 // results are joined in A-Z order. Empty sections cannot contain filtered albums and are skipped.
+// filter "" = every album of the source, with its year (decade chips).
 async function libSectionAlbums(x, filter) {
   const names = (await filledSections(x)).map((i) => attr(i, "text"));
   const parts = new Array(names.length);
@@ -2381,7 +2435,7 @@ async function libSectionAlbums(x, filter) {
   const worker = async () => {
     while (next < names.length) {
       const i = next++;
-      const path = "/library/v1/Albums?service=" + encodeURIComponent(x.svc) + "&" + filter + "&limit=500&section=" + encodeURIComponent(names[i]);
+      const path = "/library/v1/Albums?service=" + encodeURIComponent(x.svc) + (filter ? "&" + filter : "") + "&limit=500&section=" + encodeURIComponent(names[i]);
       const d = await api(path);
       parts[i] = [...d.querySelectorAll("section > album")].map((el) => libAlbum(el, x.svc));
     }
@@ -2391,7 +2445,7 @@ async function libSectionAlbums(x, filter) {
 }
 
 /* ---------- Views ---------- */
-// What the chips show: genre, All, New, Favourites, quality, artist.
+// What the chips show: genre, All, New, Favourites, quality, decade, artist.
 
 // Marks `btn` as the selected chip and makes `key` the active view.
 // Bumping searchSeq cancels a search that is still running.
@@ -2481,6 +2535,30 @@ const loadNew = (btn) => loadLibView("__new", btn, "recent=1", 200, "new albums"
 // "Favourites" chip: the player's favourite albums.
 const loadFavourites = (btn) => loadLibView("__fav", btn, "category=FAVOURITES", 5000, "favourites", "in favourites", "No favourite albums yet.");
 const loadQuality = (btn, q, name) => loadLibView("__q:" + q, btn, "quality=" + q, 0, name + " albums", "in " + name + " quality", "No " + name + " albums.", true);
+// Decade chip (dec = "1980"): the albums of the decade. The years come with the sectioned
+// /library/v1/Albums lists without a filter (Bruno E34), read once per source selection into
+// cache.__years (a promise, shared by every decade) and filtered here.
+async function loadDecade(dec, btn) {
+  const key = "__d:" + dec, mine = ctx();
+  selectView(key, btn);
+  $("#grid").innerHTML = "";
+  shown = [];
+  msg("Loading albums from the " + dec + "s …");
+  try {
+    if (!cache.__years) {
+      const c = cache;
+      c.__years = Promise.all(srcs.filter((x) => x.albumsKey).map((x) => libSectionAlbums(x, ""))).then(joinSources);
+      c.__years.catch(() => delete c.__years);
+    }
+    const all = await cache.__years;
+    if (activeKey !== key || mine !== ctx()) return;
+    shown = all.filter((a) => a.y.slice(0, 3) + "0" === dec);
+    render(shown);
+    msg(shown.length ? nAlb(shown.length) + " from the " + dec + "s" : "No albums from the " + dec + "s.");
+  } catch (e) {
+    if (activeKey === key && mine === ctx()) msg(errMsg("Loading failed: ", e), true);
+  }
+}
 // Albums of an artist on one source: the artist's browse menu (key <svc>:MG/LocalMusic-Artist?artist=…)
 // links to all albums of the artist, with the player's play URLs and context menus (2 requests).
 // This list does not mark favourites (Bruno E17), so for the library the player's favourites are read
@@ -3574,8 +3652,8 @@ function applySize(z) {
   document.documentElement.style.setProperty("--tile", TILE[z]);
   return z;
 }
-// On/off switch in the settings panel (button[role=switch]): stored as "1" / "0", default on.
-function bindSwitch(sel, key, apply) {
+// On/off switch in the settings panel (button[role=switch]): stored as "1" / "0", default on (def = false: off).
+function bindSwitch(sel, key, apply, def = true) {
   const b = $(sel);
   const set = (on) => {
     store.set(key, on ? "1" : "0");
@@ -3583,7 +3661,8 @@ function bindSwitch(sel, key, apply) {
     apply(on);
   };
   b.onclick = () => set(b.getAttribute("aria-checked") !== "true");
-  set(store.get(key) !== "0");
+  const v = store.get(key);
+  set(v === null ? def : v !== "0");
 }
 // Segmented control (buttons with data-<name>): apply(value) applies it and returns the valid value.
 function bindSegment(sel, name, key, apply) {
@@ -3765,11 +3844,17 @@ $("#q").onkeydown = (e) => {
     search();
   }
 };
-// Settings panel: design, cover size and the chip switches (restored from localStorage)
+// Settings panel: design, cover size and the filter chip switches (restored from localStorage)
 bindSegment("#themes", "theme", "theme", applyTheme);
 bindSegment("#sizes", "size", "tile", applySize);
-bindSwitch("#gsw", "genrechips", (on) => $("#az").classList.toggle("nog", !on));
-bindSwitch("#qsw", "qchips", (on) => document.body.classList.toggle("noqc", !on));
+// Genre, quality and decade chips: off by default. Decade chips switched on are loaded for the open sources
+// (1 request per source).
+bindSwitch("#gsw", "genrechips", (on) => $("#az").classList.toggle("nog", !on), false);
+bindSwitch("#qsw", "qchips", (on) => document.body.classList.toggle("noqc", !on), false);
+bindSwitch("#dsw", "decadechips", (on) => {
+  document.body.classList.toggle("nodc", !on);
+  if (on) decadeChips();
+}, false);
 bindSwitch("#psw", "plchips", (on) => document.body.classList.toggle("nopl", !on));
 // Remove values stored by older versions: local favourites (now on the player only), the former
 // single-source choice (now one switch per source) and the genre map of the former genre crawl.

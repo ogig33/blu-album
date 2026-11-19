@@ -177,6 +177,27 @@ async function buildTD(get) {
       if (svc === D.LIB && !D.ALL && a.length) D.ALL = a;
     }
   D.ALL = D.ALL || [];
+  // TD-DEC: decades of the album lists sorted by decade (index of /ui/browseGrouped per source with album
+  // sections, union sorted like the app); TD-YEARS: albums with a year of every filled section of every source
+  // (/library/v1/Albums without a filter) as {t, y}
+  D.DEC = [];
+  D.YEARS = [];
+  for (const svc of D.SVC) {
+    if (!D.SECS[svc].length) continue;
+    const ix =
+      (await get(
+        `/ui/browseGrouped?browseIndex=1&menuGroupId=${svc}&service=${svc}&title=Albums&type=Album&url=` +
+          encodeURIComponent(`/library/v1/Albums?service=${svc}&sort=decade`),
+      )) || "";
+    D.DEC.push(...[...ix.matchAll(/<item key="(\d{4})" offset=/g)].map((m) => m[1]));
+    for (const sec of D.SECS[svc].filter((x) => x.text2 !== "0")) {
+      const x = (await get(`/library/v1/Albums?service=${encodeURIComponent(svc)}&limit=500&section=${encodeURIComponent(sec.text)}`)) || "";
+      D.YEARS.push(
+        ...[...x.matchAll(/<album [^>]*?date="(\d{4})"[^>]*>\s*<title>([^<]*)<\/title>/g)].map((m) => ({ y: m[1], t: ent(m[2]) })),
+      );
+    }
+  }
+  D.DEC = [...new Set(D.DEC)].sort();
   // TD-ALB-LIB: first album of TD-ALL with its tracks (TD-TRK) and songs (TD-SONGS)
   const first = D.ALL[0] || { text: "", text2: "", browseKey: "" };
   D.ALB_LIB = { t: first.text, a: first.text2, key: first.browseKey };
@@ -352,10 +373,11 @@ const eq = (a, b, msg) =>
 const eqCount = (a, b, msg) => (REAL ? ok(a >= b, `${msg}: expected at least ${b}, got ${a}`) : eq(a, b, msg));
 
 // Opens the app with a fresh browser profile, connects to the player and waits for the default view.
-// opts: connect (false = stay on the start page), storage (localStorage before start), locale, colorScheme,
-// promptValue / dialog ("accept" | "dismiss") for prompt and confirm, unreachable (every player request
-// fails), blockStorage (localStorage throws), and the mock options (usb, playing, listeningModes,
-// statusPatch, overrides, mock).
+// opts: connect (false = stay on the start page), storage (localStorage before start; genre and quality chips
+// are switched on unless appDefaults or stored), appDefaults (true = the app's own defaults: genre, quality and
+// decade chips off), locale, colorScheme, promptValue / dialog ("accept" | "dismiss") for prompt and confirm,
+// unreachable (every player request fails), blockStorage (localStorage throws), and the mock options (usb,
+// playing, listeningModes, statusPatch, overrides, mock).
 async function start(browser, opts = {}) {
   const player = REAL ? createRecorder(BASE) : createPlayer(opts);
   // Now playing at the start of the test (the real player moves on during a run)
@@ -399,6 +421,12 @@ async function start(browser, opts = {}) {
     );
   if (opts.storage)
     await page.addInitScript((s) => Object.entries(s).forEach(([k, v]) => localStorage.setItem(k, v)), opts.storage);
+  // Most tests use the genre and quality chips, which are off by default: switched on in the fresh profile
+  // (only when not stored yet, so a switch changed by the test stays changed after a reload)
+  if (!opts.appDefaults && !opts.blockStorage)
+    await page.addInitScript(() =>
+      ["genrechips", "qchips"].forEach((k) => localStorage.getItem(k) === null && localStorage.setItem(k, "1")),
+    );
   await page.goto(APP);
   const ready = async () => {
     await page.waitForFunction(() => document.querySelectorAll("#az button").length > 5);
@@ -1080,6 +1108,99 @@ test("CHP-14 loading error is shown in the status line", async (t) => {
   await t.waitMsg("Loading failed: Player responded with 500");
   ok(await t.page.$eval("#msg", (e) => e.className === "err"), "shown as error");
 });
+
+// Chip label of a decade like the app: "1980" -> "80s", the full decade when two decades share the short form
+const decLabel = (k) => (TD.DEC.filter((x) => x.slice(2) === k.slice(2)).length > 1 ? k : k.slice(2)) + "s";
+const decadeReqs = (t) => t.reqs(/^\/ui\/browseGrouped\?.*sort=decade/);
+// Section requests without a filter (the years of the decade chips)
+const yearReqs = (t) => t.reqs(/^\/library\/v1\/Albums\?/).filter((r) => /[?&]section=/.test(r) && !/[?&]quality=/.test(r));
+
+test(
+  "CHP-15 SET-02 quality, decade and genre chips are off by default: special chips and playlists, no decade request",
+  async (t) => {
+    await t.openPanel();
+    for (const [s, v] of [
+      ["#qsw", "false"],
+      ["#dsw", "false"],
+      ["#gsw", "false"],
+      ["#psw", "true"],
+    ])
+      eq(await t.page.getAttribute(s, "aria-checked"), v, s);
+    await t.settle();
+    eq(
+      await t.page.$$eval("#az > button", (x) =>
+        x.filter((e) => e.offsetParent).map((e) => e.getAttribute("aria-label") || e.textContent),
+      ),
+      ["All", "Favourites", "New", ...TD.PL.map((p) => p.text)],
+      "visible chips",
+    );
+    eq(await t.page.$$("#az .dc"), [], "no decade chips");
+    eq(decadeReqs(t).length, 0, "no decade request");
+  },
+  { ...R, appDefaults: true },
+);
+
+test(
+  "CHP-16 SET-02 SET-03 decade chips switched on: decades of every source after the quality chips, stored",
+  async (t) => {
+    await t.openPanel();
+    await t.page.click("#dsw");
+    await t.page.waitForSelector("#az .dc");
+    eq(decadeReqs(t).length, TD.SVC.filter((s) => TD.SECS[s].length).length, "one decade index request per source");
+    const c = await t.$$text("#az button");
+    const lead = await t.page.evaluate(() => QUALITIES.map((q) => q[1]));
+    eq(c.slice(3 + lead.length, 3 + lead.length + TD.DEC.length), TD.DEC.map(decLabel), "decade chips after the quality chips");
+    eq(
+      await t.page.$$eval("#az .dc", (x) => x.map((e) => e.title)),
+      TD.DEC.map((k) => `Albums from the ${k}s`),
+      "tooltips",
+    );
+    ok(await t.page.$("#az .dcg + .dc"), "separator before the decade chips");
+    eq(yearReqs(t).length, 0, "no album request before a decade is clicked");
+    await t.page.click("#dsw");
+    eq(await t.page.$$eval("#az .dc", (x) => x.filter((e) => e.offsetParent).length), 0, "switched off: hidden");
+    await t.page.click("#dsw");
+    await t.page.reload();
+    await t.settle(200);
+    eq(await t.page.getAttribute("#dsw", "aria-checked"), "true", "remembered");
+    await t.connect();
+    await t.page.waitForSelector("#az .dc");
+    eq(await t.page.$$eval("#az .dc", (x) => x.map((e) => e.textContent)), TD.DEC.map(decLabel), "chips after reconnecting");
+  },
+  R,
+);
+
+test(
+  "CHP-17 decade: albums of the decade from every filled section, cached",
+  async (t) => {
+    await t.page.waitForSelector("#az .dc");
+    const of = (k) => TD.YEARS.filter((a) => a.y.slice(0, 3) + "0" === k);
+    const first = TD.DEC[0],
+      last = TD.DEC[TD.DEC.length - 1];
+    await t.chip(decLabel(first));
+    await t.waitMsg(/^\d+ albums? from the \d{4}s$/);
+    eq(yearReqs(t).length, TD.FILLED_LIB.length + TD.FILLED_USB.length, "one request per filled section of every source");
+    ok(
+      yearReqs(t).every((r) => /limit=500/.test(r)),
+      "limit=500",
+    );
+    eq(await t.msg(), nAlb(of(first).length) + ` from the ${first}s`, "status line");
+    eq(
+      (await t.page.evaluate(() => shown.map((a) => a.t))).sort(),
+      of(first)
+        .map((a) => a.t)
+        .sort(),
+      "albums of the decade",
+    );
+    eq(await t.page.getAttribute(`#az .dc:text-is("${decLabel(first)}")`, "aria-pressed"), "true", "chip pressed");
+    const n = yearReqs(t).length;
+    await t.chip(decLabel(last));
+    await t.waitMsg(new RegExp(`^\\d+ albums? from the ${last}s$`));
+    eq(yearReqs(t).length, n, "second decade served from cache");
+    eq(await t.page.evaluate(() => shown.length), of(last).length, "albums of the other decade");
+  },
+  { ...R, storage: { decadechips: "1" } },
+);
 
 // ---------- 4.4 Album grid (GRD) ----------
 test(

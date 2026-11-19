@@ -3,6 +3,9 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Decade chips: albums by decade, switched on in the settings (off by default).
+- Settings: the chip switches have their own section "Filter chips".
+- Quality and genre chips are off by default; switch them on under "Filter chips".
 - Full-screen player shows the year next to the album.
 - Album popup and full-screen player show the cover in full resolution.
 - Album popup: track list divided by disc on albums with several discs.

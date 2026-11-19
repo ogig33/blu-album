@@ -14,7 +14,7 @@ BluAlbum user interface is based on filtering and searching content and much fas
 ## Features
 
 - **Album wall** of the player's library (network share) and USB drive, loaded lazily
-- **Filters as chips:** All, Favourites, New, quality (HD, CD, MQA), genres, saved playlists
+- **Filters as chips:** All, Favourites, New, quality (HD, CD, MQA), decades (switched on in the settings), genres, saved playlists
 - **Search** with the player's own search
 - **Cover actions on hover:** play, add to the queue, favourite (managed by the player)
 - **Random album** from the current view

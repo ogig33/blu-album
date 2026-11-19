@@ -58,7 +58,7 @@ Common to the automated environments:
 - **App**: `blualbum.html` as a `file://` page in a fresh browser profile per case.
 - **Player**: with mock data the mock player `tests/ui/mock-player.js` at the address `IP` of `run.js` (documentation range, never a real device; `IP2` is a second mock player for changing the player). It answers from the fixtures and records every request (`state.requests`, with time and `Accept-Language`) and every command (`state.commands`). With `--player` the requests go through to the real player and are recorded the same way (`createRecorder()`).
 - **Mock options per test**: `usb: false`, `playing: false`, `listeningModes: false`, `statusPatch` (replaces tags of `/Status`, e.g. `quality`, `canSeek`, `volume`), `overrides` (answer a matching request with an HTTP status or body, edit the mock's answer, or answer later), `mock` (sets state, e.g. an empty or generated long queue).
-- **Start options per test**: `connect: false` (start page), `storage` (localStorage before the start), `locale`, `dialog: "dismiss"` / `promptValue` (prompt and confirm), `unreachable` (every player request fails), `blockStorage` (localStorage throws).
+- **Start options per test**: `connect: false` (start page), `storage` (localStorage before the start), `locale`, `dialog: "dismiss"` / `promptValue` (prompt and confirm), `unreachable` (every player request fails), `blockStorage` (localStorage throws), `appDefaults` (the app's own chip defaults; otherwise genre and quality chips are switched on in the fresh profile, as most cases use them).
 - **GitHub API**: intercepted by `run.js` (`gh.answer`, `gh.delay`); without an answer the request fails.
 
 ### 3.2 Mobile browsers (ENV-3, missing)
@@ -106,6 +106,8 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | TD-NEW | `/library/v1/Albums?recent=1` per source (11, 14) | Recently added albums, newest first, at most 200 per source |
 | TD-FAV | `/library/v1/Albums?category=FAVOURITES` (12) | Favourite albums of the library; USB has none |
 | TD-QCD | Quality lists (13, 15) | Albums in CD quality per section (only counted through the requests) |
+| TD-DEC | Decade index per source (mock: counted from TD-YEARS) | Decades of `/ui/browseGrouped` with `sort=decade` (keys like `1980`), union of the sources, sorted; chip label "80s" (full decade when two share the short form) |
+| TD-YEARS | `/library/v1/Albums` per filled section without a filter (13; mock: section A of the library, `USB_YEARS` in USB section S) | Albums with a year (`date`) of every source as {title, year} |
 | TD-PL | Saved playlists (16) | Saved playlists with play URL (`/Load…`) |
 | TD-SEARCH | Search answer (18) | Search result menu with links to artists / albums / songs / composers |
 | TD-STATUS | `/Status` (19 + mock state) | Now playing (`title1`–`title3`, `image`, `quality`, `streamFormat`, `secs`, `totlen`, `canSeek`, `volume`, `pid`, `song`, `shuffle`, `repeat`, `syncStat`); with the real player read again at the start of every test |
@@ -157,7 +159,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
-| CHP-01 | Chip row | Connect | Order: All, Favourites (heart icon), New, HD, CD, MQA, separator, genres of TD-GEN sorted A–Z, separator, playlists of TD-PL | read | Auto |
+| CHP-01 | Chip row | Connect (quality and genre chips switched on, as in most tests) | Order: All, Favourites (heart icon), New, HD, CD, MQA, separator, genres of TD-GEN sorted A–Z, separator, playlists of TD-PL (decade chips off by default) | read | Auto |
 | CHP-02 | Default view Favourites | Connect | Favourites chip pressed; tiles = albums of TD-FAV (count and titles); request `/library/v1/Albums?…category=FAVOURITES` per source | read | Auto |
 | CHP-03 | No favourites | Fixture 12 without albums | Status line "No favourite albums yet." | – | Auto |
 | CHP-04 | New | Click **New** | Tiles = TD-NEW library albums (newest first) followed by the USB albums; status "N albums recently added, newest first"; at most 200 per source | read | Auto |
@@ -171,6 +173,9 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | CHP-12 | Outdated result is dropped | Click All, click New before All has finished | Grid and status line show New; the late All result does not replace it; All loading stops | – | Auto |
 | CHP-13 | Selecting a chip clears the search | Search, then click a chip | Search field empty, chip pressed, its view shown | read | Auto |
 | CHP-14 | Loading error | Mock answers HTTP 500 for the view | Status line "Loading failed: Player responded with 500" in red | – | Auto |
+| CHP-15 | Default chip switches | Fresh profile (app defaults), connect, open the settings | Quality, Decades, Genres off, Playlists on; visible chips: All, Favourites, New, playlists of TD-PL; no `/ui/browseGrouped` request | read | Auto |
+| CHP-16 | Decade chips switched on | Switch "Decade chips" on | One request per source with album sections (`/ui/browseGrouped…url=…sort=decade`); chips of TD-DEC behind a separator after the quality chips, tooltip "Albums from the 1980s"; no album request yet; switched off → hidden; stored, built again after reload + connect | read | Auto |
+| CHP-17 | Decade | Decade chips on, click the first decade of TD-DEC, then the last | One request per filled section of TD-SEC per source (`limit=500&section=…`, no filter), at most 6 in parallel; tiles = TD-YEARS of that decade; status "N albums from the 1980s"; second decade sends no request | read | Auto |
 
 ### 4.4 Album grid (GRD)
 
@@ -315,8 +320,8 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
 | SET-01 | Open and close | Menu button opens; back button, click on the scrim, Esc close | Opens / closes; `aria-expanded` follows; Esc with an open popup closes only the popup (POP-12) | read | Auto |
-| SET-02 | Chip switches | Switch genre, quality and playlist chips off | Only All, Favourites, New visible; switched on again → chips back | read | Auto |
-| SET-03 | Switches are stored | After SET-02, reload | Switches still off | read | Auto |
+| SET-02 | Chip switches | Section "Filter chips" (Quality, Decades, Genres, Playlists, in the order of the chip row): switch genre, quality and playlist chips off; decade chips on and off (CHP-16) | Only All, Favourites, New visible; switched on again → chips back; decade chips hidden when switched off | read | Auto |
+| SET-03 | Switches are stored | After SET-02 / CHP-16, reload | Switches keep their state (decade chips on → built again after connecting) | read | Auto |
 | SET-04 | Cover size | Select S, M, L | Tile width S < M < L; stored as `tile`; pressed segment follows | read | Auto |
 | SET-05 | Design | Day, Night, System with light / dark system scheme | Background light / dark accordingly; stored as `theme` | read | Auto |
 | SET-06 | Stored size and design are restored | Set L and Night, reload | L and Night active before connecting | read | Auto |
