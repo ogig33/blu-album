@@ -4,7 +4,7 @@ Automated tests of the app's user interface. The app runs headless in **Chrome, 
 (WebKit), Edge and Firefox** against a **mock player** that answers every request with recorded answers
 of a real player (`fixtures/`). No player and no network are needed.
 
-Every function of the app is a test case in the test plan `docs/test-plan.md`; the name of each UI test starts with the IDs of the test cases it covers (e.g. `QUE-04`). Expected values are derived from the fixtures (object `TD` in `run.js`), never written into the tests.
+Every function of the app is a test case in the test plan `docs/blu-album-test-plan.md`; the name of each UI test starts with the IDs of the test cases it covers (e.g. `QUE-04`). Expected values are derived from the fixtures (object `TD` in `run.js`), never written into the tests.
 
 ## Files
 - `run.js` – the test scenarios and a small test runner
@@ -33,7 +33,7 @@ node run.js --list                  # every test with its mark: read / write (al
 A failed test saves a screenshot of the page to `test-results/` (ignored by git). Tests must not assume a window size: use `VIEWPORT` for coordinates.
 
 ## Against the real player
-The tests marked `read` (and with `--write` also those marked `write`) run against your own player instead of the mock (test environment ENV-4 of `docs/test-plan.md`). The expected values are read from the player before the tests start.
+The tests marked `read` (and with `--write` also those marked `write`) run against your own player instead of the mock (test environment ENV-4 of `docs/blu-album-test-plan.md`). The expected values are read from the player before the tests start.
 
 ```
 node run.js --player 192.168.1.50 --browser chrome           # read-only: changes nothing on the player

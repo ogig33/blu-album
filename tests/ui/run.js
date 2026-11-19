@@ -11,7 +11,7 @@
 // playback position, shuffle, repeat and volume are saved first and restored after every such test).
 // --list prints every test with its mark (read / write / mock).
 // Environment: UI_SLOW=<factor> stretches the fixed waits (settle) for slow machines such as CI runners.
-// Every test name starts with the IDs of the test plan (docs/test-plan.md) it covers, e.g. --only QUE-
+// Every test name starts with the IDs of the test plan (docs/blu-album-test-plan.md) it covers, e.g. --only QUE-
 // runs the queue block.
 const path = require("path");
 const { pathToFileURL } = require("url");
@@ -77,7 +77,7 @@ const sleep = (ms) => new Promise((z) => setTimeout(z, ms));
 // ---------- test data ----------
 // Built before the tests run by asking the player the tests run against (mock: answers derived from the
 // fixtures; real player with --player) the same questions as the app, so no artist, album or number is
-// written into the tests. IDs as in "Test data dictionary" of docs/test-plan.md.
+// written into the tests. IDs as in "Test data dictionary" of docs/blu-album-test-plan.md.
 const ent = (s) =>
   (s || "")
     .replace(/&lt;/g, "<")
