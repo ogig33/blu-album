@@ -2292,6 +2292,27 @@ test(
   { overrides: [{ match: /^\/Artwork/, status: 404, type: "text/plain" }] },
 );
 
+test(
+  "POP-15 FUL-07 full-size covers in the popup and now playing, grid covers without a size",
+  async (t) => {
+    const full = (u) => /[?&]width=10000&height=10000&followRedirects=1$/.test(u || "");
+    await t.page.waitForFunction(() => document.querySelector("#fimg").dataset.src);
+    const fimg = await t.page.$eval("#fimg", (e) => e.dataset.src);
+    ok(full(fimg), "now playing asks the full size: " + fimg);
+    eq(await t.page.$eval("#cov", (e) => e.dataset.src), fimg, "footer and full screen share one request");
+    await t.all();
+    const grid = await t.page.$$eval("#grid .item img", (i) => i.map((x) => x.dataset.url).filter(Boolean));
+    ok(grid.length > 0, "grid has covers");
+    ok(grid.every((u) => /followRedirects=1$/.test(u) && !/[?&](width|height)=/.test(u)), "grid covers without a size");
+    await openLibAlbum(t);
+    const dimg = await t.page.$eval("#dimg", (e) => e.dataset.src);
+    ok(full(dimg), "popup asks the full size: " + dimg);
+    await t.page.waitForFunction(() => /^blob:/.test(document.querySelector("#dimg").src || ""));
+    ok(t.reqs(/^\/Artwork\?.*&width=10000&height=10000&followRedirects=1$/).length >= 2, "full-size requests reach the player");
+  },
+  { ...R, needs: ["library"] },
+);
+
 // ---------- 4.11 Queue panel (QUE) ----------
 test(
   "QUE-01 QUE-03 QUE-04 pinned panel, list, durations",

@@ -1,0 +1,49 @@
+meta {
+  name: E31 Artwork - full size with width and height
+  type: http
+  seq: 108
+}
+
+get {
+  url: http://{{host}}:11000/Artwork
+  body: none
+  auth: none
+}
+
+headers {
+  Origin: null
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // The album popup and the full-screen view ask the cover with width and height 10000: the player
+  // answers its stored image scaled to that size, but never larger than the original. Without them it
+  // answers at most 600 px. Full-size covers need "Optimize Artwork" off and a rebuilt index; with it on
+  // the stored cover has 600 px (see docs/bluos-api.md, /Artwork).
+  const img = bru.getVar("albumImage");
+  if (!img) { bru.runner.skipRequest(); return; }
+  req.setUrl("http://" + bru.getEnvVar("host") + ":11000" + img + "&width=10000&height=10000&followRedirects=1");
+}
+
+script:post-response {
+  // Pixel size of a JPEG (SOF marker) or PNG (IHDR) for the console; the body is read as binary text.
+  const b = Buffer.from(res.getBody() || "", "binary");
+  let size = "unknown";
+  if (b[0] === 0x89 && b[1] === 0x50) size = b.readUInt32BE(16) + " x " + b.readUInt32BE(20);
+  else for (let i = 2; i + 9 < b.length; ) {
+    if (b[i] !== 0xff) break;
+    const m = b[i + 1], len = b.readUInt16BE(i + 2);
+    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) { size = b.readUInt16BE(i + 7) + " x " + b.readUInt16BE(i + 5); break; }
+    i += 2 + len;
+  }
+  console.log("Cover with width/height 10000: " + size + " px, " + b.length + " bytes");
+}
+
+tests {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("returns an image", () => expect(String(res.getHeader("content-type"))).to.match(/^image\//));
+  test("allows fetch() from any origin", () => expect(String(res.getHeader("access-control-allow-origin"))).to.equal("*"));
+}
