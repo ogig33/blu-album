@@ -60,6 +60,7 @@ Out of scope (do not build, suggest the alternative):
 ## Decisions
 - No genre per album: the player offers none, the album popup has no genre line (2026-11-14; the former genre crawl cost ≈ 560 requests).
 - Album and track info (`/Info`) is not used: it redirects to last.fm.
+- No compilation chip (2026-11-19): the player offers no compilation filter; the `COMPILATION` tag is only in the songs of a single album, and the album artist "Various" is a convention of the library, not a value of the API.
 - Not done on purpose: the heart re-reads the album context menu after toggling (1 request) – without it the next click would use a self-built URL.
 
 ## Known pitfalls

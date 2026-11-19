@@ -1091,6 +1091,7 @@ General:
 - The root of every answer carries `id` (library: a fixed number, USB: `1`) and `service`, plus all filters passed as attributes.
 - `limit` and `start` are **ignored** with `section=`: a section always comes complete.
 - `sort=` (according to `/Services`: `alpha`, `recent`, `year`, `decade`, `artist`, `artistDate`) gives an empty answer for albums.
+- **No compilation filter** (verified 2026-11-19, BluOS 4.18.18): `compilation=1`, `compilations=1`, `category=COMPILATIONS`, `type=compilation`, `albumartist=…` are ignored by `/library/v1/Albums` (without `section` an empty answer, with `section` all albums of the section). The `compilation` tag is only in `/library/v1/Songs` of one album (`album` + `artist`), not in the song lists by `section`. `/Services` and the library menu offer no compilation list either. Samplers are found only through their album artist (e.g. `artist=Various`), a convention of the library.
 - Paging: `<nextlink>` with the full URL of the next page.
 - **No genre per album** in any answer.
 
@@ -1195,6 +1196,7 @@ GET /library/v1/Albums?service=<svc>&section=<letter>&recent=1&category=FAVOURIT
 - Without a filter (or only `service`) the answer is empty.
 - Depending on the form the title is `title`, `alb` or the text of `album`.
 - Sample: `section=A` = 143 albums, 16.5 KB.
+- **Year** (verified with E34, BluOS 4.18.18, 2026-11-19): `section`, `artist` and `album` + `artist` give `date="<year>"` (four digits) on every album with a year tag; an album without a year tag has no `date` attribute (its songs have no `<date>` either). `recent=1` and `category=FAVOURITES` give no year. One year per album: a sampler with discs of 2002 and 2001 answered `date="2002"`. The whole library (27 sections, 1956 albums) is 227 KB; library and USB answer alike. Albums sorted or grouped by decade with an index per decade: [`/ui/browseGrouped`](#get-uibrowsegrouped) with `sort=decade`.
 
 ### `GET /library/v1/Artists`
 
@@ -2705,6 +2707,7 @@ GET /ui/browseGrouped?service=<svc>&menuGroupId=<id>&browseIndex=<n>&title=<titl
 - Artists, albums, songs and composers of the library; the BluOS Controller loads pages of 30 with `offset`.
 - Verified (628 artists): the letter index gives the offset of every letter, the BluOS Controller loads the pages it needs with `offset`.
 - Albums of a genre (verified 2026-11-15, as the BluOS Controller asks them): `/ui/browseGrouped?browseIndex=2&menuGroupId=Genres&service=LocalMusic&title=Albums&type=Album&url=<encoded /library/v1/Albums?genre=…&service=LocalMusic>`. Answer: `<list offset="0" total="165">`, letter index, 30 `item` elements per page with `title` (album), `subTitle` (artist), `subSubTitle` ("12 Tracks"), `image`, `<action URI="/Albums?service=…&album=…&artist=…">`, `<playAction URI="/Add?playnow=1&service=…&album=…&artist=…">`, `<contextMenu URI="/ui/ContextMenu?…context=Album…">` (no favourite state, no add-to-queue URL); next page via `<nextLink>` (`…&listContinuation=30…`); sort menu with `&sort=alpha|recent|year|decade` in the url. 27 KB per page.
+- All albums by decade (verified with E35, E36, BluOS 4.18.18, 2026-11-19): `/ui/browseGrouped?browseIndex=1&menuGroupId=<svc>&service=<svc>&title=Albums&type=Album&url=<encoded /library/v1/Albums?service=<svc>&sort=decade>` (library and USB). `sort` must be inside `url`; as an own parameter it is ignored (A–Z list). The sort menu offers "A → Z", "Recent", "Year", "Decade", "Artist", "Artist, release-date", with `selected="true"` on the current one. The index has one entry per decade instead of letters (`<item key="1970" offset="46" length="136">`), contiguous, adding up to `total`; within a decade A–Z. Albums without a year tag are **not** in the list (`total` 1954 against 1956 albums in the sections). Entries as above, without year, favourite state and add-to-queue URL. Pages stay at 30 (`limit`, `count`, `pageSize` are ignored, inside and outside `url`); `listContinuation=<offset>` jumps straight to any offset, e.g. the first album of a decade.
 
 ### `GET /ui/browseMenuGroup`
 
