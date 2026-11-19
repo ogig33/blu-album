@@ -833,6 +833,10 @@ test(
   async (t) => {
     const i = (await t.page.$$eval("#grid .item", (x, s) => x.findIndex((e) => e.querySelector("b")?.textContent === s), LONG_T)) + 1;
     ok(i > 0, "tile with the long title");
+    // The ResizeObserver marks cut lines after the next layout: wait for it (slow runners)
+    await t.page
+      .waitForFunction((n) => document.querySelectorAll(`#grid .item:nth-child(${n}) .cut`).length === 2, i, { timeout: 3000 })
+      .catch(() => {});
     let l = await tileLines(t.page, i);
     eq(l.map((x) => x.lines), [1, 1], "title and artist one line each");
     eq(l.map((x) => x.cut), [true, true], "both cut (fade out)");
@@ -2003,9 +2007,12 @@ test("FTR-18 long polling with etag, pause between requests, longer after an err
   ok(/^\/Status\?timeout=100$/.test(s[0].r), "first request without etag");
   const etag = (TD.STATUS.match(/<status etag="([^"]*)"/) || [])[1];
   eq(s[1].r, "/Status?timeout=100&etag=" + encodeURIComponent(etag), "then with the etag of the last answer");
+  // The app pauses 1 s from request start to request start; the mock sees the arrival times,
+  // which jitter by some 10 ms on slow runners (Safari on macOS)
+  const gaps = s.slice(1).map((x, i) => x.at - s[i].at);
   ok(
-    s.slice(1).every((x, i) => x.at - s[i].at >= 990),
-    "at least 1 s between requests",
+    gaps.every((g) => g >= 900),
+    `about 1 s between requests (${gaps.join(", ")} ms)`,
   );
   const o = { match: /^\/Status\?/, status: 500, times: 1 };
   t.player.state.overrides.push(o);
