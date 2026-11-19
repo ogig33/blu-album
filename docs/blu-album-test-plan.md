@@ -101,7 +101,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | TD-GEN | Genre lists of every source (04 + mock) | Genre names of every source; chip row = sorted union; TD-GEN-ONE = a genre of the library only |
 | TD-SEC | Album sections of every source (06) | A–Z sections with album counts (`text2`); "filled" = `text2` ≠ 0; USB: the mock keeps only some sections |
 | TD-ALL | Albums of the filled sections (07) | Albums of the first filled library section; ALL_COUNT = albums of every filled section of every source (the mock answers albums only for one section) |
-| TD-TRK | Track list of TD-ALB-LIB (08) | Tracks with `text` and `duration` |
+| TD-TRK | Track list of TD-ALB-LIB (08) | Tracks with `text` ("N. Title") and `duration`, in the order of TD-SONGS |
 | TD-CM | Context menu of an album (09) | Favourite state follows `isFavourite=1` in the key |
 | TD-NEW | `/library/v1/Albums?recent=1` per source (11, 14) | Recently added albums, newest first, at most 200 per source |
 | TD-FAV | `/library/v1/Albums?category=FAVOURITES` (12) | Favourite albums of the library; USB has none |
@@ -112,7 +112,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | TD-NOW-LIB | `/Status` | A title of a source of TD-SRC is playing or paused |
 | TD-QUEUE | `/Playlist` (20) | Play queue (`<song id>` with `time`), at most 2000 entries |
 | TD-SET | `/Settings` (21) | Room name (`zonename`), network shares (`sharecfg`), `resizeall`, `server` |
-| TD-SONGS | `/library/v1/Songs` of TD-ALB-LIB and TD-ALB-USB (25, 26) | Songs of an album (`date`, `atype`, `quality`, `samplebits`, `samplerate`, `channels`, `bitrate`, `art`, `title`) |
+| TD-SONGS | `/library/v1/Songs` of TD-ALB-LIB and TD-ALB-USB (25, 26) | Songs of an album (`date`, `atype`, `quality`, `samplebits`, `samplerate`, `channels`, `bitrate`, `art`, `title`; `discno` on multi-disc albums, mock state `discs`) |
 | TD-LM | `/audioPreset` (27) | Listening mode: setting `displayName`, current `value`, list of modes; empty on a player without listening modes |
 | TD-VER | `/GitVersion`, `/Version` (mock: `VERSIONS`) | BluOS and API version |
 | TD-ALB-LIB | TD-ALL | The first album of TD-ALL |
@@ -212,13 +212,16 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
 | POP-01 | Open from the cover or the title | Click the cover of TD-ALB-LIB; close; click its title | Popup with cover, title, artist link, source line (icon of the player from the `image` of TD-SRC, inverted in the light design, + source name of TD-SRC); "Loading tracks …" until the tracks arrive | – | Auto |
-| POP-02 | Track list | Popup of TD-ALB-LIB | One row per track of TD-TRK ("N. Title", duration m:ss); summary "N tracks · total time"; request `/Browse` with `withContextMenuItems=0` | read | Auto |
+| POP-02 | Track list | Popup of TD-ALB-LIB | One row per track of TD-TRK: number without dot in its own column, some space, title, duration m:ss; no summary line above the tracks, no disc header; total time of TD-TRK in the album details (`#dlen`); request `/Browse` with `withContextMenuItems=0` | read | Auto |
 | POP-03 | No action buttons, no genre line | Popup open | No play / queue / heart button; no genre line | read | Auto |
-| POP-04 | Year | Popup of TD-ALB-LIB | Year = `date` of TD-SONGS; different years shown as range "first–last" | read (part) | Auto |
+| POP-04 | Year | Popup of TD-ALB-LIB | Year = `date` of TD-SONGS on the artist line ("Artist · year"); different years shown as range "first–last" | read (part) | Auto |
 | POP-05 | Quality tag and technical data (lossless) | Popup of TD-ALB-LIB | Tag from `quality` (cd → CD, hd/hr → HD, mqa → MQA, dolby → Dolby) before the data line "<format> · <bits> bit / <kHz> kHz · <Mono/Stereo/n ch> · Ø <avg bitrate> kbit/s", all computed from TD-SONGS | read | Auto |
 | POP-06 | Lossy album (MP3) | Popup of TD-ALB-USB | Tag "MP3"; data line without bit depth | read | Auto |
 | POP-07 | Mixed album | Songs with two formats / sample rates | Formats joined with " / ", ranges for bits and kHz, one tag per quality | – | Auto |
-| POP-08 | Track artist | Mock state `songArtists`: one track of TD-SONGS gets another artist | That track shows the artist below its title; all others none | – | Auto |
+| POP-08 | Track artist | Mock state `songArtists`: one track of TD-SONGS gets another artist | That track shows the artist below its title; all others none (song and track matched by position) | – | Auto |
+| POP-16 | Multi-disc album | Mock state `discs`: TD-TRK split into disc 1 (first half) and disc 2, numbers start again at 1 per disc (like Bruno E32) | Header "Disc N" (shown in capitals) before the tracks of each disc; numbers as in TD-TRK per disc; album details "2 discs · total time"; a click on the first track of disc 2 plays it | – | Auto |
+| POP-17 | Multi-disc album numbered across the discs | Like POP-16, mock state `discRunOn`: numbers run on over both discs | Disc 2 header before the first song with `discno` 2; numbers run on | – | Auto |
+| POP-18 | Same title on two discs | Like POP-16; the first track of disc 2 gets the title of track 1 and another artist | Artist shown only on the first track of disc 2 (song of the same position) | – | Auto |
 | POP-09 | Play a track | Click a track row | Its `autoplayURL` (else `playURL`) sent; toast "Track started" | write | Auto |
 | POP-10 | Popup cache | Open, close, open the same album | No second `/Browse` / `/library/v1/Songs` request | read | Auto |
 | POP-11 | Browser in another language | Option `locale: de-DE` | Track list still filled (requests send `Accept-Language: en`) | read | Auto |

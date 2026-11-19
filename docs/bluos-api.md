@@ -892,6 +892,7 @@ Some answers group the items in `<category text="…" nextKey="…">`; errors co
 - Context menu item types: `favourite-add`, `favourite-delete`, `add-now` (play now), `add-next`, `add-last`, `add-shuffle`, `addAll-now`, `addAll-next`, `addAll-last`, `playRadio`, `delete` (ask the user first).
 - Paging: `nextKey` on `browse` or `category`; the chunk size is fixed by the player.
 - With a German `Accept-Language` (`de-DE,de;q=0.9,en;q=0.8`, as browsers send it), the album key `LocalMusic:MG/LocalMusic-Album?album=…&artist=…` answers some albums (e.g. "The Wall HiRes") with an empty `<browse type="menu"/>` instead of the tracks; others (e.g. "1", "Autumn (20th Anniversary)") answer normally, and which ones are hit can depend on the exact header value. With `Accept-Language: en` or without the header, the same albums answer their tracks (verified, BluOS 4.18.18).
+- Albums with several discs: the track list has no disc marker; all discs follow one after the other in one list. Track *i* of the list is song *i* of `/library/v1/Songs` for the same album (same `track` number and title; songs sorted by `discno`, then `track`), so the disc of a track is the `discno` of the song at the same position. The number in `text` is the `track` tag: it starts again at 1 on most discs, but runs on across the discs when the files are tagged so (e.g. 1–30 over 3 discs) – it does not mark the disc. Titles may repeat on different discs (e.g. a film score with an extended edition), so a match by title is ambiguous (verified with E32 on 13 multi-disc albums, BluOS 4.18.18, 2026-11-19).
 - Streaming services use keys like `/Albums?service=Tidal&category=masters`; their search answers link to `/Artists|Albums|Songs|Playlists?service=…&expr=…`.
 - Verified keys for the local library (shown for `LocalMusic`; for the USB drive the keys start with its id instead, e.g. `1A2B_3C4D:`):
 
@@ -1449,7 +1450,7 @@ Paged lists (`section`, `genre`, `all`) have `<nextlink>` and lack the technical
 - Empty with only `service`.
 - The lists (`section`, `genre`) lack the technical attributes and `songID`, `track`, `date`, `time`.
 - `quality` of MP3 files is the bitrate; recognise them by `atype`.
-- Tags per song only when the file has them (verified): `composer` (composer of the track), `discno` (disc number, e.g. on multi-disc albums), `albumartist` and `compilation` (`1` on samplers, e.g. album artist "Various"). `art` is always the track artist, the album artist without `albumartist` is the `art` of the album in `/library/v1/Albums`.
+- Tags per song only when the file has them (verified): `composer` (composer of the track), `discno` (disc number, e.g. on multi-disc albums; the songs come sorted by `discno`, then `track`, in the order of the album track list of `/Browse`), `albumartist` and `compilation` (`1` on samplers, e.g. album artist "Various"). `art` is always the track artist, the album artist without `albumartist` is the `art` of the album in `/library/v1/Albums`.
 
 ### `GET /Songs`
 

@@ -498,6 +498,19 @@ const openLibAlbum = async (t) => {
   await openAlbumBy(t, "x.key === a.key", TD.ALB_LIB);
   await t.page.waitForSelector("#tracks li button");
 };
+// A track of TD-TRK as the popup shows it: number without dot, title, duration
+const trackRow = (x) => [
+  (x.text.match(/^(\d+)\./) || [])[1] || "",
+  x.text.replace(/^\d+\.\s*/, ""),
+  x.duration ? fmtTime(+x.duration) : "",
+];
+// Track rows of the open popup: [number, title, duration]
+const trackRows = (t) =>
+  t.page.$$eval("#tracks li:not(.disc) button", (b) =>
+    b.map((x) =>
+      [...x.querySelectorAll(":scope > span")].map((s) => s.firstChild?.textContent || "").concat(x.querySelector("i").textContent),
+    ),
+  );
 const R = { real: "read" };
 const W = { real: "write" };
 // opts.needs: what a test needs on the real player; skipped without it (read-only) or set up first (--write, see prepare())
@@ -1406,19 +1419,23 @@ test(
   async (t) => {
     await t.all();
     await openLibAlbum(t);
-    const rows = await t.page.$$eval("#tracks li button", (b) =>
-      b.map((x) => [x.querySelector("span").firstChild.textContent, x.querySelector("i").textContent]),
-    );
+    eq(await trackRows(t), TD.TRK.map(trackRow), "track number (without dot), title and duration per track");
+    ok(!(await t.page.$("#dsum")), "no summary line above the tracks");
+    eq(await t.page.$$eval("#tracks li.disc", (e) => e.length), 0, "no disc headers on a single-disc album");
     eq(
-      rows,
-      TD.TRK.map((x) => [x.text, x.duration ? fmtTime(+x.duration) : ""]),
-      "tracks with durations",
+      await t.page.textContent("#dlen"),
+      fmtTime(TD.TRK.reduce((n, x) => n + (+x.duration || 0), 0)),
+      "total time in the album details",
     );
-    eq(
-      await t.page.textContent("#dsum"),
-      `${TD.TRK.length} ${TD.TRK.length === 1 ? "track" : "tracks"} \u00B7 ${fmtTime(TD.TRK.reduce((n, x) => n + (+x.duration || 0), 0))}`,
-      "track count and total time",
+    ok(
+      await t.page.$eval("#dy", (y) => y.parentElement === document.querySelector("#da").parentElement),
+      "year on the artist line",
     );
+    const gap = await t.page.$eval("#tracks li button", (b) => {
+      const [n, s] = b.querySelectorAll("span");
+      return s.getBoundingClientRect().left - n.getBoundingClientRect().right;
+    });
+    ok(gap >= 8, `space between number and title: ${gap}px`);
     eq(
       await t.page
         .$$eval("#dlg .dl > .cov button, #dlg .info button", (b) =>
@@ -1453,7 +1470,7 @@ test(
     await t.page.waitForFunction(() => !/Loading/.test(document.querySelector("#tracks").textContent));
     const rows = await t.page.$$eval("#tracks li button", (b) => b.map((x) => x.getBoundingClientRect().height));
     ok(rows.length > 0 && rows.every((h) => h > 0), `visible track rows: ${JSON.stringify(rows)}`);
-    ok(/^\d+ tracks? \u00B7 \d+:\d\d$/.test(await t.page.textContent("#dsum")), "track count above the tracks");
+    ok(/^(\d+:)?\d+:\d\d$/.test(await t.page.textContent("#dlen")), "total time in the album details");
   },
   { ...R, locale: "de-DE" },
 );
@@ -1534,6 +1551,112 @@ test("POP-08 artist per track only where it differs from the album artist", asyn
   ok((await t.page.textContent("#tracks li:nth-child(2)")).includes(TD.OTHER_ARTIST), "on track 2");
 });
 
+// Multi-disc albums (Bruno E32): the recorded album split into two discs by the mock (state.discs).
+// Disc 1 = the first half of the tracks, disc 2 = the rest.
+const twoDiscs = (s) => (s.discs = TD.TRK.map((_, i) => (i < Math.ceil(TD.TRK.length / 2) ? 1 : 2)));
+// Rows of the track list as the user reads them: disc headers and [number, title, duration] per track
+const listRows = (t) =>
+  t.page.$$eval("#tracks li", (l) =>
+    l.map((x) =>
+      x.classList.contains("disc")
+        ? x.textContent
+        : [...x.querySelectorAll("button > span")]
+            .map((s) => s.firstChild?.textContent || "")
+            .concat(x.querySelector("i").textContent),
+    ),
+  );
+test(
+  "POP-16 multi-disc album: header per disc, numbers per disc, disc count with the total time",
+  async (t) => {
+    ok(TD.TRK.length >= 2, "test data has at least two tracks");
+    await t.all();
+    await openLibAlbum(t);
+    const d = t.player.state.discs;
+    const disc = (n) => TD.TRK.filter((_, i) => d[i] === n);
+    const num = (x, i) => [String(i + 1), x.text.replace(/^\d+\.\s*/, ""), x.duration ? fmtTime(+x.duration) : ""];
+    eq(
+      await listRows(t),
+      ["Disc 1", ...disc(1).map(num), "Disc 2", ...disc(2).map(num)],
+      "header before each disc, numbers start again at 1",
+    );
+    eq(
+      await t.page.$eval("#tracks li.disc", (e) => getComputedStyle(e).textTransform),
+      "uppercase",
+      "header in capitals",
+    );
+    eq(
+      await t.page.textContent("#dlen"),
+      "2 discs · " + fmtTime(TD.TRK.reduce((n, x) => n + (+x.duration || 0), 0)),
+      "disc count and total time",
+    );
+    await t.page.click("#tracks li:not(.disc) >> nth=" + disc(1).length);
+    await t.waitToast("Track started");
+    const first2 = TD.TRK[disc(1).length];
+    ok(t.player.state.commands.includes(decodeURIComponent(first2.autoplayURL || first2.playURL)), "first track of disc 2 plays");
+  },
+  { mock: twoDiscs },
+);
+
+test(
+  "POP-17 multi-disc album numbered across the discs: discs from discno, not from the numbers",
+  async (t) => {
+    await t.all();
+    await openLibAlbum(t);
+    const rows = await listRows(t);
+    const n1 = Math.ceil(TD.TRK.length / 2);
+    eq(rows.indexOf("Disc 2"), n1 + 1, "disc 2 starts after the tracks of disc 1");
+    eq(rows[n1 + 2][0], String(n1 + 1), "number runs on");
+  },
+  {
+    mock: (s) => {
+      twoDiscs(s);
+      s.discRunOn = true;
+    },
+  },
+);
+
+test(
+  "POP-18 same title on two discs: artist of the song at the same position",
+  async (t) => {
+    await t.all();
+    await openLibAlbum(t);
+    const n1 = Math.ceil(TD.TRK.length / 2);
+    eq(
+      await t.page.$$eval("#tracks li:not(.disc)", (l) => l.map((x) => x.querySelector(".ta")?.textContent || "")),
+      TD.TRK.map((_, i) => (i === n1 ? TD.OTHER_ARTIST : "")),
+      "artist only on the first track of disc 2",
+    );
+  },
+  {
+    // first track of disc 2 gets the title of the first track and another artist (songs and track list)
+    mock: twoDiscs,
+    overrides: [
+      {
+        match: /^\/library\/v1\/Songs\?service=LocalMusic/,
+        edit: (x) => {
+          const n1 = Math.ceil(TD.TRK.length / 2);
+          let i = 0;
+          return x.replace(/<art>[^<]*<\/art>(\s*<alb>[^<]*<\/alb>\s*)<title>[^<]*<\/title>/g, (m, alb) =>
+            i++ === n1
+              ? `<art>${TD.OTHER_ARTIST}</art>${alb}<title>${TD.SONG_TITLES[0].replace(/&/g, "&amp;")}</title>`
+              : m,
+          );
+        },
+      },
+      {
+        match: /MG\/LocalMusic-Album/,
+        edit: (x) => {
+          const n1 = Math.ceil(TD.TRK.length / 2);
+          let i = 0;
+          return x.replace(/ text="(\d+)\. [^"]*"/g, (m, n) =>
+            i++ === n1 ? ` text="${n}. ${TD.SONG_TITLES[0].replace(/&/g, "&amp;")}"` : m,
+          );
+        },
+      },
+    ],
+  },
+);
+
 test(
   "POP-09 click on a track plays it",
   async (t) => {
@@ -1598,6 +1721,15 @@ test("POP-14 open popup keeps the page behind it still", async (t) => {
   await t.page.mouse.wheel(0, 3000);
   await t.page.waitForTimeout(300);
   eq(await t.page.evaluate(() => scrollY), y, "page not scrolled by the wheel over backdrop and track list");
+  // A short track list (whatever the window size) scrolls without a scroll bar over the durations
+  const bar = await t.page.$eval("#tracks", (e) => {
+    e.style.maxHeight = "80px";
+    e.style.overflowY = "auto";
+    const r = { scrolls: e.scrollHeight > e.clientHeight, bar: e.offsetWidth - e.clientWidth };
+    e.style.maxHeight = e.style.overflowY = "";
+    return r;
+  });
+  ok(bar.scrolls && bar.bar === 0, `track list scrolls without a scroll bar: ${JSON.stringify(bar)}`);
   await t.page.click("#close");
   ok(
     await t.page.evaluate(() => getComputedStyle(document.documentElement).overflow !== "hidden"),
@@ -3291,7 +3423,7 @@ test(
         theme + ": no horizontal scrolling with the queue pinned",
       );
       await openLibAlbum(t);
-      for (const sel of ["#dt", "#tracks li button span"]) {
+      for (const sel of ["#dt", "#tracks li button .tt"]) {
         const c = await contrastOf(t.page, sel);
         ok(c >= 4.5, `${theme}: ${sel} contrast ${c}`);
       }

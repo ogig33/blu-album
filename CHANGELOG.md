@@ -4,6 +4,10 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 
 ## Unreleased
 - Album popup and full-screen player show the cover in full resolution.
+- Album popup: track list divided by disc on albums with several discs.
+- Album popup: track numbers in their own column; year on the artist line, total playing time in the album details.
+- Fix: album popup showed the wrong track artist when a title appears on two discs.
+- Album popup: no scroll bar over the track durations.
 
 ## 0.10.0
 - Album popup shows the source icons of the player (USB, library).

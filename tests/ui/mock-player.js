@@ -42,6 +42,11 @@ function createPlayer(opts = {}) {
     shuffle: false,
     repeat: "2",
     songArtists: {}, // title -> artist, overrides the artist of single songs (compilation test)
+    // Multi-disc album: disc number per recorded track of the library album (e.g. [1, 1, 2, 2]), null = as
+    // recorded. Like the real player (Bruno E32), /library/v1/Songs gets <discno>, /Browse keeps the order
+    // without a disc marker, and the track number starts again at 1 on every disc (discRunOn: runs on).
+    discs: null,
+    discRunOn: false,
     playing: opts.playing !== false,
     // Playlist id (<pid> in /Status, id of /Playlist). Like the real player (Bruno 2 Write), it changes
     // when the queue changes: add, remove, shuffle, clear, load. Loading a broken playlist keeps it.
@@ -131,8 +136,8 @@ function createPlayer(opts = {}) {
     // the track list of an album is an empty menu.
     if (/MG\/LocalMusic-Album/.test(key))
       return /^en\b/i.test(lang)
-        ? fx("08")
-        : '<browse serviceIcon="/images/LibraryIcon.png" serviceName="Bibliothek" searchKey="LocalMusic:Search" type="menu"></browse>';
+        ? discTracks(fx("08"))
+        :'<browse serviceIcon="/images/LibraryIcon.png" serviceName="Bibliothek" searchKey="LocalMusic:Search" type="menu"></browse>';
     if (/CM\/LocalMusic-Album/.test(key)) {
       // Library albums: favourite state follows the isFavourite flag of the key; USB albums: no favourites
       if (key.startsWith(USB)) return fx("09").replace(/\s*<item[^>]*favourite-delete[^>]*><\/item>/, "");
@@ -147,6 +152,23 @@ function createPlayer(opts = {}) {
     if (/:Search$/.test(key)) return fx("18");
     if (/Albums%3Fexpr=/.test(key)) return fx("07");
     return "<browse></browse>";
+  };
+  // Track number of the recorded track i (0-based) on a multi-disc album (state.discs)
+  const discTrack = (i) =>
+    state.discRunOn ? i + 1 : state.discs.slice(0, i + 1).filter((d) => d === state.discs[i]).length;
+  const discTracks = (x) => {
+    if (!state.discs) return x;
+    let i = 0;
+    return x.replace(/ text="\d+\. /g, () => ` text="${discTrack(i++)}. `);
+  };
+  const discSongs = (x) => {
+    if (!state.discs) return x;
+    let i = 0;
+    return x.replace(/<track>\d+<\/track>/g, () => {
+      const t = `<track>${discTrack(i)}</track><discno>${state.discs[i]}</discno>`;
+      i++;
+      return t;
+    });
   };
   const library = (q) => {
     const svc = q.get("service");
@@ -195,7 +217,7 @@ function createPlayer(opts = {}) {
     if (p === "/Browse") return browse(q.get("key"), lang);
     if (p === "/library/v1/Albums") return library(q);
     if (p === "/library/v1/Songs") {
-      let x = q.get("service") === USB ? fx("26") : fx("25");
+      let x = q.get("service") === USB ? fx("26") : discSongs(fx("25"));
       for (const [t, ar] of Object.entries(state.songArtists))
         x = x.replace(
           new RegExp("<art>[^<]*</art>(\\s*<alb>[^<]*</alb>\\s*<title>" + t + "</title>)"),
