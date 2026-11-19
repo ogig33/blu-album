@@ -245,9 +245,13 @@ function createPlayer(opts = {}) {
     }
     if (p === "/Playlist") {
       if (state.queueSize) return genQueue(q);
-      return state.queueEmpty
-        ? `<playlist length="0" id="${state.pid}"></playlist>`
-        : fx("20").replace(/ id="485">/, ` id="${state.pid}">`);
+      if (state.queueEmpty) return `<playlist length="0" id="${state.pid}"></playlist>`;
+      // Only the songs start..end, like the real player (Bruno A20, E33)
+      const s = +q.get("start") || 0,
+        e = q.has("end") ? +q.get("end") : Infinity;
+      return fx("20")
+        .replace(/ id="485">/, ` id="${state.pid}">`)
+        .replace(/\s*<song [^>]*id="(\d+)">[\s\S]*?<\/song>/g, (m, id) => (+id >= s && +id <= e ? m : ""));
     }
     if (p === "/Playlists") return fx("17");
     if (p === "/Settings") return fx("21");

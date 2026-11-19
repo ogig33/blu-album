@@ -767,6 +767,14 @@ button {
 #full #ft2 {
   color: var(--ink);
 }
+/* Year next to the album: "Album · 1983" */
+#fy {
+  white-space: nowrap;
+}
+#fy:not(:empty)::before {
+  content: "\00B7";
+  margin: 0 .4em;
+}
 @media (max-aspect-ratio: 1/1) {
   #full {
     grid-template-columns: 1fr;
@@ -1682,7 +1690,7 @@ dialog * {
 <!-- Full-screen now playing (opened by clicking the cover in the footer) -->
 <div id="full" hidden>
   <div class="fcov"><img id="fimg" alt=""></div>
-  <div class="ftx"><h2 id="ft1"></h2><p id="ft2"></p><p id="ft3"></p></div>
+  <div class="ftx"><h2 id="ft1"></h2><p id="ft2"></p><p><span id="ft3"></span><span id="fy"></span></p></div>
 </div>
 <!-- Footer: progress strip, transport, now playing, volume -->
 <footer id="ctl" role="group" aria-label="Player controls">
@@ -1972,6 +1980,9 @@ let searchSeq = 0, searchTimer = 0;
 let playerName = "";
 // Listening mode (footer tag): syncStat of /Status it was read for, request counter.
 let lmSync = "", lmSeq = 0;
+// Year of the full-screen view: track it belongs to (pid:song of /Status, "" = none), track it was read
+// for, request counter.
+let fyWant = "", fyHave = "", fySeq = 0;
 // Settings panel: library settings rows [label, value] and library statistics;
 // about popup: player software versions [label, value] (shown below the room name).
 // aboutCtx: ctx() for which statistics and versions were loaded (they load when the about popup opens).
@@ -1986,6 +1997,7 @@ function resetPlayerState() {
   playerRows = [];
   qPid = qSong = qName = "";
   lmSync = "";
+  fyWant = fyHave = "";
   playlistsKey = plLoaded = "";
   plChips = [];
   playlists = [];
@@ -3242,6 +3254,13 @@ function showNow(d) {
   $("#ft1").textContent = t1;
   $("#ft2").textContent = t1 ? g("title2") : "";
   $("#ft3").textContent = t1 ? g("title3") : "";
+  // Year: only for a track of the queue (no streamUrl); read again when the track or the queue changes
+  const yk = t1 && song !== "" && !g("streamUrl") ? pid + ":" + song : "";
+  if (yk !== fyWant) {
+    fyWant = yk;
+    $("#fy").textContent = "";
+    if (!$("#full").hidden) loadYear();
+  }
   if (!t1) showFull(false);
   // MP3 has a bitrate as quality (e.g. 184000); it is recognised by the stream format ("MP3 184 kb/s").
   const ql = !t1 ? "" : /^MP3\b/i.test(g("streamFormat")) ? "MP3" : qLabel(g("quality")), q = $("#nq");
@@ -3274,10 +3293,28 @@ async function pollStatus() {
     if (dt < 1e3) await new Promise((res) => setTimeout(res, 1e3 - dt));
   }
 }
+// Year next to the album in the full-screen view: /Status has none, the queue entry of the playing track
+// has it as <date> (Bruno E33). Read only while the view is open, once per track.
+async function loadYear() {
+  const k = fyWant, mine = base;
+  if (!k || k === fyHave) return;
+  fyHave = k;
+  const seq = ++fySeq, song = k.split(":")[1];
+  let d = null;
+  try {
+    d = await api("/Playlist?start=" + song + "&end=" + song);
+  } catch { // no year; asked again when the view opens next time
+    if (seq === fySeq) fyHave = "";
+  }
+  if (seq !== fySeq || mine !== base || k !== fyWant || !d) return;
+  const e = d.querySelector("song > date");
+  $("#fy").textContent = e ? e.textContent.trim() : "";
+}
 // Opens / closes the full-screen view (only while something is playing).
 function showFull(open) {
   if (open && !$("#ft1").textContent) return;
   if (open) setBars();
+  if (open) loadYear();
   $("#full").hidden = !open;
   document.body.classList.toggle("full", open);
   document.body.classList.remove("fullbar");

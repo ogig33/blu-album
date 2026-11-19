@@ -2445,6 +2445,49 @@ test(
   { ...R, needs: ["library"] },
 );
 
+test(
+  "FUL-08 year next to the album, read once per track while the view is open",
+  async (t) => {
+    const song = t.st("song"),
+      path = `/Playlist?start=${song}&end=${song}`,
+      year = stOf(await t.player.get(path))("date");
+    const asked = () => t.player.state.requests.filter((x) => x === path).length;
+    await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
+    eq(asked(), 0, "not read while the view is closed");
+    await t.page.click("#cvb");
+    await t.page.waitForFunction((y) => document.querySelector("#fy").textContent === y, year);
+    eq(await t.page.textContent("#ft3"), t.st("title3"), "album line unchanged");
+    eq(asked(), 1, "one request for the year");
+    await t.page.keyboard.press("Escape");
+    await t.page.click("#cvb");
+    await t.settle();
+    eq(asked(), 1, "not read again for the same track");
+    eq(await t.page.textContent("#fy"), year, "year kept");
+  },
+  { ...R, needs: ["library"] },
+);
+
+test(
+  "FUL-08 year follows the track; none for a stream outside the queue",
+  async (t) => {
+    await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
+    await t.page.click("#cvb");
+    await t.page.waitForFunction(() => document.querySelector("#fy").textContent === "1983");
+    t.player.state.statusPatch.song = "2";
+    await t.page.waitForFunction(() => document.querySelector("#fy").textContent === "1999");
+    ok(t.player.state.requests.includes("/Playlist?start=2&end=2"), "queue entry of the new track");
+    t.player.state.statusPatch.streamUrl = "RadioParadise:/0:4";
+    await t.page.waitForFunction(() => document.querySelector("#fy").textContent === "");
+    await t.settle();
+    eq(await t.page.textContent("#fy"), "", "no year for a stream");
+  },
+  {
+    overrides: [
+      { match: /^\/Playlist\?start=2&end=2$/, edit: (x) => x.replace(/<date>\d+<\/date>/, "<date>1999</date>") },
+    ],
+  },
+);
+
 // ---------- 4.11 Queue panel (QUE) ----------
 test(
   "QUE-01 QUE-03 QUE-04 pinned panel, list, durations",

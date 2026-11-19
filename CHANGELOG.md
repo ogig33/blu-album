@@ -3,6 +3,7 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Full-screen player shows the year next to the album.
 - Album popup and full-screen player show the cover in full resolution.
 - Album popup: track list divided by disc on albums with several discs.
 - Album popup: track numbers in their own column; year on the artist line, total playing time in the album details.

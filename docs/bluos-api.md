@@ -688,6 +688,7 @@ GET /Playlist?start=<first>&end=<last>&length=1
 
 - `/Playlist` without parameters returns the whole queue – not recommended (very large). Use `start` / `end` for paging.
 - Verified: `id` changes on add, remove, shuffle on / off, clear and load.
+- The queue entry of the playing track: `start` = `end` = `song` of `/Status` gives exactly that `song` (same `title` as `title1`) with `<date>` (the year; `/Status` has none) and `<discno>` (verified with E33, BluOS 4.18.18, 2026-11-19).
 
 ### `GET /Playlists`
 

@@ -1,0 +1,62 @@
+meta {
+  name: E33 Queue entry of the playing song (year)
+  type: http
+  seq: 110
+}
+
+get {
+  url: http://{{host}}:11000/Playlist
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Full-screen player with the year next to the album: /Status has no year. Does the queue entry of the
+  // playing song (/Playlist?start=<song>&end=<song>, song of /Status) carry it as <date>? Read only.
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const axios = require("axios");
+  const status = String((await axios.get(H + "/Status", { responseType: "text", transformResponse: (x) => x, headers: { "Accept-Language": "en" } })).data || "");
+  const pick = (t) => { const m = status.match(new RegExp("<" + t + ">([^<]*)</" + t + ">")); return m ? m[1] : ""; };
+  const song = pick("song");
+  if (song === "" || pick("streamUrl") || !pick("title1")) { console.log("Nothing playing from the queue"); bru.runner.skipRequest(); return; }
+  bru.setVar("eYearSong", song);
+  bru.setVar("eYearTitle", pick("title1"));
+  bru.setVar("eYearAlbum", pick("title3"));
+  req.setUrl(H + "/Playlist?start=" + song + "&end=" + song);
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("explore-33-queue-entry-playing.xml");
+  console.log("song " + bru.getVar("eYearSong") + " (" + bru.getVar("eYearTitle") + " / " + bru.getVar("eYearAlbum") + "):\n" + body);
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const val = (tag) => { const m = body.match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")); return m ? dec(m[1]) : ""; };
+  const songs = body.match(/<song\b[^>]*>/g) || [];
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("exactly one song, the playing one", () => {
+    expect(songs.length).to.equal(1);
+    expect((songs[0].match(/\sid="(\d+)"/) || [])[1]).to.equal(bru.getVar("eYearSong"));
+  });
+  test("same title as /Status title1", () => expect(val("title")).to.equal(dec(bru.getVar("eYearTitle") || "")));
+  test("<date> is a year", () => expect(val("date")).to.match(/^\d{4}/));
+}

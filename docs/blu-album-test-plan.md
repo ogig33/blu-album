@@ -277,6 +277,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | FUL-05 | Playback stops | Full screen open, status without title | View closes by itself; cannot be opened while nothing plays | – | Auto |
 | FUL-06 | Background from the cover | Something playing (mock cover with one colour); new cover while the view is open; cover fails (`/Artwork` 404) | Ambient colour `--amb` = colour of the cover, view background is a gradient of it mixed with the theme background; follows the new cover; without a readable cover (also covers of other hosts, e.g. radio) no colour, plain theme background | – | Auto |
 | FUL-07 | Full-size cover | Something playing (TD-STATUS) | Cover asked with `&width=3000&height=3000&followRedirects=1` (`COVER_FULL`), one request for the footer and the full screen | read | Auto |
+| FUL-08 | Year next to the album | Something playing from the queue (TD-STATUS `song`), open the view; close and open again; new track while open (mock: `song` 2 with year 1999); stream outside the queue (`streamUrl`) | Album line "`title3` · year", year = `<date>` of `/Playlist?start=<song>&end=<song>`; not read while the view is closed, once per track; follows the new track; no year for a stream | read | Auto |
 
 ### 4.11 Queue panel (QUE)
 
