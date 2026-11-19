@@ -70,7 +70,9 @@ function createPlayer(opts = {}) {
     } catch {
       // keep the raw path
     }
-    const o = state.overrides.find((x) => (x.times === undefined || x.times > 0) && (x.match.test(pq) || x.match.test(dec)));
+    const o = state.overrides.find(
+      (x) => (x.times === undefined || x.times > 0) && (x.match.test(pq) || x.match.test(dec)),
+    );
     if (o && o.times !== undefined) o.times--;
     if (o) o.hits = (o.hits || 0) + 1;
     return o;
@@ -188,7 +190,8 @@ function createPlayer(opts = {}) {
   };
   const mockAnswer = (p, q, lang) => {
     if (p === "/Artwork") return { type: "image/png", body: PNG };
-    if (/^\/images\/((USB|Library)Icon|settings\/icon_[a-z]+-mode-active)\.png$/.test(p)) return { type: "image/png", body: PNG };
+    if (/^\/images\/((USB|Library)Icon|settings\/icon_[a-z]+-mode-active)\.png$/.test(p))
+      return { type: "image/png", body: PNG };
     if (p === "/Browse") return browse(q.get("key"), lang);
     if (p === "/library/v1/Albums") return library(q);
     if (p === "/library/v1/Songs") {
@@ -212,7 +215,9 @@ function createPlayer(opts = {}) {
           "</syncStat><volume>19</volume></status>";
       for (const [tag, v] of Object.entries(state.statusPatch)) {
         const re = new RegExp("<" + tag + ">[^<]*</" + tag + ">");
-        x = re.test(x) ? x.replace(re, `<${tag}>${v}</${tag}>`) : x.replace("</status>", `<${tag}>${v}</${tag}></status>`);
+        x = re.test(x)
+          ? x.replace(re, `<${tag}>${v}</${tag}>`)
+          : x.replace("</status>", `<${tag}>${v}</${tag}></status>`);
       }
       return x;
     }
