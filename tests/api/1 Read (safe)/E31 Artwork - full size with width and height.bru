@@ -29,17 +29,10 @@ script:pre-request {
 }
 
 script:post-response {
-  // Pixel size of a JPEG (SOF marker) or PNG (IHDR) for the console; the body is read as binary text.
-  const b = Buffer.from(res.getBody() || "", "binary");
-  let size = "unknown";
-  if (b[0] === 0x89 && b[1] === 0x50) size = b.readUInt32BE(16) + " x " + b.readUInt32BE(20);
-  else for (let i = 2; i + 9 < b.length; ) {
-    if (b[i] !== 0xff) break;
-    const m = b[i + 1], len = b.readUInt16BE(i + 2);
-    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) { size = b.readUInt16BE(i + 7) + " x " + b.readUInt16BE(i + 5); break; }
-    i += 2 + len;
-  }
-  console.log("Cover with width/height 3000: " + size + " px, " + b.length + " bytes");
+  // Bruno hands the body over as UTF-8 text and the player sends it chunked (no Content-Length), so the
+  // pixel and byte size cannot be read here; check them with the saved response or curl. A cover file
+  // larger than 600 KB gives the player's grey placeholder (494 x 494 px, 17829 bytes) instead of the cover.
+  console.log("Cover with width/height 3000: " + res.getHeader("content-type"));
 }
 
 tests {
