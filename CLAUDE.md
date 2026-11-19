@@ -33,7 +33,7 @@ Out of scope (do not build, suggest the alternative):
 - **One file.** No extra files (favicon, logo, fonts, libraries). Icons are inline SVG constants.
 - **No fallbacks: one implementation per feature.** A new endpoint or variant is first verified against the real player with Bruno (`tests/api`, folder "1 Read", E requests) and added to `docs/bluos-api.md`; only the verified variant is implemented. Prefer verified endpoints.
 - **Values come from the API**, not hard-coded: source names, play / action URLs, quality, etc.
-- **No self-built URLs:** play / queue / favourite URLs come from `/Browse`; only the `/library/v1` lists (New, Favourites, quality) build them by the fixed pattern in `libAlbum()` (decided 2026-11-14).
+- **No self-built URLs:** play / queue / favourite URLs come from `/Browse`; only the `/library/v1` lists (New, Favourites, quality, decades) build them by the fixed pattern in `libAlbum()` (decided 2026-11-14, decades added 2026-11-19).
 - **Favourites are managed by the player only**, never locally (no localStorage for favourites).
 - **No default IP address** in the app.
 - UI language: English. Project documents (README, CHANGELOG, `docs/`, test READMEs, Bruno and code comments): English.
