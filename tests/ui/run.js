@@ -493,6 +493,16 @@ async function start(browser, opts = {}) {
     await page.click("#qbtn");
     await page.waitForSelector("#qlist li");
   };
+  // API response popup of a failed player request: checks the title, returns request (without host),
+  // status and answer, and closes the popup.
+  const apiPopup = async (title) => {
+    await page.waitForSelector("#apidlg[open]");
+    const [t, u, s, b] = await Promise.all(["#apit", "#apiu", "#apis", "#apib"].map((x) => page.textContent(x)));
+    eq(t, title, "popup title");
+    await page.click("#apiclose");
+    await page.waitForSelector("#apidlg:not([open])", { state: "attached" });
+    return { u, s, b };
+  };
   return {
     page,
     player,
@@ -515,6 +525,7 @@ async function start(browser, opts = {}) {
     connect,
     openPanel,
     openQueue,
+    apiPopup,
     close: () => ctx.close(),
   };
 }
@@ -612,13 +623,17 @@ test(
 );
 
 test(
-  "CON-07 player not reachable: LAN permission message, IP form stays",
+  "CON-07 ERR-07 player not reachable: LAN permission message, popup with the request, IP form stays",
   async (t) => {
     await t.page.fill("#ip", IP);
     await t.page.click("#go");
     const lan = await t.page.evaluate(() => LAN_MSG);
     await t.page.waitForFunction(() => document.querySelector("#msg").className === "err");
     eq(await t.msg(), lan, "LAN message");
+    const p = await t.apiPopup("Connecting to the player did not succeed");
+    ok(/^\/Browse\?/.test(p.u), "request without host: " + p.u);
+    ok(/^No answer/.test(p.s), "no answer: " + p.s);
+    eq(p.b, lan, "LAN message as answer");
     ok(await t.page.isVisible("#cform"), "IP form visible");
     ok(await t.page.isVisible("#iphelp"), "help text visible");
     ok(await t.page.$eval("#side", (e) => e.classList.contains("open")), "panel open");
@@ -1102,11 +1117,15 @@ test(
   R,
 );
 
-test("CHP-14 loading error is shown in the status line", async (t) => {
-  t.player.state.overrides.push({ match: /recent=1/, status: 500 });
+test("CHP-14 ERR-07 loading error: status line and popup with request, status and answer", async (t) => {
+  t.player.state.overrides.push({ match: /recent=1/, status: 500, body: "Test failure" });
   await t.chip("New");
   await t.waitMsg("Loading failed: Player responded with 500");
   ok(await t.page.$eval("#msg", (e) => e.className === "err"), "shown as error");
+  const p = await t.apiPopup("Loading the albums did not succeed");
+  ok(/^\/library\/v1\/Albums\?.*recent=1/.test(p.u), "request without host: " + p.u);
+  ok(/^500/.test(p.s), "HTTP 500");
+  eq(p.b, "Test failure", "answer");
 });
 
 // Chip label of a decade like the app: "1980" -> "80s", the full decade when two decades share the short form
@@ -1400,12 +1419,13 @@ test(
   U,
 );
 
-test("FAV-05 failed toggle: toast, heart unchanged", async (t) => {
+test("FAV-05 failed toggle: popup, heart unchanged", async (t) => {
   t.player.state.overrides.push({ match: /^\/DeleteFavourite/, status: 500 });
   const tile = "#grid .item:nth-child(2)";
   await t.page.hover(tile);
   await t.page.click(tile + " .favc");
-  await t.waitToast("Failed");
+  const p = await t.apiPopup("The player command did not succeed");
+  ok(/^\/DeleteFavourite\?/.test(p.u), "request: " + p.u);
   eq(await t.page.getAttribute(tile + " .favc", "aria-pressed"), "true", "heart unchanged");
 });
 
@@ -1813,12 +1833,15 @@ test("POP-13 track list or songs fail", async (t) => {
   await t.all();
   t.player.state.overrides.push({ match: /MG\/LocalMusic-Album/, status: 500, times: 1 });
   await openAlbumBy(t, "x.key === a.key", TD.ALB_LIB);
-  await t.waitToast("Could not load tracks");
+  const p = await t.apiPopup("Loading the tracks did not succeed");
+  ok(/^\/Browse\?.*LocalMusic-Album/.test(p.u), "track list request: " + p.u);
   eq(await t.page.$$eval("#tracks li", (x) => x.length), 0, "empty list");
   await t.page.click("#close");
   t.player.state.overrides.push({ match: /^\/library\/v1\/Songs/, status: 500 });
   const other = TD.ALL.find((a) => a.browseKey !== TD.ALB_LIB.key);
   await openAlbumBy(t, "x.key === a", other.browseKey);
+  const q = await t.apiPopup("Loading the album details did not succeed");
+  ok(/^\/library\/v1\/Songs\?/.test(q.u), "songs request: " + q.u);
   await t.page.waitForSelector("#tracks li button");
   eq(await t.page.textContent("#dy"), "", "no year");
   eq(await t.page.textContent("#dtech"), "", "no technical data");
@@ -1998,6 +2021,8 @@ test("SRH-08 search error", async (t) => {
   await t.page.press("#q", "Enter");
   await t.waitMsg("Search failed: Player responded with 500");
   ok(await t.page.$eval("#msg", (e) => e.className === "err"), "shown as error");
+  const p = await t.apiPopup("The search did not succeed");
+  ok(/[?&]q=/.test(p.u), "search request: " + p.u);
 });
 
 test(
@@ -2337,17 +2362,18 @@ test("FTR-16 listening mode follows syncStat of /Status, /audioPreset read only 
 });
 
 test(
-  "FTR-17 no listening mode icon on a player without listening modes",
+  "FTR-17 ERR-08 no listening mode icon on a player without listening modes",
   async (t) => {
     await t.settle(1500);
     ok(t.player.state.requests.includes("/audioPreset"), "asked once");
     ok(await t.page.$eval("#lm", (e) => e.hidden && !e.getAttribute("src")), "icon hidden");
+    ok(!(await t.page.$eval("#apidlg", (e) => e.open)), "no error popup");
     eq(t.errors, [], "no JavaScript errors");
   },
   { listeningModes: false },
 );
 
-test("FTR-18 long polling with etag, pause between requests, longer after an error", async (t) => {
+test("FTR-18 ERR-08 long polling with etag, pause between requests, longer after an error", async (t) => {
   const status = () =>
     t.player.state.requests.map((r, i) => ({ r, at: t.player.state.times[i] })).filter((x) => /^\/Status\?/.test(x.r));
   await t.settle(3000);
@@ -2371,6 +2397,7 @@ test("FTR-18 long polling with etag, pause between requests, longer after an err
   const a = status();
   ok(a.length > failed + 1, "polling goes on after the error");
   ok(a[failed + 1].at - a[failed].at >= 4900, `5 s pause after an error (${a[failed + 1].at - a[failed].at} ms)`);
+  ok(!(await t.page.$eval("#apidlg", (e) => e.open)), "no error popup");
   eq(
     t.player.state.requests.filter((x) => /^\/Status$|^\/Volume$/.test(x)),
     [],
@@ -2934,6 +2961,8 @@ test(
   async (t) => {
     await t.page.click("#qbtn");
     await t.waitText("#qcount", "Could not load queue");
+    const p = await t.apiPopup("Loading the queue did not succeed");
+    ok(/^\/Playlist\?/.test(p.u), "queue request: " + p.u);
   },
   { overrides: [{ match: /^\/Playlist\?/, status: 500 }] },
 );
@@ -3271,7 +3300,7 @@ test(
 );
 
 test(
-  "ABT-03 statistics: placeholder while loading, dash when not available",
+  "ABT-03 ERR-08 statistics: placeholder while loading, dash when not available",
   async (t) => {
     await t.page.click("#gear");
     await t.page.click("#aboutb");
@@ -3293,6 +3322,7 @@ test(
         (e) => e.textContent === "Composers" && /\d/.test(e.nextElementSibling.textContent),
       ),
     );
+    ok(!(await t.page.$eval("#apidlg", (e) => e.open)), "no error popup for a list that is not available");
   },
   {
     overrides: [
@@ -3377,12 +3407,15 @@ test(
 );
 
 // ---------- 4.15 Error handling (ERR) ----------
-test("ERR-01 failed command: toast", async (t) => {
-  t.player.state.overrides.push({ match: /^\/Add/, status: 500 });
+test("ERR-01 failed command: popup with request, status and answer", async (t) => {
+  t.player.state.overrides.push({ match: /^\/Add/, status: 500, body: "Test failure" });
   const tile = "#grid .item:nth-child(2)";
   await t.page.hover(tile);
   await t.page.click(tile + " .play:not(.addq):not(.favc)");
-  await t.waitToast(/^Failed$/);
+  const p = await t.apiPopup("The player command did not succeed");
+  ok(/^\/Add\?/.test(p.u), "request without host: " + p.u);
+  ok(/^500/.test(p.s), "HTTP 500");
+  eq(p.b, "Test failure", "answer");
 });
 
 test(
@@ -3403,10 +3436,14 @@ test("ERR-03 player error answer: message of the player", async (t) => {
   t.player.state.overrides.push({ match: /recent=1/, body: "<e><message>Test player error</message></e>" });
   await t.chip("New");
   await t.waitMsg("Loading failed: Test player error");
+  const p = await t.apiPopup("Loading the albums did not succeed");
+  eq(p.b, "<e><message>Test player error</message></e>", "answer of the player");
   t.player.state.overrides.push({ match: /^\/Shuffle/, body: "<e><message>Test player error</message></e>" });
   await t.page.click("#qbtn");
   await t.page.click("#qshuf");
-  await t.waitToast(/^Failed$/);
+  const q = await t.apiPopup("The player command did not succeed");
+  ok(/^\/Shuffle\?/.test(q.u), "request: " + q.u);
+  ok(/^200/.test(q.s), "HTTP 200");
 });
 
 test(
@@ -3506,11 +3543,12 @@ test(
 );
 
 test(
-  "SEC-03 broken covers: grid image removed, footer cover hidden",
+  "SEC-03 ERR-08 broken covers: grid image removed, footer cover hidden",
   async (t) => {
     await t.page.waitForFunction(() => document.querySelector("#cov").hidden);
     await t.page.waitForFunction(() => !document.querySelector("#grid .item:not(:first-child) .cov img"));
     eq((await t.tiles()).length, TD.FAV.length, "tiles stay");
+    ok(!(await t.page.$eval("#apidlg", (e) => e.open)), "no error popup");
   },
   { overrides: [{ match: /^\/Artwork/, status: 404, type: "text/plain" }] },
 );

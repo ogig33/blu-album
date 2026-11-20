@@ -1938,7 +1938,7 @@ async function showImg(el, url) {
   try {
     const r = await fetch(url);
     if (r.ok) blob = await r.blob();
-  } catch { // network error: handled below like an HTTP error
+  } catch { // network error: handled below like an HTTP error (a missing cover is no error to show)
   }
   els.filter((e) => e.dataset.src === url).forEach((e) => { // others got another image meanwhile
     if (!blob) {
@@ -2036,12 +2036,23 @@ const ctx = () => base + "|" + epoch;
 // browser's own Accept-Language, e.g. German, the player answers the track list of some albums with an
 // empty menu (Bruno E25 / E26).
 const PLAYER_HEADERS = { "Accept-Language": "en" };
+// Status and body of a request without an answer (fetch() rejects with a TypeError on network errors).
+const noAnswer = (e) => ({ status: "No answer – " + (e && e.message || e), body: LAN_MSG });
 // api(): parsed XML answer; throws on network errors (TypeError, see errMsg), HTTP errors and player errors (<e>).
+// The error carries url, status and body of the failed request for the API response popup (apiFail).
 async function api(path, init) {
-  const r = await fetch(base + path, { ...init, headers: PLAYER_HEADERS });
-  if (!r.ok) throw new Error("Player responded with " + r.status);
-  const d = new DOMParser().parseFromString(await r.text(), "text/xml");
-  if (d.documentElement.tagName === "e") throw new Error(d.querySelector("message")?.textContent || "Player error");
+  const url = base + path;
+  let r;
+  try {
+    r = await fetch(url, { ...init, headers: PLAYER_HEADERS });
+  } catch (e) {
+    if (e.name !== "AbortError") Object.assign(e, { url }, noAnswer(e));
+    throw e;
+  }
+  const body = await r.text(), status = r.status + " " + r.statusText;
+  if (!r.ok) throw Object.assign(new Error("Player responded with " + r.status), { url, status, body });
+  const d = new DOMParser().parseFromString(body, "text/xml");
+  if (d.documentElement.tagName === "e") throw Object.assign(new Error(d.querySelector("message")?.textContent || "Player error"), { url, status, body });
   return d;
 }
 // apiRaw(): {ok, status, body} without throwing; used where the raw answer is shown to the user.
@@ -2050,7 +2061,7 @@ async function apiRaw(path) {
     const r = await fetch(base + path, { headers: PLAYER_HEADERS });
     return { ok: r.ok, status: r.status + " " + r.statusText, body: await r.text() };
   } catch (e) {
-    return { ok: false, status: "Request failed", body: String(e && e.message || e) };
+    return { ok: false, ...noAnswer(e) };
   }
 }
 // Calls /Browse and returns the parsed XML. key = browse key, q = search term.
@@ -2058,7 +2069,7 @@ async function apiRaw(path) {
 // menus = false leaves them out where they are not used (track list of the album popup: about 60 %
 // smaller, play URLs stay).
 const browse = (key, q, menus = true) => api("/Browse?withContextMenuItems=" + (menus ? 1 : 0) + (key ? "&key=" + encodeURIComponent(key) : "") + (q ? "&q=" + encodeURIComponent(q) : ""));
-// Player command with a toast on failure; returns the parsed XML or null.
+// Player command; on failure the API response popup shows the request. Returns the parsed XML or null.
 const xml = async (path) => {
   if (!base) {
     toast("Connect first");
@@ -2066,15 +2077,16 @@ const xml = async (path) => {
   }
   try {
     return await api(path);
-  } catch {
-    toast("Failed");
+  } catch (e) {
+    apiFail("The player command did not succeed", e);
     return null;
   }
 };
-// Sends a player command (play, add to queue ...) and shows `label` as feedback.
-// The new play state arrives through the /Status long polling (pollStatus).
+// Sends a player command (play, add to queue ...) and shows `label` as feedback; on failure the API
+// response popup shows the request. The new play state arrives through the /Status long polling (pollStatus).
 async function cmd(url, label) {
-  if (!(await apiRaw(url)).ok) return toast("Failed");
+  const r = await apiRaw(url);
+  if (!r.ok) return showApiResponse("The player command did not succeed", base + url, r.status, r.body);
   toast(label);
 }
 
@@ -2182,7 +2194,7 @@ async function connect() {
     renderSources();
     await openSources();
   } catch (e) {
-    msg(errMsg("Connection failed: ", e), true);
+    loadFailed("Connection failed: ", "Connecting to the player did not succeed", e);
     if (!reached) {
       $("#iphelp").hidden = false;
       showConnected(false);
@@ -2282,7 +2294,7 @@ async function openSources() {
     nav.querySelector(hasAlbums ? "button[aria-label=Favourites]" : "button:not(.plc)")?.click();
   } catch (e) {
     if (mine !== ctx()) return;
-    msg(errMsg("Could not open the music source: ", e), true);
+    loadFailed("Could not open the music source: ", "Opening the music source did not succeed", e);
     panel(true);
   }
 }
@@ -2319,7 +2331,7 @@ async function decadeChips() {
   } catch (e) {
     if (mine !== ctx()) return;
     dcCtx = "";
-    toast(errMsg("Decades not loaded: ", e));
+    apiFail("Loading the decades did not succeed", e);
   }
 }
 
@@ -2469,7 +2481,7 @@ async function loadGenre(name, btn) {
     render(shown);
     msg(nAlb(shown.length));
   } catch (e) {
-    msg(errMsg("Loading failed: ", e), true);
+    loadFailed("Loading failed: ", "Loading the albums did not succeed", e);
   }
 }
 // Loads every album of the source into cache.__all (3 sections in parallel).
@@ -2505,7 +2517,7 @@ async function loadAllAlbums(btn) {
     render(shown);
     msg(nAlb(shown.length));
   } catch (e) {
-    msg(errMsg("Loading failed: ", e), true);
+    loadFailed("Loading failed: ", "Loading the albums did not succeed", e);
   }
 }
 // Shared loader for the "New", "Favourites" and quality chips. sectioned = use libSectionAlbums.
@@ -2527,7 +2539,7 @@ async function loadLibView(key, btn, filter, max, label, done, empty, sectioned)
     render(shown);
     msg(shown.length ? nAlb(shown.length) + " " + done : empty);
   } catch (e) {
-    if (activeKey === key) msg(errMsg("Loading failed: ", e), true);
+    if (activeKey === key) loadFailed("Loading failed: ", "Loading the albums did not succeed", e);
   }
 }
 // "New" chip: the 200 most recently added albums, newest first.
@@ -2556,7 +2568,7 @@ async function loadDecade(dec, btn) {
     render(shown);
     msg(shown.length ? nAlb(shown.length) + " from the " + dec + "s" : "No albums from the " + dec + "s.");
   } catch (e) {
-    if (activeKey === key && mine === ctx()) msg(errMsg("Loading failed: ", e), true);
+    if (activeKey === key && mine === ctx()) loadFailed("Loading failed: ", "Loading the albums did not succeed", e);
   }
 }
 // Albums of an artist on one source: the artist's browse menu (key <svc>:MG/LocalMusic-Artist?artist=…)
@@ -2596,7 +2608,7 @@ async function showArtist(name) {
     render(shown);
     msg(nAlb(shown.length) + " by " + name);
   } catch (e) {
-    if (activeKey === key) msg(errMsg("Loading failed: ", e), true);
+    if (activeKey === key) loadFailed("Loading failed: ", "Loading the albums did not succeed", e);
   }
 }
 
@@ -2842,7 +2854,8 @@ async function refreshFav(a) {
     Object.assign(a.menu, m);
     repaintCoverHeart(a);
     return true;
-  } catch {
+  } catch (e) {
+    apiFail("Reading the favourite state did not succeed", e);
     return false;
   }
 }
@@ -2909,7 +2922,10 @@ async function openAlbum(a) {
   try {
     const [bd, sd] = popCache[a.key] || await Promise.all([
       browse(a.key, "", false),
-      api("/library/v1/Songs?service=" + svc + "&" + q).catch(() => null)
+      api("/library/v1/Songs?service=" + svc + "&" + q).catch((e) => {
+        apiFail("Loading the album details did not succeed", e);
+        return null;
+      })
     ]);
     if (sd && mine === ctx()) popCache[a.key] = [bd, sd];
     if (seq !== dlgSeq) return;
@@ -2957,9 +2973,9 @@ async function openAlbum(a) {
       li.append(b);
       ol.append(li);
     });
-  } catch {
+  } catch (e) {
     ol.innerHTML = "";
-    toast("Could not load tracks");
+    apiFail("Loading the tracks did not succeed", e);
   }
 }
 // Year, quality tag and technical data of the album from its songs (/library/v1/Songs):
@@ -2997,14 +3013,26 @@ function albumDetails(songs) {
   info.textContent = [fmts.join(" / "), res, ch, avg].filter(Boolean).join(" \u00B7 ");
   dt.append(info);
 }
-// Shows a request, its HTTP status and the raw response body (used when a command did not succeed).
+// Shows a request, its HTTP status and the raw response body (used when a player request did not succeed).
+// While the popup is open, it keeps the first failure (parallel requests often fail together).
 function showApiResponse(title, url, status, body) {
+  if ($("#apidlg").open) return;
   $("#apit").textContent = title;
   $("#apiu").textContent = url.replace(base, "");
   $("#apis").textContent = status || "";
   $("#apib").textContent = body && body.trim() ? body.trim() : "(empty response)";
   $("#apidlg").showModal();
   $("#apiclose").blur();
+}
+// Shows a failed player request (an error thrown by api(), it carries url, status and body) in the API
+// response popup. Other errors (e.g. "no music source found") are no player answers and are not shown here.
+function apiFail(title, e) {
+  if (e && e.url) showApiResponse(title, e.url, e.status, e.body);
+}
+// A failed load: short message in the status line, details of the failed request in the API response popup.
+function loadFailed(prefix, title, e) {
+  msg(errMsg(prefix, e), true);
+  apiFail(title, e);
 }
 
 /* ---------- Playlists ---------- */
@@ -3054,10 +3082,11 @@ async function loadPlaylists() {
       return b;
     });
     renderPlChips();
-  } catch {
+  } catch (e) {
     if (seq === plSeq) {
       plChips = [];
       renderPlChips();
+      apiFail("Loading the playlists did not succeed", e);
     }
   }
 }
@@ -3158,10 +3187,11 @@ async function loadQueue() {
     // Two lines: number of tracks, total playing time
     $("#qcount").textContent = total ? total + (total === 1 ? " track" : " tracks") + (totalSecs ? "\n" + fmtTime(totalSecs) : "") : "";
     markCur(true);
-  } catch {
+  } catch (e) {
     if (seq === qSeq) {
       ol.innerHTML = "";
       $("#qcount").textContent = "Could not load queue";
+      apiFail("Loading the queue did not succeed", e);
     }
   }
 }
@@ -3363,7 +3393,7 @@ async function pollStatus() {
       if (id !== pollId) return;
       etag = d.documentElement.getAttribute("etag") || "";
       showNow(d);
-    } catch {
+    } catch { // not shown: aborted on purpose or tried again after 5 s
       if (id !== pollId) return;
       await new Promise((res) => setTimeout(res, 5e3));
     }
@@ -3381,8 +3411,11 @@ async function loadYear() {
   let d = null;
   try {
     d = await api("/Playlist?start=" + song + "&end=" + song);
-  } catch { // no year; asked again when the view opens next time
-    if (seq === fySeq) fyHave = "";
+  } catch (e) { // no year; asked again when the view opens next time
+    if (seq === fySeq) {
+      fyHave = "";
+      apiFail("Loading the year did not succeed", e);
+    }
   }
   if (seq !== fySeq || mine !== base || k !== fyWant || !d) return;
   const e = d.querySelector("song > date");
@@ -3476,7 +3509,7 @@ async function search() {
     render(albums, true);
     msg(nAlb(albums.length) + " for \u201C" + v + "\u201D");
   } catch (e) {
-    if (seq === searchSeq) msg(errMsg("Search failed: ", e), true);
+    if (seq === searchSeq) loadFailed("Search failed: ", "The search did not succeed", e);
   }
 }
 
@@ -3577,10 +3610,11 @@ async function loadInfo() {
       ["Server mode", onoff("server")]
     ].filter((x) => x[1]);
     renderLib();
-  } catch {
+  } catch (e) {
     if (mine === base) {
       libRows = [];
       renderLib();
+      apiFail("Loading the player settings did not succeed", e);
     }
   }
 }
@@ -3598,7 +3632,8 @@ async function loadVersions() {
   const ver = async (path) => {
     try {
       return (await api(path)).querySelector("version")?.textContent.trim() || "";
-    } catch {
+    } catch (e) {
+      if (mine === base) apiFail("Loading the player version did not succeed", e);
       return "";
     }
   };

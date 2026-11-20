@@ -30,11 +30,11 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | PLS | 4.12 Playlist chips | Saved playlists as chips, loading a playlist | 5 | 5 | 3 |
 | SET | 4.13 Settings panel | Panel, chip switches, cover size, design, library settings | 9 | 9 | 9 |
 | ABT | 4.14 About popup | Content, statistics, versions, update check | 6 | 6 | 6 |
-| ERR | 4.15 Error handling | Failed commands, popup for unsuccessful answers, request headers | 6 | 6 | 2 |
+| ERR | 4.15 Error handling | Failed requests in the popup, expected failures not shown, request headers | 8 | 8 | 2 |
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 5 | 4 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard | 2 | 2 | 2 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **151** | **151** | **112** |
+| | | **Total** | **153** | **153** | **112** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -137,7 +137,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | CON-04 | Connect with Enter | Enter TD-IP, press Enter in the IP field | Same as CON-03 | read | Auto |
 | CON-05 | IP input is normalised | Enter `http://<TD-IP>:11000/x` | Field shows only TD-IP; requests go to `http://<TD-IP>:11000` | read | Auto |
 | CON-06 | Empty IP | Clear the field, click Connect | Error "Please enter the IP address of your player."; panel stays open, IP field focused; no request | read | Auto |
-| CON-07 | Player not reachable | Mock aborts every request | Status line shows the LAN permission message (`LAN_MSG`); IP form and help text stay visible; panel open | read | Auto |
+| CON-07 | Player not reachable | Mock aborts every request | Status line shows the LAN permission message (`LAN_MSG`); popup "Connecting to the player did not succeed" with the `/Browse` request, status "No answer – …" and `LAN_MSG` as answer; IP form and help text stay visible; panel open | read | Auto |
 | CON-08 | No music source | Top menu without library / USB links | Error "No USB or library source found …"; panel open | – | Auto |
 | CON-09 | Compact connection line | After CON-03, open the panel | Line with room name (TD-SET `zonename`) and TD-IP; IP form hidden | read | Auto |
 | CON-10 | Change the player | Click **Change** in the connection line | IP form visible, IP field focused and selected | read | Auto |
@@ -172,7 +172,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | CHP-11 | Views are cached in the session | Genre, All, genre again | Second genre click sends no request | read | Auto |
 | CHP-12 | Outdated result is dropped | Click All, click New before All has finished | Grid and status line show New; the late All result does not replace it; All loading stops | – | Auto |
 | CHP-13 | Selecting a chip clears the search | Search, then click a chip | Search field empty, chip pressed, its view shown | read | Auto |
-| CHP-14 | Loading error | Mock answers HTTP 500 for the view | Status line "Loading failed: Player responded with 500" in red | – | Auto |
+| CHP-14 | Loading error | Mock answers HTTP 500 for the view | Status line "Loading failed: Player responded with 500" in red; popup "Loading the albums did not succeed" with request, HTTP 500 and the answer | – | Auto |
 | CHP-15 | Default chip switches | Fresh profile (app defaults), connect, open the settings | Quality, Decades, Genres off, Playlists on; visible chips: All, Favourites, New, playlists of TD-PL; no `/ui/browseGrouped` request | read | Auto |
 | CHP-16 | Decade chips switched on | Switch "Decade chips" on | One request per source with album sections (`/ui/browseGrouped…url=…sort=decade`); chips of TD-DEC behind a separator after the quality chips, tooltip "Albums from the 1980s"; no album request yet; switched off → hidden; stored, built again after reload + connect | read | Auto |
 | CHP-17 | Decade | Decade chips on, click the first decade of TD-DEC, then the last | One request per filled section of TD-SEC per source (`limit=500&section=…`, no filter), at most 6 in parallel; tiles = TD-YEARS of that decade; status "N albums from the 1980s"; second decade sends no request | read | Auto |
@@ -200,7 +200,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | FAV-02 | Remove a favourite | Click the filled heart | `/DeleteFavourite?…` sent; toast "Removed from favourites"; heart empty; context menu read again without `isFavourite=1` | write | Auto |
 | FAV-03 | Add a favourite | Library album that is no favourite (e.g. from TD-ALL), click the empty heart | `/AddFavourite?…`; toast "Added to favourites"; heart filled; context menu read again with `isFavourite=1` | write | Auto |
 | FAV-04 | USB album has no heart | New view, hover TD-ALB-USB | Heart hidden | read | Auto |
-| FAV-05 | Failed toggle | Mock answers HTTP 500 for `/DeleteFavourite` | Toast "Failed"; heart unchanged | – | Auto |
+| FAV-05 | Failed toggle | Mock answers HTTP 500 for `/DeleteFavourite` | Popup "The player command did not succeed" with the `/DeleteFavourite` request; heart unchanged | – | Auto |
 | FAV-06 | No local favourites | After FAV-02 / FAV-03 | No `fav:` key in localStorage | write | Auto |
 
 ### 4.6 Artist view (ART)
@@ -233,7 +233,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | POP-12 | Close the popup | Close button; click on the backdrop; Esc | Popup closed each time; Esc does not close the settings panel behind it | read | Auto |
 | POP-14 | Page behind stays still | Page scrollable; popup open; mouse wheel over the backdrop and over the track list (also past its end) | Only the popup content scrolls; the page keeps its scroll position; after closing the page scrolls again | – | Auto |
 | POP-15 | Full-size cover | Open the popup of TD-ALB-LIB | Cover asked with `&width=3000&height=3000&followRedirects=1` (`COVER_FULL`); grid covers without a size | read | Auto |
-| POP-13 | Track list fails | Mock answers HTTP 500 for the album's `/Browse` | Empty list, toast "Could not load tracks"; songs missing (`/library/v1/Songs` fails) → no year / technical data, tracks still shown | – | Auto |
+| POP-13 | Track list fails | Mock answers HTTP 500 for the album's `/Browse` | Empty list, popup "Loading the tracks did not succeed" with the `/Browse` request; songs missing (`/library/v1/Songs` fails) → popup "Loading the album details did not succeed", no year / technical data, tracks still shown | – | Auto |
 
 ### 4.8 Search (SRH)
 
@@ -246,7 +246,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | SRH-05 | Sectioned search result | Albums link answers with sections | Albums of every filled section | – | Auto |
 | SRH-06 | Direct album items | Search answer contains album items | These albums shown without following a link | – | Auto |
 | SRH-07 | Only the newest search counts | Two searches quickly after each other, the first answers late | Grid shows the second result | – | Auto |
-| SRH-08 | Search error / not possible | Mock fails the search; source without `searchKey` | "Search failed: …" in red; without search key: "Connect first – or the player offers no search." | – | Auto |
+| SRH-08 | Search error / not possible | Mock fails the search; source without `searchKey` | "Search failed: …" in red and popup "The search did not succeed" with the search request; without search key: "Connect first – or the player offers no search." | – | Auto |
 
 ### 4.9 Player footer (FTR)
 
@@ -268,7 +268,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | FTR-14 | Fixed volume | `<volume>-1</volume>` in status | Slider and both buttons disabled | – | Auto |
 | FTR-15 | Listening mode icon | TD-LM | Icon = `iconActive` of the current mode (blob URL, inverted in the light design), alt text = its `displayName`, tooltip = setting `displayName`: mode `displayName`; right before volume down; display only | read | Auto |
 | FTR-16 | Listening mode follows syncStat | Change the mode in the mock and raise `syncStat` | `/audioPreset` read once on connect and again only after the change; icon shows the new mode; no command sent | – | Auto |
-| FTR-17 | Player without listening modes | Option `listeningModes: false` (404) | Icon hidden, no image; no JavaScript error | – | Auto |
+| FTR-17 | Player without listening modes | Option `listeningModes: false` (404) | Icon hidden, no image; no error popup; no JavaScript error | – | Auto |
 | FTR-18 | Long polling | Connect; mock answers with an error once | `/Status?timeout=100`, then with `&etag=` of the last answer; at least 1 s between requests, 5 s after an error; no one-off `/Status` / `/Volume` | – | Auto |
 
 ### 4.10 Full screen (FUL)
@@ -303,7 +303,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | QUE-13 | Delete the loaded playlist | Load a playlist of TD-PL (chip), confirm delete | Delete button visible only for a queue from a saved playlist; confirm text names it; `/Delete?service=BluOS&name=<name>`; toast; button hidden; chips reloaded | write | Auto |
 | QUE-14 | Delete cancelled / failed | Cancel the confirm; mock answers with `<error>` | Cancel: no request; failure: popup "Deleting the playlist did not succeed" | write (part) | Auto |
 | QUE-15 | Clear the queue | Click clear, confirm / cancel | Confirm: `/Clear`; cancel: nothing sent | write | Auto |
-| QUE-16 | Empty queue, long queue, error | Empty `/Playlist`; more than 200 songs; HTTP 500 | Empty: save, clear, shuffle, repeat disabled, no count; long: loaded in pages of 200, at most 2000; error: "Could not load queue" | – | Auto |
+| QUE-16 | Empty queue, long queue, error | Empty `/Playlist`; more than 200 songs; HTTP 500 | Empty: save, clear, shuffle, repeat disabled, no count; long: loaded in pages of 200, at most 2000; error: "Could not load queue" and popup "Loading the queue did not succeed" with the `/Playlist` request | – | Auto |
 
 ### 4.12 Playlist chips (PLS)
 
@@ -344,12 +344,14 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
-| ERR-01 | Failed command | Mock answers HTTP 500 for `/Add` (tile play) | Toast "Failed"; no other change | – | Auto |
+| ERR-01 | Failed command | Mock answers HTTP 500 for `/Add` (tile play) | Popup "The player command did not succeed" with request (without host), HTTP 500 and the answer; no other change | – | Auto |
 | ERR-02 | Command before connecting | Not connected, click play/pause or save the queue | Toast "Connect first"; no request | read | Auto |
-| ERR-03 | Player error answer | Mock answers `<e><message>…</message></e>` | Treated as failure with the player's message (status line or toast) | – | Auto |
+| ERR-03 | Player error answer | Mock answers `<e><message>…</message></e>` | Treated as failure: the player's message in the status line, the raw `<e>` answer (HTTP 200) in the popup; also for commands (`/Shuffle`) | – | Auto |
 | ERR-04 | Popup for unsuccessful answers | See QUE-12 / QUE-14 | Title, request path without host, HTTP status, raw body ("(empty response)" when empty); close button not focused | – | Auto |
 | ERR-05 | English answers | Any request | Header `Accept-Language: en` on every player request except the images (covers `/Artwork` and source icons `/images/…`, read with a plain `fetch()`) | read | Auto |
 | ERR-06 | No genres | Genre lists empty | Error "No genres found. Has the library finished indexing?"; panel open | – | Auto |
+| ERR-07 | Every failed player request is shown | See CON-07, CHP-14, FAV-05, POP-13, SRH-08, QUE-16, ERR-01, ERR-03 | Popup with a title per action, request path without host, status (HTTP status or "No answer – …") and raw answer; status line messages stay | – | Auto |
+| ERR-08 | Expected failures are not shown | Player without listening modes (FTR-17); statistic list not available (ABT-03); missing cover (SEC-03); aborted or failed status polling (FTR long polling) | No error popup | – | Auto |
 
 ### 4.16 Security & robustness (SEC)
 
