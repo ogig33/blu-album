@@ -1,5 +1,7 @@
 # Recorded player answers with personal details (sanitized copies live in tests/ui/fixtures)
 tests/api/fixtures/
+# Local tools of the owner (library tagging scripts), not published
+/tools/
 # Node / Playwright
 node_modules/
 test-results/
