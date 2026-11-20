@@ -3740,6 +3740,30 @@ test(
   R,
 );
 
+test(
+  "LAY-03 favicon embedded as SVG, follows light and dark mode",
+  async (t) => {
+    const r = await t.page.evaluate(async () => {
+      const href = document.querySelector('link[rel="icon"]')?.getAttribute("href") || "";
+      const svg = new DOMParser().parseFromString(decodeURIComponent(href.replace(/^data:image\/svg\+xml,/, "")), "image/svg+xml");
+      const loads = await new Promise((res) => {
+        const i = new Image();
+        i.onload = () => res(true);
+        i.onerror = () => res(false);
+        i.src = href;
+      });
+      return {
+        data: href.startsWith("data:image/svg+xml,"),
+        parsed: !svg.querySelector("parsererror") && !!svg.querySelector("mask circle, circle[mask]"),
+        dark: /prefers-color-scheme:\s*dark/.test(svg.querySelector("style")?.textContent || ""),
+        loads,
+      };
+    });
+    eq(r, { data: true, parsed: true, dark: true, loads: true }, "favicon");
+  },
+  { ...R, connect: false },
+);
+
 // ---------- 4.18 Regression & session (REG) ----------
 test(
   "REG-01 connect: no playback command on page load (regression)",

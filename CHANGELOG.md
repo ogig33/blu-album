@@ -3,6 +3,7 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Browser tab shows a BluAlbum icon (double note in a circle).
 - Connecting stops after 5 seconds without an answer from the player and says so.
 - Failed player requests open a popup with the request, its status and the player's answer.
 - Decade chips: albums by decade, switched on in the settings (off by default).
