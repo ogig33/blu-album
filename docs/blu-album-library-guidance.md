@@ -27,7 +27,7 @@ BluOS reads the following tags. The last column says what BluAlbum does with the
 | `YEAR` (date) | Release date | Year next to the album, decade chips. Albums without a year are missing from the decade chips. BluOS keeps one year per album: use the same date on every track. |
 | `GENRE` | Genre of the track | Genre chips: every genre of the library becomes a chip, and a genre chip shows the albums with songs of that genre. Use one genre per album, the same on every track, and keep the list of genres short. |
 | `COVER` | Cover embedded in the file | Not recommended, see [Cover art](#cover-art). |
-| `COMPOSER` | Composer of the track | Not used by BluAlbum; not searched either. |
+| `COMPOSER` | Composer of the track | Search: a composer's name finds the albums with songs of that composer. |
 | `REPLAYGAIN` | Loudness levelling | Not used by BluAlbum; the player applies it (listening mode setting in the BluOS Controller app). |
 | `COMPILATION` | Marks a track of a compilation | Not used by BluAlbum: the player offers no compilation filter. Use the album artist instead (see `ALBUMARTIST`). |
 

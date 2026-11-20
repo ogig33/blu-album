@@ -2390,20 +2390,22 @@ function toAlbum(i) {
     menu
   };
 }
-// Loads all albums of a list, following nextKey paging. first: answer of `key` when it was read already.
-async function fetchAlbums(key, first) {
+// Loads all <item>s of one type of a list, following nextKey paging. first: answer of `key` when it was read already.
+async function fetchItems(key, type, first) {
   const all = [], seen = new Set();
   let k = key, d = first;
   while (k && !seen.has(k)) {
     seen.add(k);
     if (!d) d = await browse(k);
-    all.push(...items(d).filter((i) => attr(i, "type") === "album").map(toAlbum));
+    all.push(...items(d).filter((i) => attr(i, "type") === type));
     const nx = d.querySelector("[nextKey]");
     k = nx ? attr(nx, "nextKey") : "";
     d = null;
   }
   return all;
 }
+// Loads all albums of a list (see fetchItems).
+const fetchAlbums = async (key, first) => (await fetchItems(key, "album", first)).map(toAlbum);
 // A-Z sections of a source's album list (<item type="section" text="A" text2="<album count>">),
 // requested once per source selection and shared by All, the quality chips and the statistics.
 function albumSections(x) {
@@ -3509,7 +3511,24 @@ async function searchAlbums(key) {
   for (const x of secs) out.push(...await fetchAlbums(attr(x, "browseKey")));
   return out;
 }
+// Albums with songs of the composers a search found: composers list (paged) -> each composer's browse menu ->
+// its link to the albums (2 requests per composer). The player's albums list of a search does not match
+// composers (Bruno E37).
+async function composerAlbums(key) {
+  const comps = await fetchItems(key, "composer");
+  const lists = await Promise.all(comps.map(async (c) => {
+    const link = items(await browse(attr(c, "browseKey"))).find((i) => attr(i, "type") === "link" && /:Album\//.test(attr(i, "browseKey")));
+    return link ? fetchAlbums(attr(link, "browseKey")) : [];
+  }));
+  return lists.flat();
+}
+// Adds the albums of `more` that `albums` does not contain yet (same browse key); then A-Z by title.
+function addAlbums(albums, more) {
+  const seen = new Set(albums.map((a) => a.key)), add = more.filter((a) => !seen.has(a.key) && seen.add(a.key));
+  return add.length ? albums.concat(add).sort((x, y) => x.t.localeCompare(y.t)) : albums;
+}
 // Uses the player's own search (Enter, or while typing, see SEARCH_MIN / SEARCH_DELAY).
+// Albums: the search's albums list (title, album artist, track artists) plus the albums of the composers found.
 // Fewer than SEARCH_MIN characters: no search, only a hint (the view stays).
 // An empty field restores the selected view.
 async function search() {
@@ -3539,7 +3558,9 @@ async function search() {
       const direct = its.filter((i) => attr(i, "type") === "album").map(toAlbum);
       if (direct.length) return direct;
       const link = its.find((i) => /Album/i.test(attr(i, "browseKey")) || /^(Alben?|Albums?)$/i.test(attr(i, "text")));
-      return link ? searchAlbums(attr(link, "browseKey")) : [];
+      const comp = its.find((i) => /:Composer\//.test(attr(i, "browseKey")));
+      const [albums, more] = await Promise.all([link ? searchAlbums(attr(link, "browseKey")) : [], comp ? composerAlbums(attr(comp, "browseKey")) : []]);
+      return addAlbums(albums, more);
     })));
     if (seq !== searchSeq) return;
     render(albums, true);

@@ -150,8 +150,23 @@ function createPlayer(opts = {}) {
             .replace("favourite-delete", "favourite-add")
             .replace("Remove favourite", "Favourite");
     }
+    // Search: composers of the term (none here; tests override the list), a composer's browse menu with the
+    // link to the albums with his songs (like the real player, Bruno E38) and that album list (library: the
+    // recorded albums, USB: none)
+    if (/:Composer\/%2Flibrary%2Fv1%2FComposers%3Fexpr=/.test(key)) return '<browse type="composers"></browse>';
+    if (/MG\/LocalMusic-Composer\?/.test(key)) {
+      const svc = key.split(":")[0],
+        comp = (key.match(/[?&]composer=([^&]*)/) || [])[1];
+      return (
+        `<browse type="menu"><item browseKey="${svc}:Album/%2Flibrary%2Fv1%2FAlbums%3Fcomposer=${comp}&amp;service=${svc}" text="Albums" type="link"></item>` +
+        `<item browseKey="${svc}:Song/%2Flibrary%2Fv1%2FSongs%3Fcomposer=${comp}&amp;service=${svc}" text="Songs" type="link"></item></browse>`
+      );
+    }
+    if (/:Album\/%2Flibrary%2Fv1%2FAlbums%3Fcomposer=/.test(key))
+      return key.startsWith(USB) ? '<browse type="albums"></browse>' : fx("07");
     if (key === "BluOS:") return fx("16");
-    if (/:Search$/.test(key)) return fx("18");
+    // Search menu: like the real player, the USB drive links to lists with its own keys
+    if (/:Search$/.test(key)) return key.startsWith(USB) ? fx("18").replace(/LocalMusic/g, USB) : fx("18");
     if (/Albums%3Fexpr=/.test(key)) return fx("07");
     return "<browse></browse>";
   };

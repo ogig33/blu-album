@@ -2118,6 +2118,63 @@ test(
   { overrides: [{ match: /key=(LocalMusic|1A2B_3C4D):$/, edit: (x) => x.replace(/ searchKey="[^"]*"/, "") }] },
 );
 
+// SRH-09: album items with the player's attributes; the first recorded album is found by the title search and
+// by the first composer
+const albumItem = (title) => {
+  const q = encodeURIComponent(title).replace(/%20/g, "+");
+  return (
+    `<item browseKey="LocalMusic:MG/LocalMusic-Album?album=${q}&amp;artist=Test+Artist" contextMenuKey="LocalMusic:CM/LocalMusic-Album?album=${q}&amp;artist=Test+Artist" ` +
+    `playURL="/Add?playnow=1&amp;service=LocalMusic&amp;album=${q}&amp;artist=Test+Artist" text="${title}" text2="Test Artist" type="album"></item>`
+  );
+};
+const firstAlbum = fx("07").match(/<item [^>]*type="album">[\s\S]*?<\/contextMenu>\s*<\/item>/)[0];
+test(
+  "SRH-09 search also shows the albums of the composers found, without repeats",
+  async (t) => {
+    await t.page.fill("#q", TD.TERM);
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(/for/);
+    const first = itemsOf(firstAlbum, ofType("album"))[0].text;
+    eq(t.reqs(/COMPPAGE2/).length, 1, "second page of the composers read");
+    eq(t.reqs(/LocalMusic-Composer\?composer=Test/).length, 1, "menu of the first composer read");
+    eq(t.reqs(/LocalMusic-Composer\?composer=Other/).length, 1, "menu of the second composer read");
+    eq(
+      await t.msg(),
+      `${nAlb(TD.SRC.length + 2)} for \u201C${TD.TERM}\u201D`,
+      "album of the title search per source plus the new albums of the composers",
+    );
+    const tiles = await t.tiles();
+    eq(tiles.filter((x) => x === "Composer Album").length, 1, "album of both composers shown once");
+    ok(tiles.includes("Second Composer Album"), "album of the second composer");
+    eq(tiles.filter((x) => x === first).length, TD.SRC.length, "album of the title search and of a composer once per source");
+    ok(
+      await t.page.evaluate((x) => x.every((s, i) => !i || x[i - 1].localeCompare(s) <= 0), tiles),
+      "tiles A-Z by title",
+    );
+  },
+  {
+    overrides: [
+      { match: /Albums%3Fexpr=/, body: `<browse type="albums">${firstAlbum}</browse>` },
+      {
+        match: /key=LocalMusic:Composer\/%2Flibrary%2Fv1%2FComposers%3Fexpr=/,
+        body: '<browse type="composers" nextKey="LocalMusic:COMPPAGE2"><item browseKey="LocalMusic:MG/LocalMusic-Composer?composer=Test+Composer" text="Test Composer" type="composer"></item></browse>',
+      },
+      {
+        match: /COMPPAGE2/,
+        body: '<browse type="composers"><item browseKey="LocalMusic:MG/LocalMusic-Composer?composer=Other+Composer" text="Other Composer" type="composer"></item></browse>',
+      },
+      {
+        match: /Albums%3Fcomposer=Test/,
+        body: `<browse type="albums">${firstAlbum}${albumItem("Composer Album")}</browse>`,
+      },
+      {
+        match: /Albums%3Fcomposer=Other/,
+        body: `<browse type="albums">${albumItem("Composer Album")}${albumItem("Second Composer Album")}</browse>`,
+      },
+    ],
+  },
+);
+
 // ---------- 4.9 Player footer (FTR) ----------
 test(
   "FTR-01 FTR-03 now playing, quality tag, no source icon",

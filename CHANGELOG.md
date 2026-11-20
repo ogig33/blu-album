@@ -3,6 +3,7 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Search: also finds the albums of a composer.
 - Player bar: the listening mode icon is grey in a subtle frame that brightens on hover, so it no longer looks like a button.
 - Album grid: more space between the albums, growing with the cover size.
 - Browser tab shows a BluAlbum icon (double note in a circle).

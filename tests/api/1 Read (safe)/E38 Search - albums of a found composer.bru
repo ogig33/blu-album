@@ -1,0 +1,82 @@
+meta {
+  name: E38 Search - albums of a found composer
+  type: http
+  seq: 119
+}
+
+get {
+  url: http://{{host}}:11000/Browse
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Albums of a composer found by the player's search: search (/Browse searchKey + q) -> link "Composers" ->
+  // the composer's browse menu -> its link "Albums". Term: the first composer of the library. Read only.
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const axios = require("axios");
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const items = (x) => x.match(/<item\b[^>]*>/g) || [];
+  const browse = (key, q) => get("/Browse?withContextMenuItems=1&key=" + encodeURIComponent(key) + (q ? "&q=" + encodeURIComponent(q) : ""));
+
+  const comp = dec(((await get("/library/v1/Composers?service=LocalMusic")).match(/<composer>([^<]+)<\/composer>/) || [])[1] || "");
+  if (!comp) { bru.runner.skipRequest(); return; }
+  const link = items(await browse("LocalMusic:Search", comp)).find((t) => attr(t, "text") === "Composers");
+  const list = link ? await browse(attr(link, "browseKey")) : "";
+  const hit = items(list).find((t) => attr(t, "type") === "composer" && attr(t, "text") === comp);
+  const menu = hit ? items(await browse(attr(hit, "browseKey"))) : [];
+  const albums = menu.find((t) => attr(t, "type") === "link" && /:Album\//.test(attr(t, "browseKey")));
+  const a = (await get("/library/v1/Albums?service=LocalMusic&composer=" + encodeURIComponent(comp))).match(/<album\b[^>]*>([\s\S]*?)<\/album>/);
+  const pick = (t) => { const m = a ? a[1].match(new RegExp("<" + t + ">([^<]*)</" + t + ">")) : null; return m ? dec(m[1]) : ""; };
+  bru.setVar("eCompSearch", JSON.stringify({
+    composer: comp,
+    link: !!link,
+    hit: hit ? { key: attr(hit, "browseKey"), type: attr(hit, "type") } : null,
+    menu: menu.map((t) => attr(t, "text") + " " + attr(t, "browseKey")),
+    target: pick("title") + " / " + pick("art")
+  }));
+  console.log("composer: " + comp + " | composer menu: " + menu.map((t) => attr(t, "text")).join(", "));
+  if (!albums) { bru.runner.skipRequest(); return; }
+  req.setUrl(H + "/Browse?withContextMenuItems=1&key=" + encodeURIComponent(attr(albums, "browseKey")));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("explore-38-search-composer-albums.xml");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const albums = (body.match(/<item\b[^>]*>/g) || []).filter((t) => attr(t, "type") === "album");
+  const s = JSON.parse(bru.getVar("eCompSearch") || "{}");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("the search menu has a link Composers", () => expect(s.link).to.equal(true));
+  test("the composers list has the composer with a browse key", () => { expect(s.hit.type).to.equal("composer"); expect(s.hit.key).to.match(/:MG\/LocalMusic-Composer\?composer=/); });
+  test("the composer menu links to Albums", () => expect(s.menu.some((m) => /^Albums .*:Album\//.test(m))).to.equal(true));
+  test("albums list with play URLs and context menus", () => {
+    expect(/<browse\b[^>]*type="albums"/.test(body)).to.equal(true);
+    expect(albums.length).to.be.above(0);
+    albums.forEach((t) => { expect(attr(t, "browseKey")).to.not.equal(""); expect(attr(t, "playURL")).to.not.equal(""); expect(attr(t, "contextMenuKey")).to.not.equal(""); });
+  });
+  test("contains the first album of /library/v1/Albums?composer=", () => expect(albums.map((t) => attr(t, "text") + " / " + attr(t, "text2"))).to.include(s.target));
+}
