@@ -282,9 +282,9 @@ GET /Add?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&genre=<genre>&
 | `clear` | `0` in all "play now" requests |
 | `shuffle` | `1` = add shuffled, `0` = in order |
 | `listindex`, `nextlist`, `cursor` | used by `autoplayURL` (start at a track, fill the queue with the rest of the album) |
-| `composer` | all songs of a composer (seen in `autoplayURL` of a composer's song list) |
-| `category` | `FAVOURITES`: the favourite songs of the library (seen in `autoplayURL` of the favourite song list) |
-| `offset` | position of the list page the track is on, with `listindex` counting within that page (seen as `offset=10` in `autoplayURL` of a playlist's second page; meaning presumed) |
+| `composer` | all songs of a composer (`autoplayURL` of a composer's song list) |
+| `category` | `FAVOURITES`: the favourite songs of the library (`autoplayURL` of the favourite song list) |
+| `offset` | position of the list page the track is on (`autoplayURL` of a later page, e.g. `offset=10`); the queue gets the songs from this position on, `listindex` counts within them |
 
 **Response format**
 
@@ -298,7 +298,7 @@ GET /Add?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&genre=<genre>&
 
 - Which parameters appear depends on the service and the action; [`/Services`](#get-services) lists them per menu entry (play now, shuffle, add next, add last).
 - Verified examples: album play `/Add?playnow=1&service=LocalMusic&album=…&artist=…`; album to the end `/Add?album=…&artist=…&playnow=-1&service=LocalMusic&where=last`; track `/Add?playnow=1&file=…`.
-- `composer`, `category` and `offset` are seen only in `autoplayURL` values of `/Browse` song lists, e.g. `/Add?service=LocalMusic&listindex=0&nextlist=1&where=last&cursor=last&playnow=1&category=FAVOURITES`; not verified as requests. `/Services` uses the same values for the lists (`category=FAVOURITES` in the menu group `LocalMusic-Favourites`, the item parameter `composer` in `LocalMusic-Composer`).
+- `composer`, `category` and `offset` come in `autoplayURL` values of `/Browse` song lists, e.g. `/Add?service=LocalMusic&listindex=0&nextlist=1&where=last&cursor=last&playnow=1&category=FAVOURITES`. Verified: such an `autoplayURL` replaces the queue with the songs of the list (`length` = `count` in the answer, e.g. 1 favourite song, 1 song of a composer) and plays the song at `listindex`; with `offset=10` on an 18-song playlist the queue holds the 8 songs from position 10 on. `/Services` uses the same values for the lists (`category=FAVOURITES` in the menu group `LocalMusic-Favourites`, the item parameter `composer` in `LocalMusic-Composer`).
 - Changes the queue id.
 - Not documented as a request; appears as `playURL`, `autoplayURL` and `actionURL` in `/Browse` answers (also in the official examples). Take the URLs from the player instead of building them.
 
@@ -1057,7 +1057,8 @@ GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn=<f
 
 - Verified for the library. The current state shows in the context menu (`favourite-add` or `favourite-delete`) and in `isFavourite` of `/library/v1` answers.
 - USB albums have no favourite actions (verified).
-- `fn`, `preset_id` and `url` are seen only in the player's own menus (song: `/ui/queueItemCM`, `/ui/ContextMenu` of a song; radio: `/ui/ContextMenu` of a station); not verified as requests.
+- `fn` verified: the song context menu of `/Browse` (and `/ui/queueItemCM`, `/ui/ContextMenu`) offers `/AddFavourite?fn=…&service=LocalMusic`; the answer is `<favourite service="LocalMusic">added</favourite>`, the song then appears in `/library/v1/Songs?category=FAVOURITES` with `isFavourite="1"`.
+- `preset_id` and `url` are seen only in the player's own menus (`/ui/ContextMenu` of a radio station); not verified as requests.
 
 ### `GET /DeleteFavourite`
 
@@ -1083,7 +1084,8 @@ GET /DeleteFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn
 **Notes**
 
 - Verified for the library. Counterpart of [`/AddFavourite`](#get-addfavourite).
-- `fn` and `id` are seen only in the player's own menus (`/ui/ContextMenu` of a song or of a TuneIn favourite); not verified as requests. Note the different name: `preset_id` to add a TuneIn station, `id` to remove it.
+- `fn` verified: the context menu of a favourite song offers `/DeleteFavourite?fn=…&service=LocalMusic`; the answer is `<favourite service="LocalMusic">deleted</favourite>` and the song leaves the favourite list.
+- `id` is seen only in the player's own menus (`/ui/ContextMenu` of a TuneIn favourite); not verified as a request. Note the different name: `preset_id` to add a TuneIn station, `id` to remove it.
 
 ### `GET /RadioAddPreset`
 
@@ -1443,7 +1445,7 @@ GET /library/v1/Songs?service=<svc>&album=<album>&artist=<artist>&composer=<comp
 | `composer` | songs of the composer |
 | `section` | songs of the section, paged |
 | `genre` | with `section`: songs of the genre, 50 per page |
-| `category` | `FAVOURITES` – empty (no song favourites) |
+| `category` | `FAVOURITES` = favourite songs (`<song isFavourite="1">`; marked with [`/AddFavourite?fn=`](#get-addfavourite)) |
 | `limit` | page size; works here (e.g. `section=A&limit=5`) |
 | `all` | `1` = all songs of the source, paged with `offset` (30 per page in the BluOS Controller) |
 | `offset` | first entry of the page |

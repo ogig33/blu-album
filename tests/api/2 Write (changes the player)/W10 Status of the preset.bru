@@ -16,7 +16,13 @@ settings {
 
 script:pre-request {
   const H = "http://" + bru.getEnvVar("host") + ":11000";
-  await new Promise((r) => setTimeout(r, 4000)); // give the player time to change state
+  // A radio stream may stay "connecting" for several seconds: wait until it plays (at most 20 s)
+  const axios = require("axios");
+  for (let i = 0; i < 20; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    const s = await axios.get(H + "/Status", { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 5000 });
+    if (/<state>(play|stream)<\/state>/.test(String(s.data || ""))) break;
+  }
 }
 
 script:post-response {

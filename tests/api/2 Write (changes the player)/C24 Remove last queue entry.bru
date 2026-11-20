@@ -17,6 +17,8 @@ settings {
 script:pre-request {
   const H = "http://" + bru.getEnvVar("host") + ":11000";
 
+  // Removes the album entry added by C22; without it the queue stays as it is
+  if (!bru.getVar("albumAddLast")) { bru.runner.skipRequest(); return; }
   req.setUrl(H + "/Delete?id=" + (+bru.getVar("queueLen2") - 1));
 }
 

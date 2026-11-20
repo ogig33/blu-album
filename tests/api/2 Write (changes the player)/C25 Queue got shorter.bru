@@ -15,6 +15,7 @@ settings {
 }
 
 script:pre-request {
+  if (!bru.getVar("albumAddLast")) { bru.runner.skipRequest(); return; }
   await new Promise((r) => setTimeout(r, 1500)); // give the player time to change state
 }
 

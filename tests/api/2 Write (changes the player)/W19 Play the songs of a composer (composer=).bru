@@ -1,0 +1,64 @@
+meta {
+  name: W19 Play the songs of a composer (composer=)
+  type: http
+  seq: 118
+}
+
+get {
+  url: http://{{host}}:11000/Add
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  if (bru.getVar("vaSkip") === "1") { bru.runner.skipRequest(); return; }
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 15000, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
+  const param = (u, n) => { const m = u.match(new RegExp("[?&]" + n + "=([^&]*)")); return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : ""; };
+  // Library menu -> Composers -> first composer -> Songs; autoplayURL of the second song (listindex=1)
+  bru.setVar("vaExpect", "");
+  const keys = (xml) => tagsOf(xml, "item").map((t) => attr(t, "browseKey")).filter(Boolean);
+  // Lists with letters (type="sections") are opened at their first letter
+  const open = async (key) => { let xml = await browse(key); while (/<browse\b[^>]*type="sections"/.test(xml) && keys(xml)[0]) xml = await browse(keys(xml)[0]); return xml; };
+  const compKey = keys(await browse("LocalMusic:")).find((k) => /Composer/.test(k));
+  const composer = compKey ? tagsOf(await open(compKey), "item").find((t) => attr(t, "type") === "composer") : "";
+  const songsKey = composer ? keys(await browse(attr(composer, "browseKey"))).find((k) => /^LocalMusic:Song\//.test(k)) : "";
+  bru.setVar("vaComposerSongsKey", songsKey || "");
+  const items = songsKey ? tagsOf(await browse(songsKey), "item").filter((t) => /composer=/.test(attr(t, "autoplayURL"))) : [];
+  const item = items[1] || items[0];
+  if (!item) { console.log("No composer songs (or no composer= in autoplayURL) – skipped"); bru.runner.skipRequest(); return; }
+  bru.setVar("vaExpect", attr(item, "text"));
+  req.setUrl(H + attr(item, "autoplayURL"));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  if (bru.getEnvVar("saveFixtures") === "true") {
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "verify-add-composer.xml"), "<!-- " + req.getUrl().replace(/^https?:\/\/[^/]+/, "") + " -->\n" + body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  }
+  console.log(req.getUrl() + "\n" + body);
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const val = (t) => { const m = body.match(new RegExp("<" + t + ">([^<]*)</" + t + ">")); return m ? m[1] : ""; };
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("answer <playlist>, no error", () => expect(/<playlist\b/.test(body) && !/<error/.test(body)).to.equal(true));
+}

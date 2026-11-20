@@ -1,0 +1,46 @@
+meta {
+  name: W18 Status plays the favourite song
+  type: http
+  seq: 117
+}
+
+get {
+  url: http://{{host}}:11000/Status
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  if (bru.getVar("vaSkip") === "1") { bru.runner.skipRequest(); return; }
+  if (!bru.getVar("vaExpect")) { bru.runner.skipRequest(); return; }
+  await new Promise((r) => setTimeout(r, 2000)); // give the player time to start the song
+}
+
+script:post-response {
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 15000, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
+  const param = (u, n) => { const m = u.match(new RegExp("[?&]" + n + "=([^&]*)")); return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : ""; };
+  const body = String(res.getBody() || "");
+  const val = (t) => { const m = body.match(new RegExp("<" + t + ">([^<]*)</" + t + ">")); return m ? dec(m[1]) : ""; };
+  const q = await get("/Playlist?start=0&end=0");
+  const len = attr(tagsOf(q, "playlist")[0] || "", "length");
+  console.log("category=FAVOURITES: plays '" + val("title1") + "' (expected '" + bru.getVar("vaExpect") + "'), queue entry " + val("song") + " of " + len + " (before the test: " + bru.getVar("vaLength") + " entries)");
+  bru.setVar("vaTitle", val("title1"));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const val = (t) => { const m = body.match(new RegExp("<" + t + ">([^<]*)</" + t + ">")); return m ? m[1] : ""; };
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("plays the song of the autoplayURL", () => expect(bru.getVar("vaTitle")).to.equal(bru.getVar("vaExpect")));
+  test("plays from the queue (no streamUrl)", () => expect(/<streamUrl>/.test(body)).to.equal(false));
+}
