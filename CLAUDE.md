@@ -64,6 +64,7 @@ Do not build these; when asked, point to the alternative.
 - After a firmware update:
   - Run the whole Bruno collection, environment "Home" (details in `tests/api/README.md`).
   - Fixtures with personal data stay in `tests/api/fixtures/` (git-ignored); copy them with `tests/tools/sanitize-fixtures.js`.
+  - Find new endpoints with `node tests/tools/crawl-endpoints.js <player IP>` (read-only, compares with `docs/bluos-api.md`); verify each finding in Bruno before documenting it.
 - UI tests must not assume a window size (use `VIEWPORT`).
 - Lint (ESLint) and format (Prettier, test scripts only; `blualbum.html` keeps its compact style) run **only on GitHub**; the owner does not run them locally.
 

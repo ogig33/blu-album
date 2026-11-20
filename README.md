@@ -60,6 +60,7 @@ Tests:
 - [`tests/ui`](tests/ui) – Playwright tests of the user interface in Chrome, Safari (WebKit), Edge and Firefox against a mock player that answers with recorded (and sanitized) player responses. No player needed. GitHub Actions runs them on macOS, Windows and Linux at three window sizes.
 - [`tests/tools/sanitize-fixtures.js`](tests/tools/sanitize-fixtures.js) – copies recorded
   answers to the UI tests and removes personal details.
+- [`tests/tools/crawl-endpoints.js`](tests/tools/crawl-endpoints.js) – walks the player's answers read-only (`node tests/tools/crawl-endpoints.js <player IP>`) and lists endpoints, parameters and answer fields that `docs/bluos-api.md` does not describe yet; the full result goes to `tests/api/fixtures/crawl-endpoints.json`.
 
 Checks on GitHub (`.github/workflows`, configs in `.github/lint`):
 - `ui-tests.yml` – the UI tests, see [`tests/ui`](tests/ui/README.md#github-actions).
