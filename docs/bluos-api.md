@@ -3273,7 +3273,7 @@ Tools of `tools/list` (descriptions shortened):
 | `get_queue` | `offset`, `limit` (1–200, default 50) | page of the queue; `total`, 0-based `index` per song |
 | `transport` | `action`: `play` / `pause` / `skip` / `back` | playback control |
 | `set_volume` | `level` (0–100) | set the volume |
-| `get_music_services` | – | streaming services of the player (IDs for `search_music`) |
+| `get_music_services` | – | music sources of the player, also the local library and the USB drive (IDs for `search_music`) |
 | `search_music` | `query`, `service`, `type` (`albums` / `songs` / `artists` / `playlists`), `next_key` | one page of search results of one service, with `play_url` and `context_menu_key` |
 | `play_music` | `play_url`, `add_to_queue`, `context_menu_key` | play a result of `search_music` / `local_playlists` (replaces the queue) or append it (`add_to_queue=true`, needs `context_menu_key`) |
 | `queue_manage` | `action`: `remove` (`index`) / `reorder` (`from_index`, `to_index`) / `clear` / `save` (`name`) | change the queue or save it as a playlist |
@@ -3281,11 +3281,40 @@ Tools of `tools/list` (descriptions shortened):
 | `browse_presets` | `url`, `service` | browse sources that can be saved as presets (playlists, stations, radio, inputs) |
 | `presets` | `action`: `list` / `play` / `save` / `delete`, `id`, `name`, `url`, `image` | presets; `save` without `url` saves what is playing |
 
+`tools/call` answers the tool result as JSON text in `result.content[0].text`; errors of a tool come with `result.isError: true` and a text (e.g. "LocalMusic has no playlists search"). `get_music_services`:
+
+```json
+[{"name":"Library","service":"LocalMusic"},{"name":"Radio","service":"Airable"},{"name":"TuneIn","service":"TuneIn"},{"name":"USB","service":"1A2B_3C4D"}]
+```
+
+`search_music` with `service=LocalMusic`, `type=albums`:
+
+```json
+{
+  "type": "albums",
+  "results": [
+    {
+      "title": "Brandenburg Concertos",
+      "subtitle": "Johann Sebastian Bach",
+      "tracks": 19,
+      "image": "/Artwork?service=LocalMusic&album=Brandenburg+Concertos&artist=Johann+Sebastian+Bach",
+      "play_url": "/Add?playnow=1&service=LocalMusic&album=Brandenburg+Concertos&artist=Johann+Sebastian+Bach",
+      "context_menu_key": "LocalMusic:CM/LocalMusic-Album?album=Brandenburg+Concertos&artist=Johann+Sebastian+Bach"
+    }
+  ],
+  "next_key": "LocalMusic:Album/%2Flibrary%2Fv1%2FAlbums%3Fend=101&expr=a&service=LocalMusic&start=51"
+}
+```
+
 **Notes**
 
-- Verified: `initialize`, `notifications/initialized`, `tools/list`, `resources/list`, `prompts/list` and the CORS preflight. No tool called (`tools/call` not verified).
+- Verified: `initialize`, `notifications/initialized`, `tools/list`, `resources/list`, `prompts/list`, the CORS preflight and the tools `get_music_services` and `search_music` (library and USB). The other tools not called.
+- `get_music_services` lists the local library (`LocalMusic`, name "Library") and the USB drive (its id, name "USB") besides the streaming and radio services – the same service ids as in [`/Browse`](#get-browse) and [`/library/v1`](#9-library).
+- `search_music` on `LocalMusic` or the USB id searches the local library like [`/library/v1/Albums`](#get-libraryv1albums) / [`/library/v1/Songs`](#get-libraryv1songs) with `expr` (the `next_key` wraps that request): `albums` and `songs` give `title`, `subtitle` (songs: "artist • album"), `image`, `play_url`; albums also `tracks` and `context_menu_key`. `albums` matches more than the album title (`Bach` found samplers of "Various" with a Bach track), sorted by album title. `artists` gives only `title` and `context_menu_key` (no image, no play URL). `playlists` answers the error "LocalMusic has no playlists search".
+- **Paging skips one result per page:** a page has 50 results (positions 0–49), but `next_key` continues at `start=51`; position 50 is missing (verified against `/library/v1/Albums?expr=a`). The second `next_key` continues at `start=102` in the same way.
+- Song results carry the file path of the player in `play_url` (`/Add?playnow=1&file=…`).
 - No authentication and no session (no `Mcp-Session-Id` header). CORS: `Access-Control-Allow-Origin: *`, methods `GET, POST, OPTIONS`.
 - `serverInfo.version` is the API version of [`/Version`](#get-version).
 - Every tool is annotated `readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: true` – also the reading ones (`get_status`, `get_queue`, …); MCP clients may therefore ask for a confirmation on every call.
-- Focus on streaming services and presets: no tool for the local library (albums, artists, filters) or for covers. For BluAlbum the XML endpoints of the other sections stay the ones to use.
+- For the local library only the search: no browsing of albums, no filters (genre, quality, decade, favourites), no track list of an album, no covers (only the `/Artwork` path). For BluAlbum the XML endpoints of the other sections stay the ones to use.
 - `GET /mcp/` (trailing slash), `/sse` and `/.well-known/mcp.json` answer 404. On port 80, `/mcp` is not the MCP server: the web app "BluOS" answers its HTML shell for every unknown path.
