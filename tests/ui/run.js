@@ -361,7 +361,8 @@ const fmtTime = (n) => {
   return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0");
 };
 const nAlb = (n) => n + (n === 1 ? " album" : " albums");
-const re = (s) => new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const re = (s) => new RegExp(reEsc(s));
 
 // ---------- tiny test harness ----------
 // opts.real: "read" = also runs against the real player (changes nothing), "write" = also runs against the
@@ -1619,7 +1620,7 @@ test("POP-01 popup opens from cover and title: details, source line, loading tex
   const libIcon = TD.SRC.find((s) => /LibraryIcon/.test(s.image)).image;
   await t.page.waitForFunction(() => /^blob:/.test(document.querySelector("#ds img")?.src || ""));
   ok((await t.page.$eval("#ds img", (i) => i.dataset.src)).endsWith(libIcon), "source icon of the player");
-  ok(t.reqs(new RegExp("^" + libIcon.replace(/[.?]/g, "\\$&"))).length > 0, "icon read from the player");
+  ok(t.reqs(new RegExp("^" + reEsc(libIcon))).length > 0, "icon read from the player");
   const iconFilter = (theme) =>
     t.page.evaluate((th) => {
       document.documentElement.setAttribute("data-theme", th);
@@ -2400,7 +2401,7 @@ test(
     const cur = (TD.LM.match(/<setting [^>]*value="([^"]*)"/) || [])[1];
     await lmShown(t, cur);
     ok(
-      t.reqs(new RegExp("^" + lmIcon(cur).replace(/[.?]/g, "\\$&") + "$")).length > 0,
+      t.reqs(new RegExp("^" + reEsc(lmIcon(cur)) + "$")).length > 0,
       "iconActive read from the player",
     );
     eq(
