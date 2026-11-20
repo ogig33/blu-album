@@ -160,8 +160,7 @@ function scan(body, from) {
         // A player URL inside the deep link, e.g. /reorder-presets?url=/Presets/edit?prid=7
         for (const [n, v] of new URL(val, BASE).searchParams)
           if (/^\/[A-Za-z]/.test(v)) record(v, `${from} @URI deep-link (${n}=)`);
-      }
-      else if (/^(\/[A-Za-z]|https?:\/\/)/.test(val)) record(val, `${from} @${name}`);
+      } else if (/^(\/[A-Za-z]|https?:\/\/)/.test(val)) record(val, `${from} @${name}`);
     }
   }
   // URLs as element text, e.g. <nextlink>

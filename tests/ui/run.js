@@ -2400,10 +2400,7 @@ test(
     }
     const cur = (TD.LM.match(/<setting [^>]*value="([^"]*)"/) || [])[1];
     await lmShown(t, cur);
-    ok(
-      t.reqs(new RegExp("^" + reEsc(lmIcon(cur)) + "$")).length > 0,
-      "iconActive read from the player",
-    );
+    ok(t.reqs(new RegExp("^" + reEsc(lmIcon(cur)) + "$")).length > 0, "iconActive read from the player");
     eq(
       await t.page.getAttribute("#lm", "title"),
       (TD.LM.match(/<setting [^>]*displayName="([^"]*)"/) || [])[1] + ": " + lmName(cur),
@@ -2419,13 +2416,17 @@ test(
     ok(
       await t.page.$eval(
         "#lm",
-        (e) => e.parentElement.id === "lmf" && e.parentElement.parentElement.matches("#ctl .vl") && e.parentElement.nextElementSibling?.id === "vd",
+        (e) =>
+          e.parentElement.id === "lmf" &&
+          e.parentElement.parentElement.matches("#ctl .vl") &&
+          e.parentElement.nextElementSibling?.id === "vd",
       ),
       "icon in its frame sits right before the volume-down button",
     );
     ok(
       await t.page.$eval("#lmf", (f) => {
-        const s = getComputedStyle(f), i = getComputedStyle(f.firstElementChild);
+        const s = getComputedStyle(f),
+          i = getComputedStyle(f.firstElementChild);
         return !f.hidden && s.borderStyle === "solid" && parseFloat(s.borderRadius || "0") === 0 && +i.opacity < 1;
       }),
       "status tag look: square-cornered frame, grey (dimmed) icon",
@@ -2433,8 +2434,14 @@ test(
     // Frame colour and hover, compared with the colour tokens (computed through a probe element)
     const look = () =>
       t.page.$eval("#lmf", (f) => {
-        const p = document.body.appendChild(document.createElement("i")), tok = (v) => ((p.style.color = `var(${v})`), getComputedStyle(p).color);
-        const r = { border: getComputedStyle(f).borderTopColor, opacity: +getComputedStyle(f.firstElementChild).opacity, line: tok("--line"), ink: tok("--ink") };
+        const p = document.body.appendChild(document.createElement("i")),
+          tok = (v) => ((p.style.color = `var(${v})`), getComputedStyle(p).color);
+        const r = {
+          border: getComputedStyle(f).borderTopColor,
+          opacity: +getComputedStyle(f.firstElementChild).opacity,
+          line: tok("--line"),
+          ink: tok("--ink"),
+        };
         p.remove();
         return r;
       });
@@ -2449,7 +2456,9 @@ test(
     await t.page.mouse.move(0, 0);
     ok(
       await t.page.$eval("#lmf", (f) =>
-        [f, f.firstElementChild].every((e) => e.tagName !== "BUTTON" && !e.onclick && e.getAttribute("tabindex") === null),
+        [f, f.firstElementChild].every(
+          (e) => e.tagName !== "BUTTON" && !e.onclick && e.getAttribute("tabindex") === null,
+        ),
       ),
       "display only (no button)",
     );
