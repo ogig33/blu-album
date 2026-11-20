@@ -1816,6 +1816,11 @@ const RELEASES_LATEST = "https://api.github.com/repos/ogig33/blu-album/releases/
 const SVC_LIBRARY = "LocalMusic", SVC_PLAYLISTS = "BluOS";
 // Shown when fetch() fails with a TypeError: usually the browser lacks Local Network permission.
 const LAN_MSG = "Please make sure your browser has permission to access the Local Area Network (LAN).";
+// Connect: the player must answer the first request (top menu, about 1 KB) within CONNECT_TIMEOUT ms,
+// otherwise NO_REPLY_MSG is shown. An address without a device often gets no answer at all, and the
+// browser would wait for minutes. Later requests have no limit (large lists, long polling).
+const CONNECT_TIMEOUT = 5000;
+const NO_REPLY_MSG = "The player did not answer. Please check the IP address and that the player is switched on and in the same network.";
 // Quality chips: filter values of the library ("Filter by quality" in /Services).
 const QUALITIES = [["hr", "HD", "High resolution albums"], ["cd", "CD", "CD quality albums"], ["mqa", "MQA", "MQA albums"]];
 // Search: only from SEARCH_MIN characters (each search costs several player requests, a shorter term
@@ -1883,7 +1888,7 @@ const fmtTime = (n) => {
 };
 // "1 album" / "5 albums".
 const nAlb = (n) => n + (n === 1 ? " album" : " albums");
-const errMsg = (prefix, e) => e instanceof TypeError && /fetch|load failed|network/i.test(e.message) ? LAN_MSG : prefix + e.message;
+const errMsg = (prefix, e) => e.name === "TimeoutError" ? NO_REPLY_MSG : e instanceof TypeError && /fetch|load failed|network/i.test(e.message) ? LAN_MSG : prefix + e.message;
 // Status line below the genre chips.
 const msg = (t, err) => {
   const m = $("#msg");
@@ -2036,8 +2041,11 @@ const ctx = () => base + "|" + epoch;
 // browser's own Accept-Language, e.g. German, the player answers the track list of some albums with an
 // empty menu (Bruno E25 / E26).
 const PLAYER_HEADERS = { "Accept-Language": "en" };
-// Status and body of a request without an answer (fetch() rejects with a TypeError on network errors).
-const noAnswer = (e) => ({ status: "No answer – " + (e && e.message || e), body: LAN_MSG });
+// Status and body of a request without an answer: fetch() rejects with a TypeError on network errors,
+// with a TimeoutError when the time limit of the connect request (CONNECT_TIMEOUT) has passed.
+const noAnswer = (e) => e && e.name === "TimeoutError"
+  ? { status: "No answer – timed out after " + CONNECT_TIMEOUT / 1000 + " s", body: NO_REPLY_MSG }
+  : { status: "No answer – " + (e && e.message || e), body: LAN_MSG };
 // api(): parsed XML answer; throws on network errors (TypeError, see errMsg), HTTP errors and player errors (<e>).
 // The error carries url, status and body of the failed request for the API response popup (apiFail).
 async function api(path, init) {
@@ -2046,6 +2054,9 @@ async function api(path, init) {
   try {
     r = await fetch(url, { ...init, headers: PLAYER_HEADERS });
   } catch (e) {
+    // Time limit passed: the signal's reason is the TimeoutError (WebKit rejects with a plain AbortError)
+    const why = init && init.signal && init.signal.aborted ? init.signal.reason : null;
+    if (why && why.name === "TimeoutError") throw Object.assign(why, { url }, noAnswer(why));
     if (e.name !== "AbortError") Object.assign(e, { url }, noAnswer(e));
     throw e;
   }
@@ -2067,8 +2078,8 @@ async function apiRaw(path) {
 // Calls /Browse and returns the parsed XML. key = browse key, q = search term.
 // withContextMenuItems=1 makes the player include per-album actions (add to queue, favourites ...);
 // menus = false leaves them out where they are not used (track list of the album popup: about 60 %
-// smaller, play URLs stay).
-const browse = (key, q, menus = true) => api("/Browse?withContextMenuItems=" + (menus ? 1 : 0) + (key ? "&key=" + encodeURIComponent(key) : "") + (q ? "&q=" + encodeURIComponent(q) : ""));
+// smaller, play URLs stay). init: fetch options, e.g. the time limit signal of the connect request.
+const browse = (key, q, menus = true, init) => api("/Browse?withContextMenuItems=" + (menus ? 1 : 0) + (key ? "&key=" + encodeURIComponent(key) : "") + (q ? "&q=" + encodeURIComponent(q) : ""), init);
 // Player command; on failure the API response popup shows the request. Returns the parsed XML or null.
 const xml = async (path) => {
   if (!base) {
@@ -2177,9 +2188,11 @@ async function connect() {
   panel(false);
   msg("Connecting \u2026");
   let reached = false;
+  const mine = ctx();
   $("#iphelp").hidden = false;
   try {
-    const topItems = items(await browse());
+    const topItems = items(await browse("", "", true, { signal: AbortSignal.timeout(CONNECT_TIMEOUT) }));
+    if (mine !== ctx()) return; // connected to another player meanwhile
     reached = true;
     $("#iphelp").hidden = true;
     showConnected(true);
@@ -2194,6 +2207,7 @@ async function connect() {
     renderSources();
     await openSources();
   } catch (e) {
+    if (mine !== ctx()) return;
     loadFailed("Connection failed: ", "Connecting to the player did not succeed", e);
     if (!reached) {
       $("#iphelp").hidden = false;

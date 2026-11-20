@@ -16,7 +16,7 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 
 | Block | Chapter | Scope | Cases | Auto | Real player |
 |---|---|---|---|---|---|
-| CON | 4.1 Connection & start | Start page, IP form, connect, errors, compact connection line, changing the player | 12 | 12 | 10 |
+| CON | 4.1 Connection & start | Start page, IP form, connect, errors, time limit, compact connection line, changing the player | 14 | 14 | 10 |
 | SRC | 4.2 Music sources | Source detection, one switch per source, stored per player | 6 | 6 | 3 |
 | CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results | 14 | 14 | 10 |
 | GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons | 9 | 9 | 8 |
@@ -34,7 +34,7 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 5 | 4 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard | 2 | 2 | 2 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **153** | **153** | **112** |
+| | | **Total** | **155** | **155** | **112** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -143,6 +143,8 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | CON-10 | Change the player | Click **Change** in the connection line | IP form visible, IP field focused and selected | read | Auto |
 | CON-11 | Room name as tab title | After CON-03 | `document.title` = room name of TD-SET (fallback: `displayName` of the player menu group, then "BluAlbum") | read | Auto |
 | CON-12 | Changing the player forgets the previous one | Connect, start a slow All, pin the queue, connect to a second mock player (`IP2`) | Chips, grid, queue, search field, statistics, playlists and listening mode are reset; no results of the first connection appear | – | Auto |
+| CON-13 | Player does not answer | Mock holds the top menu `/Browse` longer than `CONNECT_TIMEOUT` (5 s) | After about 5 s: status line `NO_REPLY_MSG`; popup "Connecting to the player did not succeed" with the `/Browse` request, status "No answer – timed out after 5 s" and `NO_REPLY_MSG` as answer; IP form visible, panel open | – | Auto |
+| CON-14 | Timeout of the previous IP | Connect to a player that does not answer, then at once to a second mock player (`IP2`) | The second player's default view stays after the first one's time limit; no error popup; connection line shows `IP2` | – | Auto |
 
 ### 4.2 Music sources (SRC)
 
@@ -350,7 +352,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | ERR-04 | Popup for unsuccessful answers | See QUE-12 / QUE-14 | Title, request path without host, HTTP status, raw body ("(empty response)" when empty); close button not focused | – | Auto |
 | ERR-05 | English answers | Any request | Header `Accept-Language: en` on every player request except the images (covers `/Artwork` and source icons `/images/…`, read with a plain `fetch()`) | read | Auto |
 | ERR-06 | No genres | Genre lists empty | Error "No genres found. Has the library finished indexing?"; panel open | – | Auto |
-| ERR-07 | Every failed player request is shown | See CON-07, CHP-14, FAV-05, POP-13, SRH-08, QUE-16, ERR-01, ERR-03 | Popup with a title per action, request path without host, status (HTTP status or "No answer – …") and raw answer; status line messages stay | – | Auto |
+| ERR-07 | Every failed player request is shown | See CON-07, CON-13, CHP-14, FAV-05, POP-13, SRH-08, QUE-16, ERR-01, ERR-03 | Popup with a title per action, request path without host, status (HTTP status or "No answer – …") and raw answer; status line messages stay | – | Auto |
 | ERR-08 | Expected failures are not shown | Player without listening modes (FTR-17); statistic list not available (ABT-03); missing cover (SEC-03); aborted or failed status polling (FTR long polling) | No error popup | – | Auto |
 
 ### 4.16 Security & robustness (SEC)

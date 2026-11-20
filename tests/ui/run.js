@@ -715,6 +715,47 @@ test("CON-12 changing the player forgets the previous one", async (t) => {
   ok((await t.page.textContent("#cip")).includes(IP2), "new IP shown");
 });
 
+test(
+  "CON-13 ERR-07 player does not answer: timeout, message, popup with the request, IP form stays",
+  async (t) => {
+    const [limit, noReply] = await t.page.evaluate(() => [CONNECT_TIMEOUT, NO_REPLY_MSG]);
+    const t0 = Date.now();
+    await t.connect(IP, false);
+    await t.page.waitForFunction(() => document.querySelector("#msg").className === "err");
+    const took = Date.now() - t0;
+    ok(took >= limit - 200 && took < limit + 2000, `message after the timeout (${took} ms)`);
+    eq(await t.msg(), noReply, "message");
+    const p = await t.apiPopup("Connecting to the player did not succeed");
+    ok(/^\/Browse\?/.test(p.u), "request without host: " + p.u);
+    ok(/^No answer/.test(p.s), "no answer: " + p.s);
+    eq(p.b, noReply, "message as answer");
+    ok(await t.page.isVisible("#cform"), "IP form visible");
+    ok(await t.page.$eval("#side", (e) => e.classList.contains("open")), "panel open");
+  },
+  { connect: false, overrides: [{ match: TOP, delay: 10000 }] },
+);
+
+test(
+  "CON-14 timeout of the previous IP does not disturb the new player",
+  async (t) => {
+    const second = createPlayer();
+    await t.page.route(`http://${IP2}:11000/**`, second.route);
+    const limit = await t.page.evaluate(() => CONNECT_TIMEOUT);
+    await t.connect(IP, false);
+    await t.settle(300);
+    // still connecting: the panel is closed, the IP form is shown again when it opens
+    await t.page.click("#gear");
+    await t.page.fill("#ip", IP2);
+    await t.page.click("#go");
+    await t.waitMsg(/in favourites/);
+    await t.page.waitForTimeout(limit + 1000);
+    ok(/in favourites/.test(await t.msg()), "view of the second player stays");
+    ok(!(await t.page.$eval("#apidlg", (e) => e.open)), "no error popup");
+    ok((await t.page.textContent("#cip")).includes(IP2), "second IP shown");
+  },
+  { connect: false, overrides: [{ match: TOP, delay: 10000 }] },
+);
+
 // ---------- 4.2 Music sources (SRC) ----------
 test(
   "SRC-01 one switch per source, named by the player, all on",
