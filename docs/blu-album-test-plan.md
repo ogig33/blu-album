@@ -324,7 +324,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | SET-01 | Open and close | Menu button opens; back button, click on the scrim, Esc close | Opens / closes; `aria-expanded` follows; Esc with an open popup closes only the popup (POP-12) | read | Auto |
 | SET-02 | Chip switches | Section "Filter chips" (Quality, Decades, Genres, Playlists, in the order of the chip row): switch genre, quality and playlist chips off; decade chips on and off (CHP-16) | Only All, Favourites, New visible; switched on again → chips back; decade chips hidden when switched off | read | Auto |
 | SET-03 | Switches are stored | After SET-02 / CHP-16, reload | Switches keep their state (decade chips on → built again after connecting) | read | Auto |
-| SET-04 | Cover size | Select S, M, L | Tile width S < M < L; stored as `tile`; pressed segment follows | read | Auto |
+| SET-04 | Cover size | Select S, M, L | Tile width and spacing between tiles S < M < L, more space between rows than columns; stored as `tile`; pressed segment follows | read | Auto |
 | SET-05 | Design | Day, Night, System with light / dark system scheme | Background light / dark accordingly; stored as `theme` | read | Auto |
 | SET-06 | Stored size and design are restored | Set L and Night, reload | L and Night active before connecting | read | Auto |
 | SET-07 | Invalid stored values | localStorage `theme=x`, `tile=x` | System design and size M | read | Auto |

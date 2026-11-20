@@ -3204,8 +3204,11 @@ const wallLayout = (page) =>
         return (a + 0.05) / (b + 0.05);
       }),
     );
+    const grid = getComputedStyle(document.querySelector("#grid"));
     return {
       tile: document.querySelector("#grid .item:not(:first-child)").getBoundingClientRect().width,
+      colGap: parseFloat(grid.columnGap),
+      rowGap: parseFloat(grid.rowGap),
       overflow: document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth,
       dark: lum(bg) < 0.2,
       contrast: Math.round(contrast * 10) / 10,
@@ -3227,6 +3230,7 @@ test(
     for (const d of DESIGNS) {
       await t.page.emulateMedia({ colorScheme: d.scheme });
       const widths = [];
+      const gaps = [];
       for (const size of ["s", "m", "l"]) {
         await t.page.click("#gear");
         await t.page.click(`#themes [data-theme="${d.theme}"]`);
@@ -3239,9 +3243,12 @@ test(
         ok(l.overflow <= 0, `${at}: no horizontal scrolling (${l.overflow} px too wide)`);
         eq(l.dark, d.dark, `${at}: dark background`);
         ok(l.contrast >= 4.5, `${at}: title contrast ${l.contrast} (at least 4.5)`);
+        ok(l.rowGap > l.colGap, `${at}: more space between rows (${l.rowGap} px) than columns (${l.colGap} px)`);
         widths.push(l.tile);
+        gaps.push(l.colGap);
       }
       ok(widths[0] < widths[1] && widths[1] < widths[2], `${d.theme}: S < M < L (${widths.join(" / ")} px)`);
+      ok(gaps[0] < gaps[1] && gaps[1] < gaps[2], `${d.theme}: spacing S < M < L (${gaps.join(" / ")} px)`);
     }
     eq(
       await t.page.evaluate(() => [localStorage.getItem("theme"), localStorage.getItem("tile")]),

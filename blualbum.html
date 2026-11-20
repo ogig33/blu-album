@@ -1154,9 +1154,10 @@ nav .gap {
 }
 #grid {
   display: grid;
-  /* Cover size S / M / L from the settings (sets --tile) */
+  /* Cover size S / M / L from the settings (sets --tile); the spacing grows with it,
+     rows a bit more than columns because title and artist sit below the cover */
   grid-template-columns: repeat(auto-fill, minmax(var(--tile, 150px), 1fr));
-  gap: 16px;
+  gap: calc(var(--tile, 150px) * .225) calc(var(--tile, 150px) * .18);
   padding: 6px 14px 40px;
 }
 .card {
