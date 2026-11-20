@@ -19,11 +19,11 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | CON | 4.1 Connection & start | Start page, IP form, connect, errors, time limit, compact connection line, changing the player | 14 | 14 | 10 |
 | SRC | 4.2 Music sources | Source detection, one switch per source, stored per player | 6 | 6 | 3 |
 | CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results | 14 | 14 | 10 |
-| GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons | 9 | 9 | 8 |
+| GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons, status line | 10 | 10 | 8 |
 | FAV | 4.5 Favourites | Heart on the cover, toggling via the player, no local favourites | 6 | 6 | 5 |
 | ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache | 4 | 4 | 4 |
 | POP | 4.7 Album popup | Details, technical data, track list, playing a track, closing | 15 | 15 | 10 |
-| SRH | 4.8 Search | Player search, albums of found composers, typing rules, empty field, errors | 9 | 9 | 3 |
+| SRH | 4.8 Search | Player search, albums of found composers, groups by album title / artist / composer, typing rules, empty field, errors | 10 | 10 | 3 |
 | FTR | 4.9 Player footer | Now playing, quality tag, transport, progress, volume, listening mode, long polling | 18 | 18 | 10 |
 | FUL | 4.10 Full screen | Full-screen now playing view, background from the cover, full-size cover | 7 | 7 | 5 |
 | QUE | 4.11 Queue panel | Pinning, list, remove, shuffle, repeat, save, delete playlist, clear | 16 | 16 | 15 |
@@ -34,7 +34,7 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 5 | 4 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard | 2 | 2 | 2 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **156** | **156** | **112** |
+| | | **Total** | **158** | **158** | **112** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -193,6 +193,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | GRD-08 | Play an album | Click play on a tile | The album's play URL (from `/Browse` or `libAlbum()`); toast "Playing: <title>" | write | Auto |
 | GRD-09 | Add an album last | Click add on a tile | `addAll-last` URL with `where=last`; toast "Added to queue: <title>" | write | Auto |
 | GRD-10 | Long title and artist | Mock favourites with a title and an artist longer than a tile; hover the tile, leave it; again with reduced motion | Title and artist one line each, cut lines fade out (`.cut`), short lines not cut; hover (after 300 ms) scrolls both cut lines, leaving stops it; reduced motion: no scrolling, full text as tooltip | – | Auto |
+| GRD-11 | Status line with a fine line | Favourites view; pin the queue (window 800 px or wider) | A fine line under the status line, from the left to the right edge of the grid's tiles; with the pinned queue it ends where the grid ends, with space to the queue | – | Auto |
 
 ### 4.5 Favourites (FAV)
 
@@ -241,7 +242,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
-| SRH-01 | Search with Enter | Type a term, press Enter | `/Browse?key=<searchKey>&q=<term>` per source; albums link of TD-SEARCH followed; tiles = albums; status "N albums for “<term>”"; no chip pressed; no random tile | read | Auto |
+| SRH-01 | Search with Enter | Type a term, press Enter | `/Browse?key=<searchKey>&q=<term>` per source; albums link of TD-SEARCH followed; tiles = albums; status line "N albums for “<term>” …" (first group, see SRH-10); no chip pressed; no random tile | read | Auto |
 | SRH-02 | One album request per search | Same as SRH-01 | Albums list read once per source (no second request for the same list) | – | Auto |
 | SRH-03 | Search only from `SEARCH_MIN` characters | Type fewer than `SEARCH_MIN` characters; then reach `SEARCH_MIN`; wait less / more than `SEARCH_DELAY`; Enter with fewer characters, then with `SEARCH_MIN` | No search below `SEARCH_MIN`, also not with Enter (hint "Type at least 3 characters to search."); while typing one search after the pause; Enter searches at once from `SEARCH_MIN` | read | Auto |
 | SRH-04 | Empty field restores the view | Search, then clear the field | Previous chip pressed again, its albums shown, status "N albums"; no request | read | Auto |
@@ -249,7 +250,8 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | SRH-06 | Direct album items | Search answer contains album items | These albums shown without following a link | – | Auto |
 | SRH-07 | Only the newest search counts | Two searches quickly after each other, the first answers late | Grid shows the second result | – | Auto |
 | SRH-08 | Search error / not possible | Mock fails the search; source without `searchKey` | "Search failed: …" in red and popup "The search did not succeed" with the search request; without search key: "Connect first – or the player offers no search." | – | Auto |
-| SRH-09 | Albums of the composers found | Search answer with a composers list (2 pages, 2 composers); the albums of both composers overlap with each other and with the albums list | Composers list followed over its pages; per composer its browse menu and its albums link read; tiles = albums of the albums list plus the composers' albums, each album once per source, A–Z by title; status counts them | – | Auto |
+| SRH-09 | Albums of the composers found | Search answer with a composers list (2 pages, 2 composers); the albums of both composers overlap with each other and with the albums list | Composers list followed over its pages; per composer its browse menu and its albums link read; tiles = albums of the albums list plus the composers' albums, each album once per source; the composer group line counts the composers' new albums, all group lines together count every album | – | Auto |
+| SRH-10 | Result grouped by album title, artist and composer | Albums list with the term at a word start in the title, with an accented letter in the title, inside a word of the title, and in the artist only; one composer album, one composer album that is also in the albums list | Groups in this order, each A–Z by title, empty groups left out: album title (term at the start of a word, case and accents ignored), artist (the rest of the albums list), composer (the composers' albums not in the albums list); status line = line of the first group ("N albums for “<term>” in the album title"), a line in the same style before every further group ("… by the artist", "… by the composer"), each with a fine line below; no random tile | – | Auto |
 
 ### 4.9 Player footer (FTR)
 

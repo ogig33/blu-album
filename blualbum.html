@@ -178,9 +178,12 @@ input {
 }
 @media (min-width: 800px) {
   body.qpin #az,
-  body.qpin #msg,
   body.qpin #grid {
     margin-right: 360px;
+  }
+  /* the status line keeps the grid's side padding as its margin: its fine line ends where the grid's lines end */
+  body.qpin #msg {
+    margin-right: 374px;
   }
 }
 /* Queue status bar: number of tracks and total time on the left, delete / save / clear on the right;
@@ -1163,12 +1166,23 @@ nav .gap {
   margin: 0 4px;
 }
 /* ---------- Status line and album grid ---------- */
+/* Status line: underlined with a fine line as wide as the grid (inside its 14px side padding) */
 #msg {
-  padding: 6px 14px;
+  margin: 0 14px 4px;
+  padding: 6px 0 5px;
+  border-bottom: 1px solid var(--line);
   color: var(--dim);
 }
 #msg.err {
   color: #ff8f8f;
+}
+/* Search result: the line before every further group (album title / artist / composer), like the status line */
+#grid .gl {
+  grid-column: 1 / -1;
+  color: var(--dim);
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: calc(var(--tile, 150px) * -.225 + 10px);
 }
 #grid {
   display: grid;
@@ -2735,6 +2749,14 @@ function render(list, noRandom) {
   } else list.forEach(addItem);
   // One grid tile: cover (opens details) with play / add-to-queue buttons, title, artist link.
   function addItem(a) {
+    if (a.line) {
+      const l = document.createElement("div");
+      l.className = "gl";
+      l.textContent = a.line;
+      if (sentinel.parentNode === g) g.insertBefore(l, sentinel);
+      else g.append(l);
+      return;
+    }
     const item = document.createElement("div");
     item.className = "item";
     const cw = document.createElement("div");
@@ -3522,13 +3544,23 @@ async function composerAlbums(key) {
   }));
   return lists.flat();
 }
-// Adds the albums of `more` that `albums` does not contain yet (same browse key); then A-Z by title.
-function addAlbums(albums, more) {
-  const seen = new Set(albums.map((a) => a.key)), add = more.filter((a) => !seen.has(a.key) && seen.add(a.key));
-  return add.length ? albums.concat(add).sort((x, y) => x.t.localeCompare(y.t)) : albums;
+// The albums of `more` that `albums` does not contain (same browse key), each once.
+function newAlbums(albums, more) {
+  const seen = new Set(albums.map((a) => a.key));
+  return more.filter((a) => !seen.has(a.key) && seen.add(a.key));
+}
+// Folds a text for matching like the player's search: lower case, accents removed.
+const fold = (s) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+// True if the term occurs in the text at the start of a word, as the player's search matches.
+function atWordStart(text, term) {
+  const t = fold(text), q = fold(term);
+  for (let i = t.indexOf(q); i >= 0; i = t.indexOf(q, i + 1)) if (!i || !/[\p{L}\p{N}]/u.test(t[i - 1])) return true;
+  return false;
 }
 // Uses the player's own search (Enter, or while typing, see SEARCH_MIN / SEARCH_DELAY).
-// Albums: the search's albums list (title, album artist, track artists) plus the albums of the composers found.
+// The result comes in groups, each A-Z by title and each album once: album title (the term is in the title),
+// artist (the rest of the search's albums list: album artist or a track artist) and composer (the albums of
+// the composers found). The status line names the first group, a line in the grid every further group.
 // Fewer than SEARCH_MIN characters: no search, only a hint (the view stays).
 // An empty field restores the selected view.
 async function search() {
@@ -3552,19 +3584,26 @@ async function search() {
   btns.forEach((b) => b.setAttribute("aria-pressed", "false"));
   msg("Searching \u2026");
   try {
-    // Search every enabled source and join the results
-    const albums = joinSources(await Promise.all(sk.map(async (x) => {
+    // Search every enabled source: [albums list, new albums of the composers] per source
+    const res = await Promise.all(sk.map(async (x) => {
       const its = items(await browse(x.searchKey, v));
       const direct = its.filter((i) => attr(i, "type") === "album").map(toAlbum);
-      if (direct.length) return direct;
+      if (direct.length) return [direct, []];
       const link = its.find((i) => /Album/i.test(attr(i, "browseKey")) || /^(Alben?|Albums?)$/i.test(attr(i, "text")));
       const comp = its.find((i) => /:Composer\//.test(attr(i, "browseKey")));
       const [albums, more] = await Promise.all([link ? searchAlbums(attr(link, "browseKey")) : [], comp ? composerAlbums(attr(comp, "browseKey")) : []]);
-      return addAlbums(albums, more);
-    })));
+      return [albums, newAlbums(albums, more)];
+    }));
     if (seq !== searchSeq) return;
-    render(albums, true);
-    msg(nAlb(albums.length) + " for \u201C" + v + "\u201D");
+    const az = (l) => l.sort((x, y) => x.t.localeCompare(y.t));
+    const found = res.flatMap((r) => r[0]), inTitle = found.filter((a) => atWordStart(a.t, v));
+    const groups = [
+      [inTitle, "in the album title"],
+      [found.filter((a) => !inTitle.includes(a)), "by the artist"],
+      [res.flatMap((r) => r[1]), "by the composer"]
+    ].filter((g) => g[0].length).map(([l, how]) => [az(l), nAlb(l.length) + " for \u201C" + v + "\u201D " + how]);
+    render(groups.flatMap(([l, line], i) => i ? [{ line }, ...l] : l), true);
+    msg(groups.length ? groups[0][1] : nAlb(0) + " for \u201C" + v + "\u201D");
   } catch (e) {
     if (seq === searchSeq) loadFailed("Search failed: ", "The search did not succeed", e);
   }
