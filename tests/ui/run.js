@@ -499,6 +499,22 @@ async function start(browser, opts = {}) {
     await page.click("#qbtn");
     await page.waitForSelector("#qlist li");
   };
+  // Reloads the page. Chrome on the GitHub runners now and then loses the whole localStorage of the test's
+  // browser context across a reload (the stored IP is gone too, not only the last write). Then the values
+  // stored before the reload are written back and the page is loaded once more, so the test checks the app,
+  // not this browser quirk. Every restore is logged.
+  const reload = async () => {
+    const saved = await page.evaluate(() => ({ ...localStorage }));
+    await page.reload();
+    if (saved.ip && (await page.evaluate(() => localStorage.getItem("ip"))) === null) {
+      console.log("      note: localStorage lost on reload (browser), restored and reloaded");
+      await page.evaluate((s) => {
+        localStorage.clear();
+        Object.entries(s).forEach(([k, v]) => localStorage.setItem(k, v));
+      }, saved);
+      await page.reload();
+    }
+  };
   // API response popup of a failed player request: checks the title, returns request (without host),
   // status and answer, and closes the popup.
   const apiPopup = async (title) => {
@@ -531,6 +547,7 @@ async function start(browser, opts = {}) {
     connect,
     openPanel,
     openQueue,
+    reload,
     apiPopup,
     close: () => ctx.close(),
   };
@@ -823,7 +840,7 @@ test("SRC-04 switch state is stored per player", async (t) => {
     [USB + ":"],
     "stored for this player",
   );
-  await t.page.reload();
+  await t.reload();
   await t.page.click("#go");
   await t.page.waitForFunction(() => document.querySelectorAll("#az button").length > 5);
   const checked = () => t.page.$$eval("#srcl .sw", (x) => x.map((e) => e.getAttribute("aria-checked")));
@@ -1233,7 +1250,7 @@ test(
     await t.page.click("#dsw");
     eq(await t.page.$$eval("#az .dc", (x) => x.filter((e) => e.offsetParent).length), 0, "switched off: hidden");
     await t.page.click("#dsw");
-    await t.page.reload();
+    await t.reload();
     await t.settle(200);
     eq(await t.page.getAttribute("#dsw", "aria-checked"), "true", "remembered");
     await t.connect();
@@ -2767,7 +2784,7 @@ test(
   "QUE-02 pinned panel is restored after a reload",
   async (t) => {
     await t.openQueue();
-    await t.page.reload();
+    await t.reload();
     ok(await t.page.isVisible("#qside"), "panel open after reload");
     await t.page.click("#go");
     await t.page.waitForFunction((n) => document.querySelectorAll("#qlist li").length === n, TD.QUEUE.length);
@@ -3153,7 +3170,7 @@ test(
     await t.page.click("#qsw");
     await t.page.click("#psw");
     eq(await visible(), ["All", "Favourites", "New"], "only special chips left");
-    await t.page.reload();
+    await t.reload();
     await t.settle(200);
     for (const s of ["#gsw", "#qsw", "#psw"])
       eq(await t.page.getAttribute(s, "aria-checked"), "false", s + " remembered");
@@ -3745,7 +3762,10 @@ test(
   async (t) => {
     const r = await t.page.evaluate(async () => {
       const href = document.querySelector('link[rel="icon"]')?.getAttribute("href") || "";
-      const svg = new DOMParser().parseFromString(decodeURIComponent(href.replace(/^data:image\/svg\+xml,/, "")), "image/svg+xml");
+      const svg = new DOMParser().parseFromString(
+        decodeURIComponent(href.replace(/^data:image\/svg\+xml,/, "")),
+        "image/svg+xml",
+      );
       const loads = await new Promise((res) => {
         const i = new Image();
         i.onload = () => res(true);

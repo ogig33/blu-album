@@ -10,6 +10,7 @@ const APP_GLOBALS = [
   "shown", "openAlbum", "setState", "showArtist", "imgUrl", "render", "APP", "playerName", "favOf",
   "activeKey", "cache", "pos", "curPos",
   "LAN_MSG", "QUALITIES", "FORMATS", "LOSSY", "SEARCH_MIN", "SEARCH_DELAY", "TILE", "ONOFF", "RELEASES_LATEST",
+  "CONNECT_TIMEOUT", "NO_REPLY_MSG",
 ];
 
 export default [
