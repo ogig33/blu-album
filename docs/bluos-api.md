@@ -21,6 +21,7 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
 11. [Player grouping](#11-player-grouping)
 12. [System](#12-system)
 13. [BluOS Controller UI](#13-bluos-controller-ui)
+14. [MCP server](#14-mcp-server)
 
 ---
 
@@ -3226,3 +3227,65 @@ No known parameters.
 **Notes**
 
 - Verified. Inputs with their play requests, music sources with their browse screens.
+
+---
+
+## 14. MCP server
+
+The player runs a [Model Context Protocol](https://modelcontextprotocol.io) server: AI assistants (MCP clients) can read the player state and control playback, queue, presets and the search of streaming services through tools. Transport "Streamable HTTP" (MCP 2025-06-18): JSON-RPC 2.0 messages, JSON answers instead of XML.
+
+| Endpoint | Function | Official | Verified |
+|---|---|:---:|:---:|
+| `GET, POST /mcp` | MCP server (JSON-RPC 2.0, tools only) | | ✓ |
+
+### `GET, POST /mcp`
+
+```
+POST /mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+```
+
+The body is a JSON-RPC 2.0 message. `GET /mcp` opens an event stream (`Content-Type: text/event-stream`) for messages from the server.
+
+| Method | Function | Answer |
+|---|---|---|
+| `initialize` | start; client and server agree on protocol version and capabilities | server info (below) |
+| `notifications/initialized` | the client confirms the start | HTTP 202, no body |
+| `tools/list` | list of the tools with description, input schema and annotations | 12 tools (below) |
+| `tools/call` | run a tool (`params`: `name`, `arguments`) | result of the tool |
+| `resources/list`, `prompts/list` | not supported | error `-32601` "resources not supported" / "prompts not supported" |
+
+**Response format**
+
+`initialize`:
+
+```json
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"bluos","version":"v0.5.43"}}}
+```
+
+Tools of `tools/list` (descriptions shortened):
+
+| Tool | Arguments | Function |
+|---|---|---|
+| `get_status` | – | what is playing (`title1` … `title3`, as in the BluOS apps), playback state, volume |
+| `player_info` | – | name, brand, model, MAC address, grouping (master / slaves) |
+| `get_queue` | `offset`, `limit` (1–200, default 50) | page of the queue; `total`, 0-based `index` per song |
+| `transport` | `action`: `play` / `pause` / `skip` / `back` | playback control |
+| `set_volume` | `level` (0–100) | set the volume |
+| `get_music_services` | – | streaming services of the player (IDs for `search_music`) |
+| `search_music` | `query`, `service`, `type` (`albums` / `songs` / `artists` / `playlists`), `next_key` | one page of search results of one service, with `play_url` and `context_menu_key` |
+| `play_music` | `play_url`, `add_to_queue`, `context_menu_key` | play a result of `search_music` / `local_playlists` (replaces the queue) or append it (`add_to_queue=true`, needs `context_menu_key`) |
+| `queue_manage` | `action`: `remove` (`index`) / `reorder` (`from_index`, `to_index`) / `clear` / `save` (`name`) | change the queue or save it as a playlist |
+| `local_playlists` | `action`: `list` / `play` (`playlist_id`) / `save_as_preset` (`playlist_id`, `preset_id`, `name`) | playlists saved on the player |
+| `browse_presets` | `url`, `service` | browse sources that can be saved as presets (playlists, stations, radio, inputs) |
+| `presets` | `action`: `list` / `play` / `save` / `delete`, `id`, `name`, `url`, `image` | presets; `save` without `url` saves what is playing |
+
+**Notes**
+
+- Verified: `initialize`, `notifications/initialized`, `tools/list`, `resources/list`, `prompts/list` and the CORS preflight. No tool called (`tools/call` not verified).
+- No authentication and no session (no `Mcp-Session-Id` header). CORS: `Access-Control-Allow-Origin: *`, methods `GET, POST, OPTIONS`.
+- `serverInfo.version` is the API version of [`/Version`](#get-version).
+- Every tool is annotated `readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: true` – also the reading ones (`get_status`, `get_queue`, …); MCP clients may therefore ask for a confirmation on every call.
+- Focus on streaming services and presets: no tool for the local library (albums, artists, filters) or for covers. For BluAlbum the XML endpoints of the other sections stay the ones to use.
+- `GET /mcp/` (trailing slash), `/sse` and `/.well-known/mcp.json` answer 404. On port 80, `/mcp` is not the MCP server: the web app "BluOS" answers its HTML shell for every unknown path.
