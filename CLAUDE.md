@@ -49,7 +49,6 @@ Do not build these; when asked, point to the alternative.
 - **Avoid self-built API URLs.** Play / queue / favourite URLs come from `/Browse`; the only exception are the `/library/v1` lists (New, Favourites, quality, decades), built by the fixed pattern in `libAlbum()`.
 - **Store changes at the player.** Favourites, playlists and every other change the player supports are stored there, so they persist across sessions and are visible in other player clients. localStorage only for conveniences (see "Code conventions").
 - **Expose API errors.** Show failed player requests to the user (network error, HTTP status other than 200, `<e>` answer) with the endpoint URL and the error answer. Exceptions: expected failures – `/audioPreset` on players without listening modes, status polling (aborted or retried), missing covers, statistic lists that are not available.
-- **No default IP address** in the app.
 - **English is the main language.** UI and project documents (README, CHANGELOG, `docs/`, test READMEs, Bruno and code comments) are in English.
 - **No hard wraps in Markdown.** Each paragraph and list item is one line; line breaks only between blocks.
 - **Check layout changes in Safari** as well (see "Known pitfalls").
@@ -103,6 +102,7 @@ Do not build these; when asked, point to the alternative.
 - **The heart re-reads the album context menu** after toggling a favourite (1 request) – without it the next click would use a self-built URL.
 - **No player status text** (e.g. paused, streaming): niche, not essential. The play / pause button still reflects the state.
 - **Do not use /ui endpoints:** these endpoints are specific to BluOS Controller app and too risky for other clients
+- **No default IP address** in the app.
 
 ## Known pitfalls
 
