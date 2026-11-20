@@ -1031,6 +1031,20 @@ These endpoints appear as `actionURL` values in `/Browse` context menus (also in
 | `GET /DeleteFavourite` | remove a favourite | | ✓ |
 | `GET /RadioAddPreset` | add a URL favourite (radio) | | ✓ |
 
+Favourites by kind – where the add / remove URL comes from, and where the favourites are listed:
+
+| Kind | Add | Remove | URLs from | List | Verified |
+|---|---|---|---|---|:---:|
+| Album (library) | `/AddFavourite?album=…&artist=…` | `/DeleteFavourite?album=…&artist=…` | album context menu (`LocalMusic:CM/LocalMusic-Album?…`) | `/library/v1/Albums?category=FAVOURITES`, `isFavourite` | ✓ |
+| Artist (library) | `/AddFavourite?artist=…` | `/DeleteFavourite?artist=…` | artist context menu (`LocalMusic:CM/LocalMusic-Artist?artist=…[&isFavourite=1]`) | `/library/v1/Artists?category=FAVOURITES`, `isFavourite` | ✓ |
+| Song (library) | `/AddFavourite?fn=…` | `/DeleteFavourite?fn=…` | song context menu (`LocalMusic:CM/LocalMusic-Song?…`), `/ui/queueItemCM` | `/library/v1/Songs?category=FAVOURITES`, `isFavourite` | ✓ |
+| Album (streaming service) | `/AddFavourite?albumid=…` | `/DeleteFavourite?albumid=…` | context menu of the service | – | |
+| TuneIn station | `/AddFavourite?preset_id=…&service=TuneIn` | `/DeleteFavourite?id=…&service=TuneIn` | `/ui/ContextMenu` of the station | `/RadioBrowse?service=TuneIn&url=presets` (`is_preset="1"`) | |
+| Airable station | `/AddFavourite?url=…&service=Airable` | not known | `/ui/ContextMenu` of the station | – | |
+| URL (radio) | [`/RadioAddPreset`](#get-radioaddpreset) | not known | – | BluOS Controller: Favourites › URL | add ✓ |
+
+USB drives have no favourites (no favourite actions in their menus).
+
 ### `GET /AddFavourite`
 
 ```
@@ -1057,6 +1071,7 @@ GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn=<f
 
 - Verified for the library. The current state shows in the context menu (`favourite-add` or `favourite-delete`) and in `isFavourite` of `/library/v1` answers.
 - USB albums have no favourite actions (verified).
+- `artist` alone verified: the artist context menu of `/Browse` offers `/AddFavourite?artist=…&service=LocalMusic`; the answer is `<favourite service="LocalMusic">added</favourite>`, the artist then appears in the favourite artists with `isFavourite="true"` (`/Browse`) and its menu offers `/DeleteFavourite?artist=…` (answer `deleted`). `/Services` gives the artist entries "Favourite" and "Remove favourite" only up to `maximumSchemaVersion="1"`, but `/Browse` still offers them.
 - `fn` verified: the song context menu of `/Browse` (and `/ui/queueItemCM`, `/ui/ContextMenu`) offers `/AddFavourite?fn=…&service=LocalMusic`; the answer is `<favourite service="LocalMusic">added</favourite>`, the song then appears in `/library/v1/Songs?category=FAVOURITES` with `isFavourite="1"`.
 - `preset_id` and `url` are seen only in the player's own menus (`/ui/ContextMenu` of a radio station); not verified as requests.
 

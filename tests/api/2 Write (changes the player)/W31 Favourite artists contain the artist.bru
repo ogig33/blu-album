@@ -1,0 +1,44 @@
+meta {
+  name: W31 Favourite artists contain the artist
+  type: http
+  seq: 130
+}
+
+get {
+  url: http://{{host}}:11000/Browse
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  if (!bru.getVar("vfArtist") || !bru.getVar("vfFavArtistsKey")) { bru.runner.skipRequest(); return; }
+  req.setUrl("http://" + bru.getEnvVar("host") + ":11000/Browse?key=" + encodeURIComponent(bru.getVar("vfFavArtistsKey")));
+}
+
+script:post-response {
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 15000, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
+  const body = String(res.getBody() || "");
+  // The artist in the favourite list and the remove action of its context menu
+  const artist = tagsOf(body, "item").find((t) => attr(t, "type") === "artist" && attr(t, "text") === bru.getVar("vfArtist"));
+  const del = artist ? tagsOf(await browse(attr(artist, "contextMenuKey")), "item").find((t) => attr(t, "type") === "favourite-delete") : "";
+  bru.setVar("vfUnfavUrl", del ? attr(del, "actionURL") : "");
+  bru.setVar("vfMarked", artist && attr(artist, "isFavourite") === "true" ? "1" : "");
+  console.log("'" + bru.getVar("vfArtist") + "' in the favourite artists: " + !!artist + "\nremove action: " + bru.getVar("vfUnfavUrl"));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("the artist is a favourite now (isFavourite=true)", () => expect(bru.getVar("vfMarked")).to.equal("1"));
+  test("its menu removes it with /DeleteFavourite?artist=", () => expect(/^\/DeleteFavourite\?(.*&)?artist=/.test(bru.getVar("vfUnfavUrl"))).to.equal(true));
+}
