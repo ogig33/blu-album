@@ -104,6 +104,8 @@ Do not build these; when asked, point to the alternative.
 - **No player status text** (e.g. paused, streaming): niche, not essential. The play / pause button still reflects the state.
 - **Do not use /ui endpoints:** these endpoints are specific to BluOS Controller app and too risky for other clients
 - **No default IP address** in the app.
+- **No song favourites:** no heart per track in the album popup and no "Favourite songs" chip, although the API supports both (`/AddFavourite?fn=`, `autoplayURL` with `category=FAVOURITES`); BluAlbum keeps to album favourites.
+- **Playlist chips keep the player's order:** no "Date added" sort (`/Playlists?sort=recent`) and no warning when the queue is saved under an existing playlist name.
 
 ## Known pitfalls
 
