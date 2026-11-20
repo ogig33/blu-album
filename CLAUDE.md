@@ -39,11 +39,11 @@ Do not build these; when asked, point to the alternative.
 
 ## Development principles
 
-- **SPA approach.** use single-page application (SPA) approach, see https://en.wikipedia.org/wiki/Single-page_application
-- **Thin server architecture** the player is acting as a server, purely providing API services
-- **One file.** embed all required app components (HTML, CSS, Javascript, SVG icons) in one HTML file.
+- **Single-page application (SPA).** Views switch without a page reload; the state lives in the State module (see https://en.wikipedia.org/wiki/Single-page_application).
+- **Thin server architecture.** The player acts as the server and only provides the API; all app logic runs in the browser.
+- **One file.** All app components (HTML, CSS, JavaScript, SVG icons) are embedded in one HTML file.
 - **No dependencies.** Do not add libraries or packages to BluAlbum (supply chain and vulnerability risk).
-- **Modular code structure.** design code structure to reuse functions between features of the app as much as possible
+- **Modular code structure.** Structure the code so that features reuse shared functions as much as possible.
 - **One implementation per feature.** No second implementation as a fallback. Only the variant verified against the real player (Bruno) is implemented.
 - **Avoid hard-coding.** Derive as much of the app logic as possible from API answers, e.g. source names, play / action URLs, quality. Accepted exceptions are the configuration constants (see "Code conventions").
 - **Avoid self-built API URLs.** Play / queue / favourite URLs come from `/Browse`; the only exception are the `/library/v1` lists (New, Favourites, quality, decades), built by the fixed pattern in `libAlbum()`.
