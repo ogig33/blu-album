@@ -1,0 +1,62 @@
+meta {
+  name: V52 Playlists sorted and filtered
+  type: http
+  seq: 114
+}
+
+get {
+  url: http://{{host}}:11000/Playlists?service=BluOS&sort=recent
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:post-response {
+  const raw = res.getBody();
+  const body = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file, text) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), text === undefined ? body : text);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("verify-playlists-recent.xml");
+  const names = (xml) => (xml.match(/<name\b[^>]*>[^<]*<\/name>/g) || []).map((t) => t.replace(/<[^>]*>/g, ""));
+  // The same list A → Z, a single playlist by name and an unknown name
+  const axios = require("axios");
+  const get = async (p) => {
+    const r = await axios.get("http://" + bru.getEnvVar("host") + ":11000" + p, { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 10000 });
+    return String(r.data || "");
+  };
+  const recent = names(body);
+  const alpha = names(await get("/Playlists?service=BluOS&sort=alpha"));
+  const first = alpha[0] || "";
+  const one = first ? names(await get("/Playlists?service=BluOS&playlist=" + encodeURIComponent(first) + "&playlistid=")) : [];
+  const missing = await get("/Playlists?service=BluOS&playlist=__bluos_no_such_playlist__");
+  bru.setVar("vpRecent", JSON.stringify(recent));
+  bru.setVar("vpAlpha", JSON.stringify(alpha));
+  bru.setVar("vpOne", JSON.stringify(one));
+  bru.setVar("vpFirst", first);
+  bru.setVar("vpMissing", missing);
+  console.log("recent: " + recent.join(" | ") + "\nalpha:  " + alpha.join(" | ") + "\nplaylist=" + first + ": " + one.join(" | ") + "\nunknown name: " + missing.replace(/\s+/g, " ").slice(0, 200));
+}
+
+tests {
+  const recent = JSON.parse(bru.getVar("vpRecent") || "[]");
+  const alpha = JSON.parse(bru.getVar("vpAlpha") || "[]");
+  const one = JSON.parse(bru.getVar("vpOne") || "[]");
+  const first = bru.getVar("vpFirst") || "";
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("sort=recent and sort=alpha list the same playlists", () => expect([...recent].sort()).to.deep.equal([...alpha].sort()));
+  if (first) test("playlist=<name> gives only that playlist", () => expect(one).to.deep.equal([first]));
+  test("unknown playlist name answers 'not found'", () => expect(/<error[^>]*>\s*<message>not found<\/message>/.test(bru.getVar("vpMissing") || "")).to.equal(true));
+}

@@ -1,0 +1,77 @@
+meta {
+  name: V55 UI context menu of a radio favourite
+  type: http
+  seq: 117
+}
+
+get {
+  url: http://{{host}}:11000/ui/ContextMenu
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // First TuneIn favourite station; its attributes become the parameters, as in /ui/BrowseObjects
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const r = await axios.get(H + "/RadioBrowse?service=TuneIn&url=presets", { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 10000 });
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const item = (String(r.data || "").match(/<item\b[^>]*>/g) || []).find((t) => attr(t, "is_preset") === "1" && attr(t, "inputType") === "station" && attr(t, "URL"));
+  if (!item) {
+    // No TuneIn favourite station on this player
+    bru.runner.skipRequest();
+    return;
+  }
+  const e = encodeURIComponent;
+  const base = "context=Item&service=TuneIn&URL=" + e(decodeURIComponent(attr(item, "URL"))) + "&inputType=station&text=" + e(attr(item, "text")) + "&title=" + e(attr(item, "text")) + "&preset_id=" + e(attr(item, "preset_id"));
+  bru.setVar("vcRadioBase", base);
+  req.setUrl(H + "/ui/ContextMenu?" + base + "&is_preset=1");
+}
+
+script:post-response {
+  const raw = res.getBody();
+  const body = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file, text) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), text === undefined ? body : text);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("verify-ui-context-menu-radio.xml");
+  const texts = (xml) => (xml.match(/\stext="[^"]*"/g) || []).map((t) => t.slice(7, -1));
+  // The same station without is_preset (not a favourite) and without inputType
+  const axios = require("axios");
+  const get = async (q) => {
+    const r = await axios.get("http://" + bru.getEnvVar("host") + ":11000/ui/ContextMenu?" + q, { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 10000 });
+    return String(r.data || "");
+  };
+  const base = bru.getVar("vcRadioBase");
+  const notFav = await get(base);
+  const noType = await get(base.replace("&inputType=station", "") + "&is_preset=1");
+  bru.setVar("vcRadioNotFav", notFav);
+  bru.setVar("vcRadioNoType", JSON.stringify(texts(noType)));
+  console.log("is_preset=1:      " + texts(body).join(" | ") + "\nwithout is_preset: " + texts(notFav).join(" | ") + "\nwithout inputType: " + texts(noType).join(" | "));
+}
+
+tests {
+  const raw = res.getBody();
+  const body = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
+  const notFav = bru.getVar("vcRadioNotFav") || "";
+  const noType = JSON.parse(bru.getVar("vcRadioNoType") || "[]");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("is_preset=1: 'Remove favourite' with /DeleteFavourite?id=", () => expect(/text="Remove favourite"/.test(body) && /URI="\/DeleteFavourite\?id=/.test(body)).to.equal(true));
+  test("inputType=station: 'Related stations' and 'Add preset'", () => expect(/text="Related stations"/.test(body) && /text="Add preset"/.test(body)).to.equal(true));
+  test("without is_preset: 'Favourite' with /AddFavourite?preset_id=", () => expect(/text="Favourite"/.test(notFav) && /URI="\/AddFavourite\?preset_id=/.test(notFav)).to.equal(true));
+  test("without inputType: only 'Remove favourite'", () => expect(noType).to.deep.equal(["Remove favourite"]));
+}

@@ -79,7 +79,7 @@ function parse(raw) {
   return { local, port, path: u.pathname, params: [...u.searchParams], url: u.href };
 }
 
-// "port path" -> {port, path, params: Map(name -> example), seen, fetched, from: Set, examples: Set}
+// "port path" -> {port, path, params: Map(name -> {value, url, from}), seen, fetched, from: Set, examples: Set}
 const endpoints = new Map();
 const fields = new Map(); // element / attribute name -> Set of endpoints
 const external = new Map(); // host -> count
@@ -127,10 +127,12 @@ function record(raw, from) {
   e.from.add(from);
   if (e.examples.size < 5) e.examples.add(p.url.replace(`http://${host}`, "").replace(/^:11000/, ""));
   for (const [n, v] of p.params) {
-    if (!e.params.has(n)) e.params.set(n, v.slice(0, 120));
+    if (!e.params.has(n)) e.params.set(n, { value: v.slice(0, 120), url: p.url.replace(BASE, ""), from });
     // A parameter that holds a URL of the player (e.g. url= of /ui/browseGrouped); searchParams
-    // already decoded it once, a second decode would split URLs nested one level deeper
-    if (/^\/[A-Za-z]/.test(v)) record(v, `${from} (${n}=)`);
+    // already decoded it once, a second decode would split URLs nested one level deeper.
+    // /redirectToCp?href=… leads to the web interface on port 80.
+    const web = p.path === "/redirectToCp" && n === "href";
+    if (/^\/[A-Za-z]/.test(v)) record(web ? `http://${host}${v}` : v, `${from} (${n}=)`);
   }
   if (p.port !== "11000" || !READ_ONLY.has(p.path)) return;
   if (p.params.some(([n]) => DENY_PARAMS.has(n.toLowerCase()))) return;
@@ -238,11 +240,18 @@ function report() {
   console.log("\n== Parameters not mentioned in the section of a documented endpoint");
   for (const e of list.filter((x) => docs.has(x.path))) {
     const sec = docs.get(e.path);
-    const missing = [...e.params.keys()].filter((n) => !sec.includes(`${n}=`) && !sec.includes(`\`${n}\``));
-    if (missing.length) console.log(`  ${e.path}: ${missing.map((n) => `${n}=${e.params.get(n)}`).join("  ")}`);
+    const named = (n) => new RegExp(`(^|[^\\w])${n}=`).test(sec) || sec.includes(`\`${n}\``);
+    const missing = [...e.params.keys()].filter((n) => !named(n));
+    for (const n of missing) {
+      const x = e.params.get(n);
+      console.log(`  ${e.path}  ${n}=${x.value}\n      from: ${x.from}\n      e.g.  ${x.url.slice(0, 200)}`);
+    }
   }
 
-  const unknown = [...fields].filter(([n]) => !new RegExp(`\\b${n.replace(/[.]/g, "\\.")}\\b`).test(text));
+  // XML declaration and schema attributes say nothing about the API
+  const boilerplate = (n) => /^(xml|xmlns|xsi)\b|^(standalone|encoding)$/.test(n);
+  const inDoc = (n) => new RegExp(`\\b${n.replace(/[.]/g, "\\.")}\\b`).test(text);
+  const unknown = [...fields].filter(([n]) => !boilerplate(n) && !inDoc(n));
   console.log(`\n== Element / attribute names that appear nowhere in docs/bluos-api.md (${unknown.length})`);
   for (const [n, from] of unknown.sort()) console.log(`  ${n}  (${[...from].slice(0, 3).join(", ")})`);
 

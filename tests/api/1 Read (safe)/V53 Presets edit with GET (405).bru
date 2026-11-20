@@ -1,0 +1,33 @@
+meta {
+  name: V53 Presets edit with GET (405)
+  type: http
+  seq: 115
+}
+
+get {
+  url: http://{{host}}:11000/Presets/edit
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Same URL as the deep link of the BluOS Controller: /reorder-presets?url=/Presets/edit?prid=<prid>
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const r = await axios.get(H + "/Presets", { responseType: "text", transformResponse: (x) => x, timeout: 10000 });
+  const m = String(r.data || "").match(/<presets\b[^>]*\sprid="([^"]*)"/);
+  req.setUrl(H + "/Presets/edit?prid=" + (m ? m[1] : ""));
+}
+
+script:post-response {
+  console.log("HTTP " + res.getStatus() + ", allow: " + (res.getHeader("allow") || "–") + ", body: " + String(res.getBody() || "").length + " bytes");
+}
+
+tests {
+  // Only GET is tried: the endpoint presumably takes a POST with the new order of the presets
+  test("GET answers 405 (endpoint exists, other method)", () => expect(res.getStatus()).to.equal(405));
+}

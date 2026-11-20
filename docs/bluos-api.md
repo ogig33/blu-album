@@ -125,6 +125,7 @@ GET /Status?timeout=<seconds>&etag=<etag>
 | `groupName`, `groupVolume` | only on the primary player of a group |
 | `battery` (`level`, `charging`, `icon`) | players with a battery |
 | `alarmsecondsremaining`, `notifyurl`, `canMovePlayback`, `indexing`, `mid`, `mode`, `sid`, `cursor` | further elements |
+| `settingsGroupId` | purpose unknown; present but empty on the test player (verified) |
 
 **Notes**
 
@@ -281,6 +282,9 @@ GET /Add?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&genre=<genre>&
 | `clear` | `0` in all "play now" requests |
 | `shuffle` | `1` = add shuffled, `0` = in order |
 | `listindex`, `nextlist`, `cursor` | used by `autoplayURL` (start at a track, fill the queue with the rest of the album) |
+| `composer` | all songs of a composer (seen in `autoplayURL` of a composer's song list) |
+| `category` | `FAVOURITES`: the favourite songs of the library (seen in `autoplayURL` of the favourite song list) |
+| `offset` | position of the list page the track is on, with `listindex` counting within that page (seen as `offset=10` in `autoplayURL` of a playlist's second page; meaning presumed) |
 
 **Response format**
 
@@ -294,6 +298,7 @@ GET /Add?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&genre=<genre>&
 
 - Which parameters appear depends on the service and the action; [`/Services`](#get-services) lists them per menu entry (play now, shuffle, add next, add last).
 - Verified examples: album play `/Add?playnow=1&service=LocalMusic&album=…&artist=…`; album to the end `/Add?album=…&artist=…&playnow=-1&service=LocalMusic&where=last`; track `/Add?playnow=1&file=…`.
+- `composer`, `category` and `offset` are seen only in `autoplayURL` values of `/Browse` song lists, e.g. `/Add?service=LocalMusic&listindex=0&nextlist=1&where=last&cursor=last&playnow=1&category=FAVOURITES`; not verified as requests. `/Services` uses the same values for the lists (`category=FAVOURITES` in the menu group `LocalMusic-Favourites`, the item parameter `composer` in `LocalMusic-Composer`).
 - Changes the queue id.
 - Not documented as a request; appears as `playURL`, `autoplayURL` and `actionURL` in `/Browse` answers (also in the official examples). Take the URLs from the player instead of building them.
 
@@ -694,12 +699,16 @@ GET /Playlist?start=<first>&end=<last>&length=1
 ### `GET /Playlists`
 
 ```
-GET /Playlists?service=BluOS
+GET /Playlists?service=BluOS&sort=<alpha|recent>&playlist=<name>&myPlaylists=1
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `service` | `BluOS`; has no effect (verified) |
+| `sort` | `alpha` (default, A → Z, upper case before lower case) or `recent` ("Date added" in `/Services`); every other non-empty value gives the `recent` order too (verified) |
+| `playlist` | only this playlist (exact name, case-sensitive); an unknown name answers `<error service="BluOS"><message>not found</message></error>` (verified) |
+| `myPlaylists` | `1` = only the user's own playlists (the `myPlaylistsFilter` of `/Services`); no effect seen on a player with only own playlists |
+| `playlistid` | sent empty by the BluOS Controller together with `playlist`; no effect seen |
 
 **Response format**
 
@@ -714,6 +723,7 @@ GET /Playlists?service=BluOS
 
 - One request, no paging; `start` / `end` have no effect (verified).
 - No play URL – that comes from `/Browse`.
+- The BluOS Controller opens a single playlist with `/Playlists?service=BluOS&playlist=<name>&playlistid=` (action `context-browse` in `/ui/Home`) and the playlist list with `/Playlists?myPlaylists=1&service=BluOS&sort=recent`.
 
 ### `GET /Save`
 
@@ -750,6 +760,7 @@ Presets are created and deleted only in the BluOS Controller; they can hold radi
 |---|---|:---:|:---:|
 | `GET /Preset` | load a preset, the next or the previous one | ✓ | ✓ |
 | `GET /Presets` | list the presets | ✓ | ✓ |
+| `POST /Presets/edit` | presumably reorder the presets (GET answers 405) | | |
 | `GET /SetPreset` | store an item as a preset; without parameters the preset list | | ✓ |
 
 ### `GET /Preset`
@@ -801,6 +812,25 @@ No parameters.
 - `volume`: volume set when the preset is loaded.
 - Ids need not be consecutive (here 1–4 and 6).
 
+### `POST /Presets/edit`
+
+```
+POST /Presets/edit?prid=<prid>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `prid` | `prid` of `/Presets` (the current preset list) |
+
+**Response format**
+
+Not known.
+
+**Notes**
+
+- Seen only inside the deep link of the BluOS Controller's preset screen: `/ui/presets` has a `<footer text="Reorder Presets" type="reorder">` with the action `deep-link` `/reorder-presets?url=%2FPresets%2Fedit%3Fprid%3D7`.
+- `GET`, `HEAD` and `OPTIONS` answer **HTTP 405** with an empty body and no `Allow` header, with and without `prid` (verified) – the endpoint exists and presumably takes a `POST` with the new order. Body and answer are not known; not tried, because it changes the presets.
+
 ### `GET /SetPreset`
 
 ```
@@ -816,6 +846,7 @@ GET /SetPreset?id=<slot>&name=<name>&url=<url>&encoded_url=<url>&image=<image ur
 | `image` | image of the preset |
 | `volume` | volume set when the preset is loaded |
 | `delete` | `1` together with `id`: deletes the preset |
+| `service` | source of the item, e.g. `RadioParadise` (seen in the `actionURL` "Add preset" of `/Browse`; not verified) |
 
 **Response format**
 
@@ -985,6 +1016,7 @@ GET /RadioBrowse?service=<service>&url=<url>&key=<key>&c=<category>&id=<station 
 - Verified with `service=Capture`: lists the active inputs (here Bluetooth, HDMI ARC, optical input 1), cloud sources (e.g. Spotify) and HUB inputs. `typeIndex` (e.g. `spdif-1`, `arc-1`) is the value for [`/Play?inputTypeIndex=`](#get-play); play an entry with `/Play?url=` and its `URL`.
 - The radio variants (`url`, `c`) come from the player's description in [`/Services`](#get-services); not tried yet.
 - `service=Presets`, `service=Alarms` (also `&url=playlists`) and `service=RadioParadise` are used by the BluOS Controller.
+- Radio items carry more attributes (verified with TuneIn favourites): `preset_id` (station id), `is_preset="1"` (the station is a favourite), `subtext` (what is playing now, e.g. `Bryan Adams - Heaven`), `inputType="station"`; Airable items also `hasInfo` and `preset_url`. [`/ui/ContextMenu`](#get-uicontextmenu) takes them as parameters.
 - Browsing radio: `url` takes the full directory URL of the service (TuneIn `https://api.radiotime.com/categories/…`, Airable `https://7818664144.airable.io/radio/…`, also podcasts); `service=Airable&url=alarms` lists alarm sources; `c=selectStream&id=s16252&service=TuneIn` lists the streams of a station.
 
 ---
@@ -1002,7 +1034,7 @@ These endpoints appear as `actionURL` values in `/Browse` context menus (also in
 ### `GET /AddFavourite`
 
 ```
-GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>
+GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn=<file>&preset_id=<station id>&url=<action url>
 ```
 
 | Parameter | Meaning |
@@ -1010,6 +1042,10 @@ GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>
 | `service` | source |
 | `album` + `artist` | album of the local library |
 | `albumid` | album of a streaming service |
+| `artist` alone | an artist of the local library |
+| `fn` | a song of the local library (its file name, as in `fn` of `/Status`) |
+| `preset_id` | TuneIn station, e.g. `t548782914` (with `service=TuneIn`) |
+| `url` | Airable station: its favourite action URL `https://….airable.io/radio/action/…` (with `service=Airable`) |
 
 **Response format**
 
@@ -1021,11 +1057,12 @@ GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>
 
 - Verified for the library. The current state shows in the context menu (`favourite-add` or `favourite-delete`) and in `isFavourite` of `/library/v1` answers.
 - USB albums have no favourite actions (verified).
+- `fn`, `preset_id` and `url` are seen only in the player's own menus (song: `/ui/queueItemCM`, `/ui/ContextMenu` of a song; radio: `/ui/ContextMenu` of a station); not verified as requests.
 
 ### `GET /DeleteFavourite`
 
 ```
-GET /DeleteFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>
+GET /DeleteFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn=<file>&id=<station id>
 ```
 
 | Parameter | Meaning |
@@ -1033,6 +1070,9 @@ GET /DeleteFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>
 | `service` | source |
 | `album` + `artist` | album of the local library |
 | `albumid` | album of a streaming service |
+| `artist` alone | an artist of the local library |
+| `fn` | a song of the local library (its file name) |
+| `id` | TuneIn favourite, e.g. `s115194` or `p2378061` (with `service=TuneIn`) |
 
 **Response format**
 
@@ -1043,6 +1083,7 @@ GET /DeleteFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>
 **Notes**
 
 - Verified for the library. Counterpart of [`/AddFavourite`](#get-addfavourite).
+- `fn` and `id` are seen only in the player's own menus (`/ui/ContextMenu` of a song or of a TuneIn favourite); not verified as requests. Note the different name: `preset_id` to add a TuneIn station, `id` to remove it.
 
 ### `GET /RadioAddPreset`
 
@@ -1682,6 +1723,7 @@ The text is the new trim in dB.
 | `GET /redirectToCp` | redirect to a page of the web interface | | ✓ |
 | `GET /Reindex` | rescan the music library | | ✓ |
 | `GET /Services` | self-description of the sources | | ✓ |
+| `GET /services` | web page "Configure Music Services" (port 80) | | ✓ |
 | `GET, POST /setting` | change a simple setting | | ✓ |
 | `GET /Settings` | settings tree of the player | ✓ | ✓ |
 | `GET /settings/sendSupportRequest` | web page "Send support request" | | ✓ |
@@ -2170,6 +2212,45 @@ GET /Services?schemaVersion=<n>
 
 - Verified (62 KB). The player's self-description of every source (`BluOS` playlists, `Capture` inputs, `Alarms`, `LocalMusic` library, USB, `TuneIn`, `RadioParadise`, `Airable` radio): which menus exist and which request (endpoint + fixed and item parameters) each menu entry and context menu action sends.
 - Best source for the parameters of requests that `/Browse` hands out as ready URLs, e.g. [`/Add`](#get-add), [`/SetPreset`](#get-setpreset), [`/AddToPlaylistOptions`](#get-addtoplaylistoptions), [`/library/v1/Playlists`](#get-libraryv1playlists).
+- More elements and attributes of the answer (verified as present; meaning read from the structure):
+
+| Element / attribute | Meaning |
+|---|---|
+| `service` `label` | volume label of the library or the USB drive (`No Label`, `USB_OLD`) |
+| `service` `removable`, `subtype` | `1` / `usb`: a removable drive |
+| `service` `backgroundImage` | background image of the source (e.g. Radio Paradise) |
+| `menuGroup` `mainMenu="true"` | the top menu of the source |
+| `menuEntry` `defaultView="true"` | the entry opened first (e.g. Albums) |
+| `inlineEntry` | a list shown inline on the source's start page, e.g. "New" with `/library/v1/Albums?recent=1` |
+| `genreGroup` + `genreItemParameter` | the genre menu: the genre list (`browseRequest`) and the parameter (`genre`) that each genre passes on to its entries |
+| `contextRequest` | a menu entry that opens another object, e.g. "Go to artist" (`type="gotoartist"`, `/library/v1/Artists`) |
+| `artworkRequest` | how to load the cover of an item, e.g. `/library/v1/Artwork` with `album` and `artist` (optional) |
+| `enableOnAttribute`, `disableOnAttribute` | show the entry only if the item has (or has not) this attribute, e.g. "Remove favourite" only with `isFavourite`, playlist actions not for `playlistid` (service playlists) |
+| `confirmAction` + `textItemSubstitution` | ask before the request; `%s` in `text` is replaced by an item attribute, e.g. "Delete playlist: %s?" with `playlist` |
+| `nofilter` | presumably: the list offers no filter field |
+| `minimumSchemaVersion`, `maximumSchemaVersion` | the element applies only to clients within this schema range (`schemaVersion` of the request) |
+| `request` `preset_name`, `preset_url`, `preset_image` | for `/SetPreset`: which item attributes give the preset's name, URL and image (e.g. `title1`, `preset_url`, `image`) |
+
+### `GET /services`
+
+```
+GET http://<player>:80/services?noheader=1&schemaVersion=<n>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `noheader` | `1` = page without its header |
+| `schemaVersion` | schema of the client (`36` from `/ui/Home`, `0` from `/Services`) |
+
+**Response format**
+
+An HTML page "Configure Music Services" with one link per streaming and radio service.
+
+**Notes**
+
+- Verified (port 80; on port 11000 the path answers 404). Lower case – not the same as [`/Services`](#get-services) on port 11000.
+- Linked as `/redirectToCp?href=%2Fservices%3Fnoheader%3D1%26schemaVersion%3D36` (action `webpage`) in `/ui/Home` and `/ui/Sources`, and in the `url` of the `/Services` root.
+- The links lead to further web pages on port 80, not tried: `/credentials?service=<service>&noheader=1&schemaVersion=<n>&playnum=1` (sign-in of a service, e.g. `Tidal`, `Qobuz`, `TuneIn`) and `/spotifyinfo?service=Spotify&…` for Spotify.
 
 ### `GET, POST /setting`
 
@@ -2549,6 +2630,17 @@ Common answer structure (verified):
 
 Action types: `player-link` (send the player request in `URI`), `browse` (load another `/ui` screen or a context menu), `context-browse`, `webpage` (open a web page, e.g. `/redirectToCp?…`), `setting` (open `/Settings?id=…`), `confirmation` (ask first, then send `URI`), `deep-link` (navigation inside the BluOS Controller, e.g. `/settings`, `/add-preset`, `/edit-queue`, `/reorder-presets`, `/customise-screen`, `/music-service/LocalMusic` – not player endpoints), `reorder`, `add`.
 
+More elements and attributes of the screens (verified as present):
+
+| Element / attribute | Meaning |
+|---|---|
+| `row` `noReorder="true"` | the row cannot be moved in "Customise Home" |
+| `teaser` `closable="true"` | the teaser card (e.g. "Add your Music Service") can be closed |
+| `customiseScreen` `text` | entry "Customise Home" (`/ui/Home`, `/ui/Favourites`), action deep link `/customise-screen` |
+| `largeThumbnail`, `smallThumbnail` (`image`, `title`, `icon`) | the item's large and small tiles in the rows of `/ui/Home` and `/ui/Favourites` |
+| `footer` `text`, `type="reorder"` | button below the list, e.g. "Reorder Presets" in `/ui/presets` (see [`/Presets/edit`](#post-presetsedit)) |
+| `service` `isLink="true"` | entry of `/ui/Sources` that opens the source |
+
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
 | `GET /ui/action` | change a display option of a screen | | |
@@ -2846,6 +2938,12 @@ GET /ui/ContextMenu?context=<context>&sourceContext=<context>&service=<svc>&type
 | `service` | source of the object |
 | `id`, `name`, `title`, `playlist`, `album`, `artist`, `isFavourite`, `url`, `image`, `volume` | the object's own attributes, e.g. of a preset, a playlist or an album |
 | `noFavCMItems` | `1` = without favourite entries |
+| `URL` | radio station or stream of the item, e.g. `TuneIn:s115194`, `RadioParadise:/0:20`, `Airable:radio:https://…/radio/station/…` (with `context=Item`) |
+| `text` | name of a radio item |
+| `preset_id`, `is_preset` | radio favourite: with `preset_id` alone the menu offers "Favourite" (`/AddFavourite?preset_id=…`), with `is_preset=1` "Remove favourite" (`/DeleteFavourite?id=…`) |
+| `preset_url` | play URL of a radio item for presets, e.g. `Airable:radio:https://…` |
+| `inputType` | `station`: with `preset_id` adds "Related stations" (`/ui/BrowseObjects` with `/RadioBrowse?c=related&id=…`), with `URL` and `text` "Add preset" |
+| `hasInfo` | `1`: adds "Info" (`/Info?service=…&url=…`) |
 
 **Response format**
 
@@ -2870,6 +2968,7 @@ GET /ui/ContextMenu?context=<context>&sourceContext=<context>&service=<svc>&type
 
 - Verified with a playlist: entries Play now, Shuffle, Add next, Add last, Delete with their requests (`/Add?…`, `/Delete?name=…&service=BluOS`). The menu is built from the parameters alone – the playlist is not checked.
 - More variants seen in `/ui/Home`: albums (`context=Album&album=…&artist=…[&isFavourite=1]`), `noFavCMItems=1` (no favourite entries).
+- Radio items (`context=Item`, from `/ui/BrowseObjects` and `/ui/presets`) carry the attributes of the `/RadioBrowse` item as parameters. Verified with a TuneIn station by leaving out one parameter at a time: `preset_id` + `is_preset=1` → "Remove favourite", `preset_id` alone → "Favourite"; `inputType=station` + `preset_id` → "Related stations"; `inputType` + `URL` + `text` → "Add preset" (deep link `/add-preset?image=…&name=…&url=…`); without `context` or `service` the menu is empty. An Airable station offers "Info" only with `hasInfo=1`.
 
 ### `GET /ui/Favourites`
 
