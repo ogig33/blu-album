@@ -1,0 +1,44 @@
+meta {
+  name: M29 Remove the TuneIn favourite (DeleteFavourite id=)
+  type: http
+  seq: 29
+}
+
+get {
+  url: http://{{host}}:11000/DeleteFavourite
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Manual requests run only with the environment variable runManual = true
+  if (bru.getEnvVar("runManual") !== "true") { bru.runner.skipRequest(); return; }
+  if (!bru.getVar("vrTuneInDel")) { bru.runner.skipRequest(); return; }
+  req.setUrl("http://" + bru.getEnvVar("host") + ":11000" + bru.getVar("vrTuneInDel"));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  if (bru.getEnvVar("saveFixtures") === "true") {
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "verify-delete-favourite-tunein.xml"), "<!-- " + req.getUrl().replace(/^https?:\/\/[^/]+/, "") + " -->\n" + body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  }
+  console.log(req.getUrl() + "\n" + body);
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("answer <favourite service=\"TuneIn\">deleted</favourite>", () => expect(/<favourite service="TuneIn">deleted<\/favourite>/.test(body)).to.equal(true));
+}

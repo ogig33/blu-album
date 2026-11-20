@@ -1039,11 +1039,11 @@ Favourites by kind – where the add / remove URL comes from, and where the favo
 | Artist (library) | `/AddFavourite?artist=…` | `/DeleteFavourite?artist=…` | artist context menu (`LocalMusic:CM/LocalMusic-Artist?artist=…[&isFavourite=1]`) | `/library/v1/Artists?category=FAVOURITES`, `isFavourite` | ✓ |
 | Song (library) | `/AddFavourite?fn=…` | `/DeleteFavourite?fn=…` | song context menu (`LocalMusic:CM/LocalMusic-Song?…`), `/ui/queueItemCM` | `/library/v1/Songs?category=FAVOURITES`, `isFavourite` | ✓ |
 | Album (streaming service) | `/AddFavourite?albumid=…` | `/DeleteFavourite?albumid=…` | context menu of the service | – | |
-| TuneIn station | `/AddFavourite?preset_id=…&service=TuneIn` | `/DeleteFavourite?id=…&service=TuneIn` | `/ui/ContextMenu` of the station | `/RadioBrowse?service=TuneIn&url=presets` (`is_preset="1"`) | |
-| Airable station | `/AddFavourite?url=…&service=Airable` | not known | `/ui/ContextMenu` of the station | – | |
-| URL (radio) | [`/RadioAddPreset`](#get-radioaddpreset) | not known | – | BluOS Controller: Favourites › URL | add ✓ |
+| TuneIn station | `/AddFavourite?preset_id=…&service=TuneIn` | `/DeleteFavourite?id=…&service=TuneIn` | station context menu (`TuneIn:CM/TuneIn-Item?…`) | TuneIn › Favorites (`/RadioBrowse?service=TuneIn&url=presets`, `is_preset="1"`) | ✓ |
+| Airable station | `/AddFavourite?url=…&service=Airable` | `/DeleteFavourite?url=…&service=Airable` (same `url`, from `/Services`) | station context menu (`Airable:CM/Airable-Item?…`) | no list; `is_preset=1` on the station | needs a login |
+| URL (radio) | [`/RadioAddPreset`](#get-radioaddpreset) | `/DeleteFavourite?id=u…&service=TuneIn` | context menu in TuneIn › Favorites | TuneIn › Favorites, category "Url" | ✓ |
 
-USB drives have no favourites (no favourite actions in their menus).
+USB drives have no favourites (no favourite actions in their menus). Radio favourites are TuneIn favourites (stations `s…`, programs `p…`, URL favourites `u…`), stored in the player's TuneIn account. All answers: `<favourite service="…">added</favourite>` / `deleted`.
 
 ### `GET /AddFavourite`
 
@@ -1073,7 +1073,8 @@ GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn=<f
 - USB albums have no favourite actions (verified).
 - `artist` alone verified: the artist context menu of `/Browse` offers `/AddFavourite?artist=…&service=LocalMusic`; the answer is `<favourite service="LocalMusic">added</favourite>`, the artist then appears in the favourite artists with `isFavourite="true"` (`/Browse`) and its menu offers `/DeleteFavourite?artist=…` (answer `deleted`). `/Services` gives the artist entries "Favourite" and "Remove favourite" only up to `maximumSchemaVersion="1"`, but `/Browse` still offers them.
 - `fn` verified: the song context menu of `/Browse` (and `/ui/queueItemCM`, `/ui/ContextMenu`) offers `/AddFavourite?fn=…&service=LocalMusic`; the answer is `<favourite service="LocalMusic">added</favourite>`, the song then appears in `/library/v1/Songs?category=FAVOURITES` with `isFavourite="1"`.
-- `preset_id` and `url` are seen only in the player's own menus (`/ui/ContextMenu` of a radio station); not verified as requests.
+- `preset_id` verified: the context menu of a TuneIn station (`TuneIn:CM/TuneIn-Item?…`, e.g. in TuneIn › Local radio) offers `/AddFavourite?preset_id=s2730&service=TuneIn`; the answer is `<favourite service="TuneIn">added</favourite>`, the station then is in TuneIn › Favorites with `is_preset=1`.
+- `url` (Airable): the station context menu offers `/AddFavourite?service=Airable&url=https://….airable.io/radio/action/…` (the item's `preset_id`). Without a login to the radio service the player answers `<error service="Airable"><message>Login to use favourites</message></error>` (verified); with a login not tried.
 
 ### `GET /DeleteFavourite`
 
@@ -1088,7 +1089,8 @@ GET /DeleteFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn
 | `albumid` | album of a streaming service |
 | `artist` alone | an artist of the local library |
 | `fn` | a song of the local library (its file name) |
-| `id` | TuneIn favourite, e.g. `s115194` or `p2378061` (with `service=TuneIn`) |
+| `id` | TuneIn favourite, e.g. `s115194` (station), `p2378061` (program), `u31` (URL favourite) (with `service=TuneIn`) |
+| `url` | Airable station: the same action URL as for `/AddFavourite` (with `service=Airable`; from `/Services`, not verified) |
 
 **Response format**
 
@@ -1099,8 +1101,9 @@ GET /DeleteFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn
 **Notes**
 
 - Verified for the library. Counterpart of [`/AddFavourite`](#get-addfavourite).
+- Without parameters the player also answers `<favourite service="">deleted</favourite>`, but nothing changes (verified) – the answer does not prove that a favourite was removed.
 - `fn` verified: the context menu of a favourite song offers `/DeleteFavourite?fn=…&service=LocalMusic`; the answer is `<favourite service="LocalMusic">deleted</favourite>` and the song leaves the favourite list.
-- `id` is seen only in the player's own menus (`/ui/ContextMenu` of a TuneIn favourite); not verified as a request. Note the different name: `preset_id` to add a TuneIn station, `id` to remove it.
+- `id` verified: the context menu of a TuneIn favourite offers `/DeleteFavourite?id=…&service=TuneIn`; the answer is `<favourite service="TuneIn">deleted</favourite>` and the favourite leaves TuneIn › Favorites. The same removes URL favourites of [`/RadioAddPreset`](#get-radioaddpreset) (`id=u…`). Note the different name: `preset_id` to add a TuneIn station, `id` to remove it.
 
 ### `GET /RadioAddPreset`
 
@@ -1121,7 +1124,8 @@ Empty answer.
 **Notes**
 
 - Verified: adds a favourite of the kind "URL" (BluOS Controller: Favourites › URL) with the given name – not a station favourite like `/Action?…&action=addFavourite&preset_id=…`.
-- No request to delete it is known (`/RadioDeletePreset` answers 404); remove it in the BluOS Controller.
+- The favourite is a TuneIn favourite in the category "Url" of TuneIn › Favorites (`/RadioBrowse?service=TuneIn&url=presets`) with a `preset_id` `u…` (verified); remove it with the `/DeleteFavourite?id=u…&service=TuneIn` of its context menu (verified). `/RadioDeletePreset` answers 404.
+- The player puts `TuneIn:` in front of `url`: `url=TuneIn:s16252` is stored as `TuneIn:TuneIn%3As16252` (verified); so `url` takes a plain stream URL – a URL favourite with a stream is stored as `TuneIn:http%3A%2F%2F…` (seen).
 
 ---
 

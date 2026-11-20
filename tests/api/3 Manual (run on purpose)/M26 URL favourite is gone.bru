@@ -1,0 +1,41 @@
+meta {
+  name: M26 URL favourite is gone
+  type: http
+  seq: 26
+}
+
+get {
+  url: http://{{host}}:11000/RadioBrowse?service=TuneIn&url=presets
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Manual requests run only with the environment variable runManual = true
+  if (bru.getEnvVar("runManual") !== "true") { bru.runner.skipRequest(); return; }
+  if (!JSON.parse(bru.getVar("vrUrlFavDel") || "[]").length) { bru.runner.skipRequest(); return; }
+}
+
+script:post-response {
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 15000, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
+  const stationOf = (t) => ((attr(t, "playURL").match(/[?&]url=([^&]*)/) || [])[1] || "");
+  const menuAction = async (item, type) => { const t = item ? tagsOf(await browse(attr(item, "contextMenuKey")), "item").find((x) => attr(x, "type") === type) : ""; return t ? attr(t, "actionURL") : ""; };
+  const tuneInFavs = async () => { const k = tagsOf(await browse("TuneIn:"), "item").map((t) => attr(t, "browseKey")).find((k) => /url=presets$/.test(k)); return k ? browse(k) : ""; };
+  bru.setVar("vrUrlFavLeft", String(tagsOf(await tuneInFavs(), "item").filter((t) => attr(t, "text") === "__bluos_verify__").length));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("no favourite __bluos_verify__ left", () => expect(bru.getVar("vrUrlFavLeft")).to.equal("0"));
+}

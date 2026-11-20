@@ -1,0 +1,51 @@
+meta {
+  name: M24 URL favourite is a TuneIn favourite
+  type: http
+  seq: 24
+}
+
+get {
+  url: http://{{host}}:11000/RadioBrowse?service=TuneIn&url=presets
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Manual requests run only with the environment variable runManual = true
+  if (bru.getEnvVar("runManual") !== "true") { bru.runner.skipRequest(); return; }
+}
+
+script:post-response {
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 15000, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
+  const stationOf = (t) => ((attr(t, "playURL").match(/[?&]url=([^&]*)/) || [])[1] || "");
+  const menuAction = async (item, type) => { const t = item ? tagsOf(await browse(attr(item, "contextMenuKey")), "item").find((x) => attr(x, "type") === type) : ""; return t ? attr(t, "actionURL") : ""; };
+  const tuneInFavs = async () => { const k = tagsOf(await browse("TuneIn:"), "item").map((t) => attr(t, "browseKey")).find((k) => /url=presets$/.test(k)); return k ? browse(k) : ""; };
+  // Every favourite named __bluos_verify__ (M22, also left over from earlier runs) and its remove action
+  const items = tagsOf(await tuneInFavs(), "item").filter((t) => attr(t, "text") === "__bluos_verify__");
+  const urls = [];
+  for (const it of items) urls.push(await menuAction(it, "favourite-delete"));
+  // The id is in the context menu key (preset_id=u…), /Browse items have no preset_id attribute
+  const idOf = (t) => (attr(t, "contextMenuKey").match(/[?&]preset_id=([^&]*)/) || [])[1] || "";
+  bru.setVar("vrUrlFavIds", JSON.stringify(items.map(idOf)));
+  bru.setVar("vrUrlFavDel", JSON.stringify(urls.filter(Boolean)));
+  console.log(items.length + " URL favourite(s) __bluos_verify__: " + items.map((t) => idOf(t) + " plays " + attr(t, "playURL")).join(", ") + "\nremove: " + urls.join(", "));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  const ids = JSON.parse(bru.getVar("vrUrlFavIds") || "[]"), del = JSON.parse(bru.getVar("vrUrlFavDel") || "[]");
+  test("__bluos_verify__ is in the TuneIn favourites (run M22 first)", () => expect(ids.length).to.be.above(0));
+  test("its preset_id starts with u (URL favourite)", () => expect(ids.every((i) => /^u\d+$/.test(i))).to.equal(true));
+  test("its menu removes it with /DeleteFavourite?id=u…&service=TuneIn", () => expect(del.length === ids.length && del.every((u) => /^\/DeleteFavourite\?id=u\d+&service=TuneIn$/.test(u))).to.equal(true));
+}

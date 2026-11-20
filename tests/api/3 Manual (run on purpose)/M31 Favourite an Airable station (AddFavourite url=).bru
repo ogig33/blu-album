@@ -1,0 +1,66 @@
+meta {
+  name: M31 Favourite an Airable station (AddFavourite url=)
+  type: http
+  seq: 31
+}
+
+get {
+  url: http://{{host}}:11000/AddFavourite
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Manual requests run only with the environment variable runManual = true
+  if (bru.getEnvVar("runManual") !== "true") { bru.runner.skipRequest(); return; }
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 15000, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
+  const stationOf = (t) => ((attr(t, "playURL").match(/[?&]url=([^&]*)/) || [])[1] || "");
+  const menuAction = async (item, type) => { const t = item ? tagsOf(await browse(attr(item, "contextMenuKey")), "item").find((x) => attr(x, "type") === type) : ""; return t ? attr(t, "actionURL") : ""; };
+  // First station of "Most popular stations" (Radio) that is no favourite; its menu gives /AddFavourite?service=Airable&url=…
+  bru.setVar("vrAirableUrl", "");
+  const listKey = tagsOf(await browse("Airable:"), "item").map((t) => attr(t, "browseKey")).find((k) => /stations%252Fcharts/.test(k));
+  const station = listKey ? tagsOf(await browse(listKey), "item").find((t) => /^Airable%3Aradio%3A/.test(stationOf(t)) && attr(t, "contextMenuKey") && !/is_preset=1/.test(attr(t, "contextMenuKey"))) : "";
+  const url = await menuAction(station, "favourite-add");
+  if (!/^\/AddFavourite\?(.*&)?url=/.test(url)) { console.log("No Airable station without favourite, or no /AddFavourite?url= – skipped"); bru.runner.skipRequest(); return; }
+  bru.setVar("vrAirableList", listKey);
+  bru.setVar("vrAirableUrl", stationOf(station));
+  bru.setVar("vrAirableName", attr(station, "text"));
+  req.setUrl(H + url);
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  if (bru.getEnvVar("saveFixtures") === "true") {
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "verify-add-favourite-airable.xml"), "<!-- " + req.getUrl().replace(/^https?:\/\/[^/]+/, "") + " -->\n" + body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  }
+  console.log(req.getUrl() + "\n" + body);
+  if (/<message>Login to use favourites<\/message>/.test(body)) {
+    console.log("Airable favourites need a login to the radio service – M32–M34 skipped");
+    bru.setVar("vrAirableUrl", "");
+  }
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  // Without a login to the radio service the player refuses: M32–M34 are skipped then
+  test("added, or 'Login to use favourites' without a login", () => expect(/<favourite\b[^>]*>added<\/favourite>|<message>Login to use favourites<\/message>/.test(body)).to.equal(true));
+}
