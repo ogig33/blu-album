@@ -191,9 +191,15 @@ async function buildTD(get) {
       )) || "";
     D.DEC.push(...[...ix.matchAll(/<item key="(\d{4})" offset=/g)].map((m) => m[1]));
     for (const sec of D.SECS[svc].filter((x) => x.text2 !== "0")) {
-      const x = (await get(`/library/v1/Albums?service=${encodeURIComponent(svc)}&limit=500&section=${encodeURIComponent(sec.text)}`)) || "";
+      const x =
+        (await get(
+          `/library/v1/Albums?service=${encodeURIComponent(svc)}&limit=500&section=${encodeURIComponent(sec.text)}`,
+        )) || "";
       D.YEARS.push(
-        ...[...x.matchAll(/<album [^>]*?date="(\d{4})"[^>]*>\s*<title>([^<]*)<\/title>/g)].map((m) => ({ y: m[1], t: ent(m[2]) })),
+        ...[...x.matchAll(/<album [^>]*?date="(\d{4})"[^>]*>\s*<title>([^<]*)<\/title>/g)].map((m) => ({
+          y: m[1],
+          t: ent(m[2]),
+        })),
       );
     }
   }
@@ -547,7 +553,9 @@ const trackRow = (x) => [
 const trackRows = (t) =>
   t.page.$$eval("#tracks li:not(.disc) button", (b) =>
     b.map((x) =>
-      [...x.querySelectorAll(":scope > span")].map((s) => s.firstChild?.textContent || "").concat(x.querySelector("i").textContent),
+      [...x.querySelectorAll(":scope > span")]
+        .map((s) => s.firstChild?.textContent || "")
+        .concat(x.querySelector("i").textContent),
     ),
   );
 const R = { real: "read" };
@@ -1173,7 +1181,8 @@ test("CHP-14 ERR-07 loading error: status line and popup with request, status an
 const decLabel = (k) => (TD.DEC.filter((x) => x.slice(2) === k.slice(2)).length > 1 ? k : k.slice(2)) + "s";
 const decadeReqs = (t) => t.reqs(/^\/ui\/browseGrouped\?.*sort=decade/);
 // Section requests without a filter (the years of the decade chips)
-const yearReqs = (t) => t.reqs(/^\/library\/v1\/Albums\?/).filter((r) => /[?&]section=/.test(r) && !/[?&]quality=/.test(r));
+const yearReqs = (t) =>
+  t.reqs(/^\/library\/v1\/Albums\?/).filter((r) => /[?&]section=/.test(r) && !/[?&]quality=/.test(r));
 
 test(
   "CHP-15 SET-02 quality, decade and genre chips are off by default: special chips and playlists, no decade request",
@@ -1209,7 +1218,11 @@ test(
     eq(decadeReqs(t).length, TD.SVC.filter((s) => TD.SECS[s].length).length, "one decade index request per source");
     const c = await t.$$text("#az button");
     const lead = await t.page.evaluate(() => QUALITIES.map((q) => q[1]));
-    eq(c.slice(3 + lead.length, 3 + lead.length + TD.DEC.length), TD.DEC.map(decLabel), "decade chips after the quality chips");
+    eq(
+      c.slice(3 + lead.length, 3 + lead.length + TD.DEC.length),
+      TD.DEC.map(decLabel),
+      "decade chips after the quality chips",
+    );
     eq(
       await t.page.$$eval("#az .dc", (x) => x.map((e) => e.title)),
       TD.DEC.map((k) => `Albums from the ${k}s`),
@@ -1225,7 +1238,11 @@ test(
     eq(await t.page.getAttribute("#dsw", "aria-checked"), "true", "remembered");
     await t.connect();
     await t.page.waitForSelector("#az .dc");
-    eq(await t.page.$$eval("#az .dc", (x) => x.map((e) => e.textContent)), TD.DEC.map(decLabel), "chips after reconnecting");
+    eq(
+      await t.page.$$eval("#az .dc", (x) => x.map((e) => e.textContent)),
+      TD.DEC.map(decLabel),
+      "chips after reconnecting",
+    );
   },
   R,
 );
@@ -1239,7 +1256,11 @@ test(
       last = TD.DEC[TD.DEC.length - 1];
     await t.chip(decLabel(first));
     await t.waitMsg(/^\d+ albums? from the \d{4}s$/);
-    eq(yearReqs(t).length, TD.FILLED_LIB.length + TD.FILLED_USB.length, "one request per filled section of every source");
+    eq(
+      yearReqs(t).length,
+      TD.FILLED_LIB.length + TD.FILLED_USB.length,
+      "one request per filled section of every source",
+    );
     ok(
       yearReqs(t).every((r) => /limit=500/.test(r)),
       "limit=500",
@@ -1774,7 +1795,10 @@ test(
     await t.page.click("#tracks li:not(.disc) >> nth=" + disc(1).length);
     await t.waitToast("Track started");
     const first2 = TD.TRK[disc(1).length];
-    ok(t.player.state.commands.includes(decodeURIComponent(first2.autoplayURL || first2.playURL)), "first track of disc 2 plays");
+    ok(
+      t.player.state.commands.includes(decodeURIComponent(first2.autoplayURL || first2.playURL)),
+      "first track of disc 2 plays",
+    );
   },
   { mock: twoDiscs },
 );
@@ -2624,12 +2648,18 @@ test(
     await t.all();
     const grid = await t.page.$$eval("#grid .item img", (i) => i.map((x) => x.dataset.url).filter(Boolean));
     ok(grid.length > 0, "grid has covers");
-    ok(grid.every((u) => /followRedirects=1$/.test(u) && !/[?&](width|height)=/.test(u)), "grid covers without a size");
+    ok(
+      grid.every((u) => /followRedirects=1$/.test(u) && !/[?&](width|height)=/.test(u)),
+      "grid covers without a size",
+    );
     await openLibAlbum(t);
     const dimg = await t.page.$eval("#dimg", (e) => e.dataset.src);
     ok(full(dimg), "popup asks the full size: " + dimg);
     await t.page.waitForFunction(() => /^blob:/.test(document.querySelector("#dimg").src || ""));
-    ok(t.reqs(/^\/Artwork\?.*&width=3000&height=3000&followRedirects=1$/).length >= 2, "full-size requests reach the player");
+    ok(
+      t.reqs(/^\/Artwork\?.*&width=3000&height=3000&followRedirects=1$/).length >= 2,
+      "full-size requests reach the player",
+    );
   },
   { ...R, needs: ["library"] },
 );

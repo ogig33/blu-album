@@ -139,7 +139,7 @@ function createPlayer(opts = {}) {
     if (/MG\/LocalMusic-Album/.test(key))
       return /^en\b/i.test(lang)
         ? discTracks(fx("08"))
-        :'<browse serviceIcon="/images/LibraryIcon.png" serviceName="Bibliothek" searchKey="LocalMusic:Search" type="menu"></browse>';
+        : '<browse serviceIcon="/images/LibraryIcon.png" serviceName="Bibliothek" searchKey="LocalMusic:Search" type="menu"></browse>';
     if (/CM\/LocalMusic-Album/.test(key)) {
       // Library albums: favourite state follows the isFavourite flag of the key; USB albums: no favourites
       if (key.startsWith(USB)) return fx("09").replace(/\s*<item[^>]*favourite-delete[^>]*><\/item>/, "");
@@ -188,8 +188,11 @@ function createPlayer(opts = {}) {
   // A section without a filter: like the real player (Bruno E34) every album with a year tag has date="<year>".
   // Library: the albums of fixture 13 in section A; USB: USB_YEARS in section S; all other sections are empty.
   const yearSection = (svc, sec) => {
-    if (svc !== USB) return sec === "A" ? fx("13").replace(/ quality="cd"/, "") : "<albums><sections></sections></albums>";
-    const albums = USB_YEARS.map((x) => `<album tracks="12" date="${x.y}"><title>${x.t}</title><art>${x.a}</art></album>`);
+    if (svc !== USB)
+      return sec === "A" ? fx("13").replace(/ quality="cd"/, "") : "<albums><sections></sections></albums>";
+    const albums = USB_YEARS.map(
+      (x) => `<album tracks="12" date="${x.y}"><title>${x.t}</title><art>${x.a}</art></album>`,
+    );
     return `<albums limit="500" section="${sec}" service="${USB}"><sections>${sec === "S" ? `<section name="S">${albums.join("")}</section>` : ""}</sections></albums>`;
   };
   // Album list of a source sorted by decade (/ui/browseGrouped, url with sort=decade, Bruno E35): only the index is
@@ -361,4 +364,15 @@ function createRecorder(base) {
 // (here USB_SECTIONS) of the recorded library sections.
 const usbSections = () =>
   fx("06").replace(/\s*<item[^>]*text="([^"]*)"[^>]*><\/item>/g, (it, name) => (USB_SECTIONS.includes(name) ? it : ""));
-module.exports = { createPlayer, createRecorder, fx, LIB, USB, USB_GENRES, USB_SECTIONS, USB_YEARS, VERSIONS, usbSections };
+module.exports = {
+  createPlayer,
+  createRecorder,
+  fx,
+  LIB,
+  USB,
+  USB_GENRES,
+  USB_SECTIONS,
+  USB_YEARS,
+  VERSIONS,
+  usbSections,
+};
