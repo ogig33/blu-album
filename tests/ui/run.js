@@ -2395,7 +2395,7 @@ test(
     if (!TD.LM) {
       // player without listening modes
       await t.settle(1500);
-      ok(await t.page.$eval("#lm", (e) => e.hidden), "icon hidden");
+      ok(await t.page.$eval("#lm", (e) => e.hidden && e.parentElement.hidden), "icon and frame hidden");
       return;
     }
     const cur = (TD.LM.match(/<setting [^>]*value="([^"]*)"/) || [])[1];
@@ -2417,11 +2417,23 @@ test(
     eq(await filter("light"), "invert(1)", "white icon inverted in the light design");
     eq(await filter("dark"), "none", "white icon as it is in the dark design");
     ok(
-      await t.page.$eval("#lm", (e) => e.parentElement.matches("#ctl .vl") && e.nextElementSibling?.id === "vd"),
-      "icon sits right before the volume-down button",
+      await t.page.$eval(
+        "#lm",
+        (e) => e.parentElement.id === "lmf" && e.parentElement.parentElement.matches("#ctl .vl") && e.parentElement.nextElementSibling?.id === "vd",
+      ),
+      "icon in its frame sits right before the volume-down button",
     );
     ok(
-      await t.page.$eval("#lm", (e) => e.tagName !== "BUTTON" && !e.onclick && e.getAttribute("tabindex") === null),
+      await t.page.$eval("#lmf", (f) => {
+        const s = getComputedStyle(f), i = getComputedStyle(f.firstElementChild);
+        return !f.hidden && s.borderStyle === "solid" && parseFloat(s.borderRadius || "0") === 0 && +i.opacity < 1;
+      }),
+      "status tag look: square-cornered frame, grey (dimmed) icon",
+    );
+    ok(
+      await t.page.$eval("#lmf", (f) =>
+        [f, f.firstElementChild].every((e) => e.tagName !== "BUTTON" && !e.onclick && e.getAttribute("tabindex") === null),
+      ),
       "display only (no button)",
     );
   },
@@ -2450,6 +2462,7 @@ test(
     await t.settle(1500);
     ok(t.player.state.requests.includes("/audioPreset"), "asked once");
     ok(await t.page.$eval("#lm", (e) => e.hidden && !e.getAttribute("src")), "icon hidden");
+    ok(await t.page.$eval("#lmf", (f) => f.hidden && getComputedStyle(f).display === "none"), "no empty frame");
     ok(!(await t.page.$eval("#apidlg", (e) => e.open)), "no error popup");
     eq(t.errors, [], "no JavaScript errors");
   },

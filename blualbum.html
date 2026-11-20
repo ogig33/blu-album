@@ -821,13 +821,22 @@ button {
   display: none !important;
 }
 /* Listening mode of the player (TV / Music / Movie) before the volume controls: icon of the player
-   (white, inverted in the light design by --plicon), display only */
+   (white, inverted in the light design by --plicon), display only. Grey and in a rectangular frame, so
+   it reads as a status tag, not as one of the round or bare-symbol buttons next to it. */
 .lm {
   flex: none;
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  margin-right: 8px;
+  border: 1px solid var(--dim);
+  cursor: default;
+}
+.lm img {
   width: 24px;
   height: 24px;
-  margin-right: 4px;
   filter: var(--plicon);
+  opacity: .6;
 }
 .lm[hidden] {
   display: none;
@@ -1715,7 +1724,7 @@ dialog * {
     <div class="na" id="nt2"></div>
   </div>
   <div class="vl">
-    <img id="lm" class="lm" alt="" hidden>
+    <span id="lmf" class="lm" hidden><img id="lm" alt="" hidden></span>
     <button id="vd" aria-label="Volume down" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     <input id="vs" type="range" min="0" max="100" step="1" value="0" aria-label="Volume" disabled>
     <button id="vu" aria-label="Volume up" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
@@ -3302,7 +3311,7 @@ function stopPoll() {
   $("#nt1").textContent = "";
   $("#nt2").textContent = "";
   $("#nq").hidden = true;
-  $("#lm").hidden = true;
+  $("#lm").hidden = $("#lmf").hidden = true;
   $("#cov").hidden = true;
   $("#cov").dataset.src = "";
   $("#cov").removeAttribute("src");
@@ -3330,10 +3339,11 @@ async function loadListeningMode() {
   const cur = set && [...set.querySelectorAll(":scope > value")].find((v) => v.getAttribute("name") === set.getAttribute("value"));
   const name = cur ? cur.getAttribute("displayName") || "" : "", icon = cur ? imgUrl(cur.getAttribute("iconActive")) : "";
   const label = set ? set.getAttribute("displayName") || "" : "";
-  el.hidden = !icon;
+  // The frame (#lmf) is shown and hidden together with the icon
+  el.hidden = el.parentElement.hidden = !icon;
   el.alt = icon ? name : "";
   el.title = icon ? (label ? label + ": " : "") + name : "";
-  el.onerror = () => el.hidden = true;
+  el.onerror = () => el.hidden = el.parentElement.hidden = true;
   showImg(el, icon);
 }
 // Renders a /Status response: now playing, cover, quality, position, volume, current queue entry.
