@@ -2430,6 +2430,23 @@ test(
       }),
       "status tag look: square-cornered frame, grey (dimmed) icon",
     );
+    // Frame colour and hover, compared with the colour tokens (computed through a probe element)
+    const look = () =>
+      t.page.$eval("#lmf", (f) => {
+        const p = document.body.appendChild(document.createElement("i")), tok = (v) => ((p.style.color = `var(${v})`), getComputedStyle(p).color);
+        const r = { border: getComputedStyle(f).borderTopColor, opacity: +getComputedStyle(f.firstElementChild).opacity, line: tok("--line"), ink: tok("--ink") };
+        p.remove();
+        return r;
+      });
+    await t.settle(300); // the frame colour fades after the theme switch above
+    const rest = await look();
+    eq(rest.border, rest.line, "frame in the line colour");
+    await t.page.hover("#lmf");
+    await t.settle(300); // end of the transition
+    const hov = await look();
+    ok(hov.opacity > rest.opacity, "icon brighter on hover");
+    eq(hov.border, hov.ink, "frame in the text colour on hover");
+    await t.page.mouse.move(0, 0);
     ok(
       await t.page.$eval("#lmf", (f) =>
         [f, f.firstElementChild].every((e) => e.tagName !== "BUTTON" && !e.onclick && e.getAttribute("tabindex") === null),

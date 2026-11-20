@@ -821,22 +821,31 @@ button {
   display: none !important;
 }
 /* Listening mode of the player (TV / Music / Movie) before the volume controls: icon of the player
-   (white, inverted in the light design by --plicon), display only. Grey and in a rectangular frame, so
-   it reads as a status tag, not as one of the round or bare-symbol buttons next to it. */
+   (white, inverted in the light design by --plicon), display only. Grey and in a square frame, so it
+   reads as a status tag, not as one of the round or bare-symbol buttons next to it; on hover it only
+   brightens (with the tooltip), no button effect. */
 .lm {
   flex: none;
   display: grid;
   place-items: center;
   padding: 2px;
   margin-right: 8px;
-  border: 1px solid var(--dim);
+  border: 1px solid var(--line);
   cursor: default;
+  transition: border-color .15s;
 }
 .lm img {
   width: 24px;
   height: 24px;
   filter: var(--plicon);
   opacity: .6;
+  transition: opacity .15s;
+}
+.lm:hover {
+  border-color: var(--ink);
+}
+.lm:hover img {
+  opacity: .85;
 }
 .lm[hidden] {
   display: none;
