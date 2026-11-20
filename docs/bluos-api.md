@@ -946,6 +946,7 @@ Some answers group the items in `<category text="…" nextKey="…">`; errors co
   | `LocalMusic:CM/LocalMusic-Album?album=…&artist=…[&isFavourite=1]` | `type="contextMenu"` · 5 `item` elements with attributes `actionURL`, `text`, `type` (`favourite-add/-delete`, `add-now`, `add-shuffle`, `addAll-next`, `addAll-last`) | 1.0 KB |
   | `LocalMusic:Search` + `q=love` | `type="menu"` · 4 `item` elements (links to artists, albums, songs, composers); every list returns all hits | 0.7 KB |
   | `LocalMusic:Playlist/…imported=1` | imported playlists (empty here) | 0.2 KB |
+- What the search lists match (verified 2026-11-20 on the local library): every list wraps the `/library/v1` endpoint of its type with `expr=<q>` (e.g. `LocalMusic:Album/%2Flibrary%2Fv1%2FAlbums%3Fexpr=love&service=LocalMusic`). A term matches at the start of a word, not inside a word (`Muscat` finds, `uscat` does not). The albums list matches the album title, the album artist and the track artists of the album's songs (a sampler of "Various" is found by the artist of one of its tracks), **not** song titles and **not** composers. Song titles are found only in the songs list, composers only in the composers list; the songs list does not match the track artist.
 - Errors come as `<error>` root element with one `<message>` and zero or more `<detail>` text nodes.
 - Keys (`browseKey`, `nextKey`, `parentKey`, `contextMenuKey`, `searchKey`) are opaque: pass them unchanged, URL-encoded, as `key=`.
 
