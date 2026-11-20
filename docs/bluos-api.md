@@ -754,7 +754,7 @@ GET /Save?name=<name>&service=BluOS&create=1
 
 ## 6. Presets
 
-Presets are created and deleted only in the BluOS Controller; they can hold radio stations, playlists and inputs.
+Presets hold saved playlists, inputs and radio stations – the sources the player offers for a new preset in [`/RadioBrowse?service=Presets`](#get-radiobrowse), which is also the choice of "Add preset" in the BluOS Controller: My Playlists, Inputs, Radio, Radio Paradise, TuneIn (verified). Albums, artists and songs are not offered. Presets are stored with [`/SetPreset`](#get-setpreset).
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
@@ -991,7 +991,7 @@ GET /RadioBrowse?service=<service>&url=<url>&key=<key>&c=<category>&id=<station 
 
 | Parameter | Meaning |
 |---|---|
-| `service` | `Capture` = inputs; `Presets` = presets as browse list; `Alarms` = sources for an alarm; otherwise a radio service (e.g. `TuneIn`, `RadioParadise`) |
+| `service` | `Capture` = inputs; `Presets` = the sources for a new preset (see the notes); `Alarms` = sources for an alarm; otherwise a radio service (e.g. `TuneIn`, `RadioParadise`) |
 | `url` | e.g. `presets` (favourite stations of a service), `playlists` (with `service=Alarms`) |
 | `c` | radio menus: `station`, `podcast`, `related` (related stations), `selectStream` |
 | `key` | e.g. `directory` (with an Airable directory `url`) |
@@ -1016,6 +1016,7 @@ GET /RadioBrowse?service=<service>&url=<url>&key=<key>&c=<category>&id=<station 
 - Verified with `service=Capture`: lists the active inputs (here Bluetooth, HDMI ARC, optical input 1), cloud sources (e.g. Spotify) and HUB inputs. `typeIndex` (e.g. `spdif-1`, `arc-1`) is the value for [`/Play?inputTypeIndex=`](#get-play); play an entry with `/Play?url=` and its `URL`.
 - The radio variants (`url`, `c`) come from the player's description in [`/Services`](#get-services); not tried yet.
 - `service=Presets`, `service=Alarms` (also `&url=playlists`) and `service=RadioParadise` are used by the BluOS Controller.
+- `service=Presets` lists the sources for a new preset (verified): `My Playlists` (`URL="playlists"`; `service=Presets&url=playlists` gives the saved playlists with `URL` `/Load?name=…`), `Inputs` (`service="Capture"`, `URL="presets"`: the inputs with `URL` `Capture:…`), `Radio` (Airable), `Radio Paradise` and `TuneIn`. No library albums.
 - Radio items carry more attributes (verified with TuneIn favourites): `preset_id` (station id), `is_preset="1"` (the station is a favourite), `subtext` (what is playing now, e.g. `Bryan Adams - Heaven`), `inputType="station"`; Airable items also `hasInfo` and `preset_url`. [`/ui/ContextMenu`](#get-uicontextmenu) takes them as parameters.
 - Browsing radio: `url` takes the full directory URL of the service (TuneIn `https://api.radiotime.com/categories/…`, Airable `https://7818664144.airable.io/radio/…`, also podcasts); `service=Airable&url=alarms` lists alarm sources; `c=selectStream&id=s16252&service=TuneIn` lists the streams of a station.
 
