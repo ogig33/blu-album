@@ -655,6 +655,8 @@ GET /Move?new=<to>&old=<from>
 **Notes**
 
 - Verified: moving entry 0 to position 1 and back.
+- `new` is the position of the entry **after** the move: the entry is taken out, then inserted at `new` (verified 2026-11-21: `old=0&new=3` puts the first entry at index 3 and moves entries 1–3 up by one; `old=4&new=1` moves entries 1–3 down by one). Every move gives the queue a new `id` (`pid` of `/Status`).
+- Playback goes on. When the playing entry is moved, or another entry is moved across it, `song` of `/Status` follows its new position; `/Status` reports the new `song` and `pid` about 1 s later (verified 2026-11-21).
 - The BluOS Controller's queue editor sends it, e.g. `/Move?new=3&old=6`.
 
 ### `GET /Playlist`

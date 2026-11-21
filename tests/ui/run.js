@@ -3316,6 +3316,149 @@ test(
   { overrides: [{ match: /^\/Playlist\?/, status: 500 }] },
 );
 
+// Titles of the queue rows, in their order
+const qTitles = (t) => t.page.$$eval("#qlist li .qt b", (x) => x.map((e) => e.textContent));
+// Waits until the queue panel has slid in (the row positions are read for mouse moves)
+const qStill = (t) =>
+  t.page.waitForFunction(() => {
+    const r = document.querySelector("#qside").getBoundingClientRect();
+    const was = window.__qRight;
+    window.__qRight = r.right;
+    return was === r.right && r.right <= innerWidth;
+  }, null, { polling: 100 });
+// Drags queue row `from` (0-based) with the mouse to `frac` of the height of row `over` (0 = its top edge)
+const dragRow = async (t, from, over, frac) => {
+  await qStill(t);
+  const box = async (i) => (await t.page.$(`#qlist li:nth-child(${i + 1})`)).boundingBox();
+  const a = await box(from),
+    b = await box(over);
+  await t.page.mouse.move(a.x + a.width / 3, a.y + a.height / 2);
+  await t.page.mouse.down();
+  await t.page.mouse.move(a.x + a.width / 3, b.y + b.height * frac, { steps: 12 });
+  const during = await t.page.evaluate(() => ({
+    drag: document.querySelectorAll("#qlist li.drag").length,
+    line: [...document.querySelectorAll("#qlist li")].findIndex((l) => l.matches(".dropb, .dropa")),
+    cls: document.querySelector("#qlist .dropb, #qlist .dropa")?.className || "",
+  }));
+  await t.page.mouse.up();
+  await t.settle(300);
+  return during;
+};
+// Moves entry `from` to `to` in a list (position afterwards, like /Move)
+const moved = (list, from, to) => {
+  const l = [...list];
+  l.splice(to, 0, ...l.splice(from, 1));
+  return l;
+};
+
+test(
+  "QUE-17 drag an entry down: line where it lands, /Move?new=3&old=0, list reordered, no play",
+  async (t) => {
+    await t.openQueue();
+    await t.settle(2500);
+    const before = await qTitles(t),
+      loads = () => t.player.state.requests.filter((x) => /^\/Playlist\?start=0&/.test(x)).length,
+      n = loads();
+    const during = await dragRow(t, 0, 3, 0.75);
+    eq(during.drag, 1, "dragged row dimmed");
+    eq([during.line, during.cls.includes("dropb")], [4, true], "line above the fifth row");
+    eq(await qTitles(t), moved(before, 0, 3), "rows reordered at once");
+    eq(
+      await t.page.$$eval("#qlist li", (x) => x.map((e) => e.dataset.id + ":" + e.querySelector(".qn").textContent)),
+      before.map((_, i) => i + ":" + (i + 1)),
+      "rows numbered again",
+    );
+    eq(t.cmds(/^\/Move/), ["/Move?new=3&old=0"], "/Move sent");
+    eq(t.cmds(/^\/Play\?id=/), [], "no track started by the drag");
+    await t.settle(3500);
+    eq(loads() - n, 1, "queue loaded once (new playlist id)");
+    eq(await qTitles(t), moved(before, 0, 3), "order of the player");
+  },
+  { ...W, needs: ["queue"] },
+);
+
+test(
+  "QUE-17 drag an entry up: /Move?new=1&old=4",
+  async (t) => {
+    await t.openQueue();
+    const before = await qTitles(t);
+    await dragRow(t, 4, 1, 0.25);
+    eq(t.cmds(/^\/Move/), ["/Move?new=1&old=4"], "/Move sent");
+    eq(await qTitles(t), moved(before, 4, 1), "rows reordered");
+  },
+  { ...W, needs: ["queue"] },
+);
+
+test(
+  "QUE-17 the playing entry keeps its mark when it moves",
+  async (t) => {
+    await t.openQueue();
+    const cur = +t.st("song");
+    await t.page.waitForFunction((id) => document.querySelector(`#qlist li[data-id="${id}"]`)?.classList.contains("cur"), cur);
+    const title = await t.page.textContent("#qlist li.cur .qt b"),
+      to = cur > 0 ? 0 : 2;
+    await dragRow(t, cur, to, to ? 0.75 : 0.25);
+    eq(t.cmds(/^\/Move/), [`/Move?new=${to}&old=${cur}`], "/Move sent");
+    eq(await t.page.textContent("#qlist li.cur .qt b"), title, "same entry marked");
+    eq(await t.page.getAttribute("#qlist li.cur", "data-id"), String(to), "at its new position");
+  },
+  { ...W, needs: ["library", "queue"] },
+);
+
+test(
+  "QUE-18 a short pointer movement is a click; dropping at the same place sends nothing",
+  async (t) => {
+    await t.openQueue();
+    await qStill(t);
+    const b = await (await t.page.$("#qlist li:nth-child(3) .it")).boundingBox();
+    await t.page.mouse.move(b.x + 40, b.y + b.height / 2);
+    await t.page.mouse.down();
+    await t.page.mouse.move(b.x + 40, b.y + b.height / 2 + 3);
+    await t.page.mouse.up();
+    await t.settle();
+    eq(t.cmds(/^\/Play\?id=/), ["/Play?id=" + TD.QUEUE[2].id], "click plays the entry");
+    await dragRow(t, 2, 3, 0.3);
+    await t.settle();
+    eq(t.cmds(/^\/Move/), [], "no /Move for the same place");
+    eq(t.cmds(/^\/Play\?id=/).length, 1, "no play after the drag");
+  },
+  { ...W, needs: ["queue"] },
+);
+
+test(
+  "QUE-19 keyboard: Alt + arrow down / up moves the focused entry by one place",
+  async (t) => {
+    await t.openQueue();
+    const before = await qTitles(t);
+    await t.page.focus("#qlist li:nth-child(1) .it");
+    await t.page.keyboard.press("Alt+ArrowUp");
+    eq(t.cmds(/^\/Move/), [], "first entry: not up");
+    await t.page.keyboard.press("Alt+ArrowDown");
+    await t.settle(300);
+    eq(t.cmds(/^\/Move/), ["/Move?new=1&old=0"], "/Move sent");
+    eq(await qTitles(t), moved(before, 0, 1), "rows reordered");
+    eq(await t.page.evaluate(() => document.activeElement.closest("li").dataset.id), "1", "focus stays on the entry");
+  },
+  { ...W, needs: ["queue"] },
+);
+
+test(
+  "QUE-20 move not successful: popup, queue read again",
+  async (t) => {
+    await t.openQueue();
+    const before = await qTitles(t),
+      loads = () => t.player.state.requests.filter((x) => /^\/Playlist\?start=0&/.test(x)).length,
+      n = loads();
+    await dragRow(t, 0, 3, 0.75);
+    const p = await t.apiPopup("The player command did not succeed");
+    eq(p.u, "/Move?new=3&old=0", "request");
+    await t.settle();
+    ok(loads() > n, "queue read again");
+    eq(await qTitles(t), before, "order of the player");
+  },
+  { overrides: [{ match: /^\/Move\?/, status: 500 }] },
+);
+
 // ---------- 4.12 Playlists (PLS) ----------
 test(
   "PLS-01 Playlists chip: tiles with cover, name and \"Playlist\", no random tile, list read again",

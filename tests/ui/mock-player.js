@@ -35,7 +35,7 @@ const VERSIONS = { bluos: "4.18.18", api: "v0.5.43" };
 // Tracks on the second page of a saved playlist (the first page is fixture 28 with 10 tracks)
 const PL_PAGE2 = 3;
 const COMMANDS =
-  /^\/(Add|Play|Pause|Skip|Back|Load|Save|Delete|AddFavourite|DeleteFavourite|Clear|Shuffle|Repeat|Volume\?)/;
+  /^\/(Add|Play|Pause|Skip|Back|Load|Save|Delete|AddFavourite|DeleteFavourite|Clear|Shuffle|Repeat|Move|Volume\?)/;
 
 function createPlayer(opts = {}) {
   const state = {
@@ -43,6 +43,8 @@ function createPlayer(opts = {}) {
     requests: [], // every request path
     usb: opts.usb !== false, // USB drive connected
     queueEmpty: false,
+    // Order of the recorded queue after /Move (ids of fixture 20 in their new order), null = as recorded
+    queueOrder: null,
     deletedPlaylists: [], // names of the saved playlists the app deleted (left out of the playlists list)
     shuffle: false,
     repeat: "2",
@@ -87,7 +89,7 @@ function createPlayer(opts = {}) {
     if (o) o.hits = (o.hits || 0) + 1;
     return o;
   };
-  const QUEUE_CHANGES = /^\/(Add|Delete\?id=|Shuffle|Clear)/;
+  const QUEUE_CHANGES = /^\/(Add|Delete\?id=|Shuffle|Clear|Move)/;
   const browse = (key, lang) => {
     if (!key) {
       let top = fx("01");
@@ -322,7 +324,15 @@ function createPlayer(opts = {}) {
       // Only the songs start..end, like the real player (Bruno A20, E33)
       const s = +q.get("start") || 0,
         e = q.has("end") ? +q.get("end") : Infinity;
-      return fx("20")
+      let x = fx("20");
+      if (state.queueOrder) {
+        // Songs in the moved order, numbered again from 0 like the real player
+        const songs = {};
+        for (const m of x.matchAll(/\s*<song [^>]*id="(\d+)">[\s\S]*?<\/song>/g)) songs[m[1]] = m[0];
+        const moved = state.queueOrder.map((id, i) => songs[id].replace(/ id="\d+">/, ` id="${i}">`)).join("");
+        x = x.replace(/\s*<song [\s\S]*<\/song>/, moved);
+      }
+      return x
         .replace(/ id="485">/, ` id="${state.pid}">`)
         .replace(/\s*<song [^>]*id="(\d+)">[\s\S]*?<\/song>/g, (m, id) => (+id >= s && +id <= e ? m : ""));
     }
@@ -344,6 +354,14 @@ function createPlayer(opts = {}) {
       return "<repeat>" + state.repeat + "</repeat>";
     }
     if (p === "/Save") return "<saved><entries>12</entries></saved>";
+    // Moving a queue entry: like the real player (Bruno W34–W37) the entry is taken out of the queue and
+    // inserted at position `new`
+    if (p === "/Move") {
+      const ids = state.queueOrder || [...fx("20").matchAll(/<song [^>]*id="(\d+)">/g)].map((m) => m[1]);
+      ids.splice(+q.get("new"), 0, ...ids.splice(+q.get("old"), 1));
+      state.queueOrder = ids;
+      return '<?xml version="1.0" encoding="UTF-8"?>\n<moved>moved</moved>';
+    }
     // Deleting a saved playlist: gone from the playlists list (the answer as for every other command)
     if (p === "/Delete" && q.get("service") === "BluOS") state.deletedPlaylists.push(q.get("name"));
     if (p === "/Load") {

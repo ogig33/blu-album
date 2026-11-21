@@ -3,6 +3,7 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Queue panel: change the order of the queue by drag and drop (or Alt + arrow up / down).
 - Playlists: one "Playlists" chip after New shows the saved playlists as tiles like albums, with play, add to queue, delete and a popup with the track list.
 - Playlists: the Playlists chip is always shown; its switch in the settings is gone.
 - Queue panel: the button for deleting the loaded playlist is gone (delete it on its tile instead).

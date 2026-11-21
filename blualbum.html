@@ -279,6 +279,28 @@ header .logo {
   background: var(--bg);
   box-shadow: inset 3px 0 0 var(--acc);
 }
+/* Drag and drop: the dragged row is dimmed, a line in the accent colour marks where it lands */
+#qlist li.drag {
+  opacity: .45;
+}
+#qlist li.dropb {
+  box-shadow: inset 0 2px 0 var(--acc);
+}
+#qlist li.dropa {
+  box-shadow: inset 0 -2px 0 var(--acc);
+}
+#qlist li.cur.dropb {
+  box-shadow: inset 3px 0 0 var(--acc), inset 0 2px 0 var(--acc);
+}
+#qlist li.cur.dropa {
+  box-shadow: inset 3px 0 0 var(--acc), inset 0 -2px 0 var(--acc);
+}
+body.qdrag,
+body.qdrag * {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+}
 #qlist .it {
   flex: 1;
   min-width: 0;
@@ -1890,7 +1912,7 @@ dialog * {
  *  10. Favourites                      Favourite state and toggling for the heart on the cover.
  *  11. Popups                          Album popup and the popup for unsuccessful player answers.
  *  12. Playlists                       Saved playlists of the player: the Playlists chip, its tiles (play, add, delete), track lists.
- *  13. Queue panel                     Play queue: list, pinning, shuffle, repeat, save as playlist, clear.
+ *  13. Queue panel                     Play queue: list, reordering, pinning, shuffle, repeat, save as playlist, clear.
  *  14. Player footer & full screen     Now playing, progress, transport, volume, listening mode, status polling, full-screen view.
  *  15. Search                          The player's own search.
  *  16. Settings panel                  Panel, settings switches, library stats and settings, about.
@@ -2085,8 +2107,9 @@ let pos = { secs: 0, total: 0, t: 0, playing: false, canSeek: false };
 let dragging = false, vWant = 0, vTimer = 0, vLast = 0;
 // Long polling of /Status. pollId invalidates running loops, pollCtl aborts the pending request.
 let pollId = 0, pollCtl = null;
-// Queue panel: open (pinned), playlist id (pid), current song index, request counter.
-let qOpen = false, qPid = "", qSong = "", qSeq = 0;
+// Queue panel: open (pinned), playlist id (pid), current song index, request counter,
+// qDragEnd: time (ms) a drag in the queue ended (the click that follows a drag is ignored).
+let qOpen = false, qPid = "", qSong = "", qSeq = 0, qDragEnd = 0;
 // Album popup: only the newest opened album may fill the popup. popCache: album key -> [track list
 // (/Browse), songs (/library/v1/Songs)] of albums opened in this session.
 let dlgSeq = 0, popCache = {};
@@ -3293,7 +3316,7 @@ async function playlistTracks(p, seq) {
 }
 
 /* ---------- Queue panel ---------- */
-// Play queue: list, pinning, shuffle, repeat, save as playlist, clear.
+// Play queue: list, reordering, pinning, shuffle, repeat, save as playlist, clear.
 
 // Repeat button: icon and label for the <repeat> value of /Status (2 = off, 0 = queue, 1 = track).
 function showRepeat(v) {
@@ -3358,14 +3381,25 @@ async function loadQueue() {
         d.textContent = fmtTime(secs);
         it.append(d);
       }
-      it.onclick = () => xml("/Play?id=" + id);
+      // Position from the row, not from this answer: a move renumbers the rows before the queue is reloaded
+      it.onclick = () => Date.now() - qDragEnd > 300 && xml("/Play?id=" + li.dataset.id);
+      // Keyboard: Alt + arrow up / down moves the entry by one place
+      it.onkeydown = (e) => {
+        if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+        e.preventDefault();
+        const from = +li.dataset.id, to = from + (e.key === "ArrowUp" ? -1 : 1);
+        if (to < 0 || to >= ol.children.length) return;
+        moveEntry(from, to);
+        it.focus();
+      };
       const rm = document.createElement("button");
       rm.className = "rm";
       rm.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>';
       rm.setAttribute("aria-label", "Remove from queue");
       // The changed playlist id in /Status reloads the queue (checked in Bruno, 2 Write #25).
-      rm.onclick = () => xml("/Delete?id=" + id);
+      rm.onclick = () => xml("/Delete?id=" + li.dataset.id);
       li.append(it, rm);
+      qDrag(li);
       ol.append(li);
     });
     const totalSecs = songs.reduce((n, sg) => n + (+(sg.querySelector("time") || {}).textContent || 0), 0);
@@ -3380,6 +3414,82 @@ async function loadQueue() {
       apiFail("Loading the queue did not succeed", e);
     }
   }
+}
+// Moves queue entry `from` to position `to` (0-based; `to` = its position afterwards, Bruno W34–W37: the entry
+// is taken out, then inserted): /Move?new=<to>&old=<from>. The rows are reordered and renumbered at once and
+// the playing entry keeps its mark (the player moves its position the same way); the changed playlist id in
+// /Status then reloads the queue. Not successful: popup and the queue is read again.
+function moveEntry(from, to) {
+  const ol = $("#qlist"), li = ol.children[from];
+  if (!li || from === to) return;
+  li.remove();
+  ol.insertBefore(li, ol.children[to] || null);
+  [...ol.children].forEach((r, i) => {
+    r.dataset.id = i;
+    r.querySelector(".qn").textContent = i + 1;
+  });
+  const cur = +qSong;
+  if (qSong !== "") qSong = String(cur === from ? to : from < cur && cur <= to ? cur - 1 : to <= cur && cur < from ? cur + 1 : cur);
+  markCur(false);
+  xml("/Move?new=" + to + "&old=" + from).then((d) => d || loadQueue());
+}
+// Drag and drop of a queue row with the mouse (pointer events, so it works on the buttons of the row in
+// every browser): the drag starts after 6 px; a line shows where the row lands, the list scrolls near its
+// top / bottom edge; on release moveEntry(). The remove button does not start a drag.
+function qDrag(li) {
+  li.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.target.closest(".rm")) return;
+    const ol = $("#qlist"), y0 = e.clientY, from = [...ol.children].indexOf(li);
+    let on = false, y = y0, to = from, raf = 0;
+    // Position after the drop: index among the other rows of the first row whose middle is below the pointer
+    const mark = () => {
+      const rest = [...ol.children].filter((r) => r !== li);
+      const i = rest.findIndex((r) => {
+        const b = r.getBoundingClientRect();
+        return y < b.top + b.height / 2;
+      });
+      to = i < 0 ? rest.length : i;
+      ol.querySelectorAll(".dropb, .dropa").forEach((r) => r.classList.remove("dropb", "dropa"));
+      if (to === from) return;
+      if (rest[to]) rest[to].classList.add("dropb");
+      else rest[rest.length - 1]?.classList.add("dropa");
+    };
+    const scroll = () => {
+      const b = ol.getBoundingClientRect(), d = y < b.top + 40 ? -8 : y > b.bottom - 40 ? 8 : 0;
+      if (d) {
+        ol.scrollTop += d;
+        mark();
+      }
+      raf = requestAnimationFrame(scroll);
+    };
+    const move = (ev) => {
+      y = ev.clientY;
+      if (!on) {
+        if (Math.abs(y - y0) < 6) return;
+        on = true;
+        li.classList.add("drag");
+        document.body.classList.add("qdrag");
+        raf = requestAnimationFrame(scroll);
+      }
+      ev.preventDefault();
+      mark();
+    };
+    const end = (ev) => {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", end);
+      document.removeEventListener("pointercancel", end);
+      if (!on) return;
+      cancelAnimationFrame(raf);
+      qDragEnd = Date.now();
+      li.classList.remove("drag");
+      document.body.classList.remove("qdrag");
+      ol.querySelectorAll(".dropb, .dropa").forEach((r) => r.classList.remove("dropb", "dropa"));
+      if (ev.type === "pointerup" && to !== from) moveEntry(from, to);
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", end);
+    document.addEventListener("pointercancel", end);
+  });
 }
 // Publishes header / footer heights as CSS variables so the side panels fit between them.
 function setBars() {

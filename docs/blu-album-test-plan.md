@@ -26,7 +26,7 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | SRH | 4.8 Search | Player search, albums of found composers, groups by album title / artist / composer, search areas, search button, typing rules, empty field, errors | 12 | 12 | 4 |
 | FTR | 4.9 Player footer | Now playing, quality tag, transport, progress, volume, listening mode, long polling | 18 | 18 | 10 |
 | FUL | 4.10 Full screen | Full-screen now playing view, background from the cover, full-size cover | 7 | 7 | 5 |
-| QUE | 4.11 Queue panel | Pinning, list, remove, shuffle, repeat, save as playlist, clear | 14 | 14 | 13 |
+| QUE | 4.11 Queue panel | Pinning, list, remove, reorder (drag and drop, keyboard), shuffle, repeat, save as playlist, clear | 18 | 18 | 16 |
 | PLS | 4.12 Playlists | Playlists chip, playlists as tiles, playing / queueing / deleting a playlist, playlist popup | 11 | 11 | 9 |
 | SET | 4.13 Settings panel | Panel, chip switches, cover size, design, library settings | 9 | 9 | 9 |
 | ABT | 4.14 About popup | Content, statistics, versions, update check | 6 | 6 | 6 |
@@ -34,7 +34,7 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 5 | 4 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 4 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **166** | **166** | **119** |
+| | | **Total** | **170** | **170** | **122** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -310,6 +310,10 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | QUE-12 | Save cancelled / failed | Cancel the prompt; mock answers `<saved><entries>0</entries></saved>` | Cancel: no request; failure: popup "Saving the playlist did not succeed" with request, status and raw answer | read (part) | Auto |
 | QUE-15 | Clear the queue | Click clear, confirm / cancel | Confirm: `/Clear`; cancel: nothing sent | write | Auto |
 | QUE-16 | Empty queue, long queue, error | Empty `/Playlist`; more than 200 songs; HTTP 500 | Empty: save, clear, shuffle, repeat disabled, no count; long: loaded in pages of 200, at most 2000; error: "Could not load queue" and popup "Loading the queue did not succeed" with the `/Playlist` request | – | Auto |
+| QUE-17 | Reorder by drag and drop | Open queue; drag entry 1 below the middle of entry 4; drag entry 5 above the middle of entry 2; drag the playing entry (TD-STATUS `song`) | While dragging: row dimmed, a line marks where it lands; on release `/Move?new=3&old=0` / `/Move?new=1&old=4` / `/Move?new=<to>&old=<song>`; rows reordered and numbered again at once; no `/Play`; the playing entry keeps its mark at its new position; the queue loads once (new `pid`) in the player's order | write | Auto |
+| QUE-18 | Click or drag | Pointer moved less than 6 px; a drag that ends at the same place | Short movement: a click (`/Play?id=`); same place: no `/Move`, no `/Play` | write | Auto |
+| QUE-19 | Reorder with the keyboard | Focus entry 1, Alt+↑, Alt+↓ | First entry: Alt+↑ sends nothing; Alt+↓ `/Move?new=1&old=0`, rows reordered, focus stays on the entry | write | Auto |
+| QUE-20 | Move not successful | Mock answers `/Move` with HTTP 500 | Popup "The player command did not succeed" with the `/Move` request; queue read again in the player's order | – | Auto |
 
 ### 4.12 Playlists (PLS)
 
