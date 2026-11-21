@@ -271,7 +271,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | FTR-12 | Volume slider | Drag the slider | `/Volume?level=<value>` at most every 150 ms while dragging and once on release; slider not overwritten by status while dragging | write | Auto |
 | FTR-13 | Volume buttons | Click volume down / up | `/Volume?db=-2` / `/Volume?db=2`; slider follows the answer | write | Auto |
 | FTR-14 | Fixed volume | `<volume>-1</volume>` in status | Slider and both buttons disabled | – | Auto |
-| FTR-15 | Listening mode icon | TD-LM | Icon = `iconActive` of the current mode (blob URL, inverted in the light design), alt text = its `displayName`, tooltip = setting `displayName`: mode `displayName`; right before volume down; grey (dimmed) in a frame with square corners in the line colour, so it is not taken for a button; on hover icon and frame brighten (frame in the text colour), no button effect; display only | read | Auto |
+| FTR-15 | Listening mode icon | TD-LM | Icon = `iconActive` of the current mode (blob URL, inverted in the light design), alt text = its `displayName`, tooltip = setting `displayName`: mode `displayName`; right before volume down; grey (dimmed) in a frame with square corners in the line colour, so it is not taken for a button; no hover effect (frame and icon unchanged); display only | read | Auto |
 | FTR-16 | Listening mode follows syncStat | Change the mode in the mock and raise `syncStat` | `/audioPreset` read once on connect and again only after the change; icon shows the new mode; no command sent | – | Auto |
 | FTR-17 | Player without listening modes | Option `listeningModes: false` (404) | Icon and its frame hidden, no image; no error popup; no JavaScript error | – | Auto |
 | FTR-18 | Long polling | Connect; mock answers with an error once | `/Status?timeout=100`, then with `&etag=` of the last answer; at least 1 s between requests, 5 s after an error; no one-off `/Status` / `/Volume` | – | Auto |
@@ -338,7 +338,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
-| ABT-01 | Content | Open About | App name, "Version v<APP.version>", copyright line, GitHub link (`APP.repo`, new tab), independence notice, player rows: room, BluOS version and API version of TD-VER | read | Auto |
+| ABT-01 | Content | Open About | App logo (double note in a circle, text colour) above the app name, app name, "Version v<APP.version>", copyright line, GitHub link (`APP.repo`, new tab), independence notice, player rows: room, BluOS version and API version of TD-VER | read | Auto |
 | ABT-02 | Statistics loaded on opening, once | Open About twice | No versions / statistics before opening; then `/GitVersion`, `/Version` and four section lists per source; none on the second opening | read | Auto |
 | ABT-03 | Statistic values | Open About | Albums = sum of the section counts (TD-SEC) of all sources; Artists / Songs / Composers summed per source; Genres = number of TD-GEN names; Playlists = number of TD-PL; "…" while loading, "–" when not available | read (part) | Auto |
 | ABT-04 | Statistics reload after a source change | Open About, switch a source off, open again | Statistics loaded again for the new selection | read | Auto |

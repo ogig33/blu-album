@@ -2578,28 +2578,23 @@ test(
       }),
       "status tag look: square-cornered frame, grey (dimmed) icon",
     );
-    // Frame colour and hover, compared with the colour tokens (computed through a probe element)
+    // Frame colour, compared with the colour token (computed through a probe element); no hover effect
     const look = () =>
       t.page.$eval("#lmf", (f) => {
-        const p = document.body.appendChild(document.createElement("i")),
-          tok = (v) => ((p.style.color = `var(${v})`), getComputedStyle(p).color);
+        const p = document.body.appendChild(document.createElement("i"));
+        p.style.color = "var(--line)";
         const r = {
           border: getComputedStyle(f).borderTopColor,
           opacity: +getComputedStyle(f.firstElementChild).opacity,
-          line: tok("--line"),
-          ink: tok("--ink"),
+          line: getComputedStyle(p).color,
         };
         p.remove();
         return r;
       });
-    await t.settle(300); // the frame colour fades after the theme switch above
     const rest = await look();
     eq(rest.border, rest.line, "frame in the line colour");
     await t.page.hover("#lmf");
-    await t.settle(300); // end of the transition
-    const hov = await look();
-    ok(hov.opacity > rest.opacity, "icon brighter on hover");
-    eq(hov.border, hov.ink, "frame in the text colour on hover");
+    eq(await look(), rest, "no hover effect: frame and icon unchanged");
     await t.page.mouse.move(0, 0);
     ok(
       await t.page.$eval("#lmf", (f) =>
@@ -3532,6 +3527,13 @@ test(
     ok(/Albums/.test(txt) && /Playlists/.test(txt), "stats");
     ok(txt.includes("BluOS version" + TD.VER.bluos) && txt.includes("API version" + TD.VER.api), "player versions");
     ok(txt.includes("Room" + TD.SET.room), "room name");
+    ok(
+      await t.page.$eval("#infodlg .abt", (a) => {
+        const l = a.firstElementChild;
+        return l.matches("svg.logo") && l.nextElementSibling.tagName === "H2" && l.getBoundingClientRect().width > 0;
+      }),
+      "logo above the app name",
+    );
     ok(/independent project/.test(await t.page.textContent("#infodlg .legal")), "independence notice");
     const link = await t.page.$eval("#infodlg a#repo", (a) => ({
       href: a.href,

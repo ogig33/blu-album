@@ -825,8 +825,8 @@ button {
 }
 /* Listening mode of the player (TV / Music / Movie) before the volume controls: icon of the player
    (white, inverted in the light design by --plicon), display only. Grey and in a square frame, so it
-   reads as a status tag, not as one of the round or bare-symbol buttons next to it; on hover it only
-   brightens (with the tooltip), no button effect. */
+   reads as a status tag, not as one of the round or bare-symbol buttons next to it; no hover effect
+   (only the tooltip). */
 .lm {
   flex: none;
   display: grid;
@@ -835,20 +835,12 @@ button {
   margin-right: 8px;
   border: 1px solid var(--line);
   cursor: default;
-  transition: border-color .15s;
 }
 .lm img {
   width: 24px;
   height: 24px;
   filter: var(--plicon);
   opacity: .6;
-  transition: opacity .15s;
-}
-.lm:hover {
-  border-color: var(--ink);
-}
-.lm:hover img {
-  opacity: .85;
 }
 .lm[hidden] {
   display: none;
@@ -1596,6 +1588,13 @@ dialog * {
   padding: 8px 0 14px;
   border-bottom: 1px solid var(--line);
 }
+#infodlg .abt .logo {
+  display: block;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 10px;
+  fill: var(--ink);
+}
 #infodlg .abt h2 {
   margin: 0 0 6px;
   font-size: 22px;
@@ -1710,6 +1709,8 @@ dialog * {
 <dialog id="infodlg">
   <form method="dialog"><button id="infoclose" aria-label="Close">✕</button></form>
   <div class="abt">
+    <!-- App logo: the favicon's double note knocked out of a circle, in the text colour -->
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><mask id="abtlogo"><rect width="32" height="32" fill="white"/><g fill="black"><ellipse cx="8.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 8.3 26.5)"/><ellipse cx="22.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 22.3 26.5)"/><rect x="10.5" y="11" width="2.6" height="15"/><rect x="24.5" y="9" width="2.6" height="17"/><path d="M10.5 10 27.1 8v4.6L10.5 14.6z"/></g></mask><circle cx="16" cy="16" r="15" mask="url(#abtlogo)"/></svg>
     <h2>BluAlbum</h2>
     <p>Album player for BluOS devices</p>
     <p>Version <span id="ver2"></span></p>
