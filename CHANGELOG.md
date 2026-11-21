@@ -2,6 +2,10 @@
 
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
+## Unreleased
+- Search: chips Album, Artist and Composer in the search field choose where to search (all on by default).
+- Search: the search field is hidden until you click the search button next to the queue button.
+
 ## 0.11.0
 - About popup shows the BluAlbum logo.
 - Search: also finds the albums of a composer.

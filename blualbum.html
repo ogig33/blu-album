@@ -127,6 +127,8 @@ input {
   place-items: center;
   flex: none;
 }
+/* Search and queue button at the right end of the header */
+#sbtn,
 #qbtn {
   width: 38px;
   height: 38px;
@@ -139,11 +141,20 @@ input {
   place-items: center;
   flex: none;
 }
+#sbtn {
+  margin-left: auto;
+}
+#sbtn svg,
 #qbtn svg {
   width: 28px;
   height: 28px;
   display: block;
 }
+#sbtn svg {
+  width: 26px;
+  height: 26px;
+}
+#sbtn:hover,
 #qbtn:hover {
   filter: brightness(1.2);
 }
@@ -611,9 +622,60 @@ li.cur .qn {
     transition: none;
   }
 }
+/* Search field: a box like an input with the field and the search area chips; the box shows the focus */
+#qbox {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 4px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+#qbox[hidden] {
+  display: none;
+}
+#qbox:has(#q:focus-visible) {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
 #q {
   flex: 1;
   min-width: 160px;
+  border: 0;
+  background: none;
+}
+#q:focus-visible {
+  outline: none;
+}
+#sin {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+#sin button {
+  padding: 2px 8px;
+  font-size: 13px;
+  border-radius: 6px;
+  background: none;
+  color: var(--dim);
+}
+#sin button[aria-pressed=true] {
+  background: var(--acc);
+  color: var(--accink);
+  border-color: var(--acc);
+}
+/* Narrow window: the search field in a row of its own below menu, title, search and queue button */
+@media (max-width: 700px) {
+  #qbox {
+    order: 1;
+    flex-basis: 100%;
+    min-width: 0;
+  }
+  #q {
+    min-width: 80px;
+  }
 }
 button {
   cursor: pointer;
@@ -1685,7 +1747,16 @@ dialog * {
 <header>
   <button id="gear" aria-label="Menu" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <h1 id="ttl">BluAlbum</h1>
-  <input id="q" type="search" placeholder="Search (Enter)" aria-label="Search">
+  <!-- Search field with the search areas (chips, all on by default, stored); hidden until the search button -->
+  <div id="qbox" hidden>
+    <input id="q" type="search" placeholder="Search (Enter)" aria-label="Search">
+    <div id="sin" role="group" aria-label="Search in">
+      <button data-in="title" aria-pressed="true" title="Search in album titles">Album</button>
+      <button data-in="artist" aria-pressed="true" title="Search in album and track artists">Artist</button>
+      <button data-in="composer" aria-pressed="true" title="Search in composers">Composer</button>
+    </div>
+  </div>
+  <button id="sbtn" aria-label="Search" aria-expanded="false" aria-controls="qbox"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5.5 5.5"/></svg></button>
   <button id="qbtn" aria-label="Queue" aria-expanded="false" aria-controls="qside"></button>
 </header>
 <!-- Genre chips (filled by openSources) -->
@@ -3558,11 +3629,28 @@ function atWordStart(text, term) {
   for (let i = t.indexOf(q); i >= 0; i = t.indexOf(q, i + 1)) if (!i || !/[\p{L}\p{N}]/u.test(t[i - 1])) return true;
   return false;
 }
+// Shows / hides the search field with its search areas (search button, Esc in the field). Shown: focus in the
+// field. Hidden: the term is cleared and the selected view restored; the focus goes back to the button.
+function showSearch(open) {
+  if (!open && $("#qbox").contains(document.activeElement)) $("#sbtn").focus();
+  $("#qbox").hidden = !open;
+  $("#sbtn").setAttribute("aria-expanded", open);
+  if (open) $("#q").focus();
+  else if ($("#q").value) {
+    $("#q").value = "";
+    clearTimeout(searchTimer);
+    search();
+  }
+}
+// True if the search area (chip in the search field: title, artist, composer) is on.
+const searchIn = (k) => $(`#sin [data-in=${k}]`).getAttribute("aria-pressed") === "true";
 // Uses the player's own search (Enter, or while typing, see SEARCH_MIN / SEARCH_DELAY).
 // The result comes in groups, each A-Z by title and each album once: album title (the term is in the title),
 // artist (the rest of the search's albums list: album artist or a track artist) and composer (the albums of
 // the composers found). The status line names the first group, a line in the grid every further group.
-// Fewer than SEARCH_MIN characters: no search, only a hint (the view stays).
+// Only the groups of the search areas that are on; an area that is off costs no request (albums list only for
+// title or artist, composers only for composer).
+// Fewer than SEARCH_MIN characters or no search area: no search, only a hint (the view stays).
 // An empty field restores the selected view.
 async function search() {
   const v = $("#q").value.trim(), seq = ++searchSeq;
@@ -3577,6 +3665,11 @@ async function search() {
     msg("Type at least " + SEARCH_MIN + " characters to search.");
     return;
   }
+  const [title, artist, composer] = ["title", "artist", "composer"].map(searchIn);
+  if (!title && !artist && !composer) {
+    msg("Select at least one search area.");
+    return;
+  }
   const sk = srcs.filter((x) => x.searchKey);
   if (!sk.length) {
     msg("Connect first \u2013 or the player offers no search.", true);
@@ -3585,23 +3678,24 @@ async function search() {
   btns.forEach((b) => b.setAttribute("aria-pressed", "false"));
   msg("Searching \u2026");
   try {
-    // Search every enabled source: [albums list, new albums of the composers] per source
+    // Search every enabled source: [albums list, albums of the composers] per source
     const res = await Promise.all(sk.map(async (x) => {
       const its = items(await browse(x.searchKey, v));
       const direct = its.filter((i) => attr(i, "type") === "album").map(toAlbum);
       if (direct.length) return [direct, []];
-      const link = its.find((i) => /Album/i.test(attr(i, "browseKey")) || /^(Alben?|Albums?)$/i.test(attr(i, "text")));
-      const comp = its.find((i) => /:Composer\//.test(attr(i, "browseKey")));
-      const [albums, more] = await Promise.all([link ? searchAlbums(attr(link, "browseKey")) : [], comp ? composerAlbums(attr(comp, "browseKey")) : []]);
-      return [albums, newAlbums(albums, more)];
+      const link = (title || artist) && its.find((i) => /Album/i.test(attr(i, "browseKey")) || /^(Alben?|Albums?)$/i.test(attr(i, "text")));
+      const comp = composer && its.find((i) => /:Composer\//.test(attr(i, "browseKey")));
+      return Promise.all([link ? searchAlbums(attr(link, "browseKey")) : [], comp ? composerAlbums(attr(comp, "browseKey")) : []]);
     }));
     if (seq !== searchSeq) return;
     const az = (l) => l.sort((x, y) => x.t.localeCompare(y.t));
     const found = res.flatMap((r) => r[0]), inTitle = found.filter((a) => atWordStart(a.t, v));
+    const byTitle = title ? inTitle : [], byArtist = artist ? found.filter((a) => !inTitle.includes(a)) : [];
+    // Composer group: the albums the shown groups do not contain (album keys differ per source)
     const groups = [
-      [inTitle, "in the album title"],
-      [found.filter((a) => !inTitle.includes(a)), "by the artist"],
-      [res.flatMap((r) => r[1]), "by the composer"]
+      [byTitle, "in the album title"],
+      [byArtist, "by the artist"],
+      [newAlbums([...byTitle, ...byArtist], res.flatMap((r) => r[1])), "by the composer"]
     ].filter((g) => g[0].length).map(([l, how]) => [az(l), nAlb(l.length) + " for \u201C" + v + "\u201D " + how]);
     render(groups.flatMap(([l, line], i) => i ? [{ line }, ...l] : l), true);
     msg(groups.length ? groups[0][1] : nAlb(0) + " for \u201C" + v + "\u201D");
@@ -3784,15 +3878,16 @@ function applySize(z) {
   document.documentElement.style.setProperty("--tile", TILE[z]);
   return z;
 }
-// On/off switch in the settings panel (button[role=switch]): stored as "1" / "0", default on (def = false: off).
+// On/off switch in the settings panel (button[role=switch], aria-checked) or toggle chip (aria-pressed):
+// stored as "1" / "0", default on (def = false: off).
 function bindSwitch(sel, key, apply, def = true) {
-  const b = $(sel);
+  const b = $(sel), a = b.getAttribute("role") === "switch" ? "aria-checked" : "aria-pressed";
   const set = (on) => {
     store.set(key, on ? "1" : "0");
-    b.setAttribute("aria-checked", on);
+    b.setAttribute(a, on);
     apply(on);
   };
-  b.onclick = () => set(b.getAttribute("aria-checked") !== "true");
+  b.onclick = () => set(b.getAttribute(a) !== "true");
   const v = store.get(key);
   set(v === null ? def : v !== "0");
 }
@@ -3974,8 +4069,16 @@ $("#q").onkeydown = (e) => {
   if (e.key === "Enter") {
     clearTimeout(searchTimer);
     search();
-  }
+  } else if (e.key === "Escape") showSearch(false);
 };
+$("#sbtn").onclick = () => showSearch($("#qbox").hidden);
+// Search areas (chips in the search field): all on by default; a change searches again when the field has text
+for (const k of ["title", "artist", "composer"])
+  bindSwitch(`#sin [data-in=${k}]`, "searchin:" + k, () => {
+    if (!$("#q").value.trim()) return;
+    clearTimeout(searchTimer);
+    search();
+  });
 // Settings panel: design, cover size and the filter chip switches (restored from localStorage)
 bindSegment("#themes", "theme", "theme", applyTheme);
 bindSegment("#sizes", "size", "tile", applySize);

@@ -496,6 +496,10 @@ async function start(browser, opts = {}) {
   const openPanel = async () => {
     if (!(await page.$eval("#side", (e) => e.classList.contains("open")))) await page.click("#gear");
   };
+  // Shows the search field (hidden at the start) with the search button
+  const openSearch = async () => {
+    if (!(await page.isVisible("#q"))) await page.click("#sbtn");
+  };
   const openQueue = async () => {
     await page.click("#qbtn");
     await page.waitForSelector("#qlist li");
@@ -548,6 +552,7 @@ async function start(browser, opts = {}) {
     connect,
     openPanel,
     openQueue,
+    openSearch,
     reload,
     apiPopup,
     close: () => ctx.close(),
@@ -1199,6 +1204,7 @@ test("CHP-12 outdated result is dropped, All stops loading", async (t) => {
 test(
   "CHP-13 selecting a chip clears the search",
   async (t) => {
+    await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
     await t.waitMsg(/for/);
@@ -2001,6 +2007,7 @@ const searchTotal = (lines) => lines.reduce((n, l) => n + +((l.match(/^(\d+) alb
 test(
   "SRH-01 search uses the player search, no random tile, no chip",
   async (t) => {
+    await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
     await t.waitMsg(`for \u201C${TD.TERM}\u201D`);
@@ -2013,6 +2020,7 @@ test(
 );
 
 test("SRH-02 the albums list of the result is read once per source (no second request)", async (t) => {
+  await t.openSearch();
   await t.page.fill("#q", TD.TERM);
   await t.page.press("#q", "Enter");
   await t.waitMsg(/for/);
@@ -2028,6 +2036,7 @@ test(
     const searches = () => t.reqs(/[?&]q=/).length;
     const n0 = searches();
     const word = "love".padEnd(min + 1, "s");
+    await t.openSearch();
     await t.page.type("#q", word.slice(0, min - 1), { delay: 60 });
     await t.settle(1200);
     eq(searches() - n0, 0, `no search below ${min} characters`);
@@ -2053,6 +2062,7 @@ test(
 test(
   "SRH-04 empty field restores the selected view without a request",
   async (t) => {
+    await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
     await t.waitMsg(/for/);
@@ -2070,6 +2080,7 @@ test(
 test(
   "SRH-05 sectioned search result: albums of every filled section",
   async (t) => {
+    await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
     await t.waitMsg(/for/);
@@ -2100,6 +2111,7 @@ test(
 test(
   "SRH-06 album items in the search answer are shown directly",
   async (t) => {
+    await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
     await t.waitMsg(/for/);
@@ -2118,6 +2130,7 @@ test(
 
 test("SRH-07 only the newest search updates the grid", async (t) => {
   t.player.state.overrides.push({ match: /q=slowterm/, delay: 1500 });
+  await t.openSearch();
   await t.page.fill("#q", "slowterm");
   await t.page.press("#q", "Enter");
   await t.page.fill("#q", "fast");
@@ -2129,6 +2142,7 @@ test("SRH-07 only the newest search updates the grid", async (t) => {
 
 test("SRH-08 search error", async (t) => {
   t.player.state.overrides.push({ match: /[?&]q=/, status: 500 });
+  await t.openSearch();
   await t.page.fill("#q", TD.TERM);
   await t.page.press("#q", "Enter");
   await t.waitMsg("Search failed: Player responded with 500");
@@ -2140,6 +2154,7 @@ test("SRH-08 search error", async (t) => {
 test(
   "SRH-08 source without search",
   async (t) => {
+    await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
     await t.waitMsg("Connect first \u2013 or the player offers no search.");
@@ -2160,6 +2175,7 @@ const firstAlbum = fx("07").match(/<item [^>]*type="album">[\s\S]*?<\/contextMen
 test(
   "SRH-09 search also shows the albums of the composers found, without repeats",
   async (t) => {
+    await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
     await t.waitMsg(/for/);
@@ -2206,9 +2222,32 @@ test(
   },
 );
 
+// Grid of a search result in order: "| " + group line, album title of every tile
+const searchGrid = (t) =>
+  t.page.$$eval("#grid > *", (x) =>
+    x.map((e) => (e.classList.contains("gl") ? "| " + e.textContent : e.querySelector("b")?.textContent)).filter(Boolean),
+  );
+// Search "fugue" (SRH-10, SRH-11): library albums list with title and artist hits (word start, accents),
+// empty on the USB drive; one composer with one new album and one album of the albums list.
+const fugueSearch = () => [
+  {
+    match: /key=LocalMusic:Album\/%2Flibrary%2Fv1%2FAlbums%3Fexpr=/,
+    body: `<browse type="albums">${albumItem("A Fugue for Two")}${albumItem("Night Moves").replace(/Test Artist|Test\+Artist/g, (m) => m.replace("Test", "Fugue"))}${albumItem("Refugue")}${albumItem("The Fügue Book")}</browse>`,
+  },
+  { match: /key=1A2B_3C4D:Album\/%2Flibrary%2Fv1%2FAlbums%3Fexpr=/, body: '<browse type="albums"></browse>' },
+  {
+    match: /key=LocalMusic:Composer\/%2Flibrary%2Fv1%2FComposers%3Fexpr=/,
+    body: '<browse type="composers"><item browseKey="LocalMusic:MG/LocalMusic-Composer?composer=Fugue+Master" text="Fugue Master" type="composer"></item></browse>',
+  },
+  {
+    match: /Albums%3Fcomposer=Fugue/,
+    body: `<browse type="albums">${albumItem("Cello Suites")}${albumItem("A Fugue for Two")}</browse>`,
+  },
+];
 test(
   "SRH-10 search results grouped by album title, artist and composer, one status line per group",
   async (t) => {
+    await t.openSearch();
     await t.page.fill("#q", "fugue");
     await t.page.press("#q", "Enter");
     await t.waitMsg(/for/);
@@ -2221,14 +2260,8 @@ test(
         ),
       );
     eq((await ruled("#msg, #grid .gl")).join(), "true,true,true", "fine line under every group line");
-    // grid in order: group lines and tiles
-    const grid = await t.page.$$eval("#grid > *", (x) =>
-      x
-        .map((e) => (e.classList.contains("gl") ? "| " + e.textContent : e.querySelector("b")?.textContent))
-        .filter(Boolean),
-    );
     eq(
-      grid.join(" / "),
+      (await searchGrid(t)).join(" / "),
       [
         "A Fugue for Two",
         "The F\u00FCgue Book",
@@ -2246,23 +2279,103 @@ test(
       "no random tile",
     );
   },
-  {
-    overrides: [
-      {
-        match: /key=LocalMusic:Album\/%2Flibrary%2Fv1%2FAlbums%3Fexpr=/,
-        body: `<browse type="albums">${albumItem("A Fugue for Two")}${albumItem("Night Moves").replace(/Test Artist|Test\+Artist/g, (m) => m.replace("Test", "Fugue"))}${albumItem("Refugue")}${albumItem("The F\u00FCgue Book")}</browse>`,
-      },
-      { match: /key=1A2B_3C4D:Album\/%2Flibrary%2Fv1%2FAlbums%3Fexpr=/, body: '<browse type="albums"></browse>' },
-      {
-        match: /key=LocalMusic:Composer\/%2Flibrary%2Fv1%2FComposers%3Fexpr=/,
-        body: '<browse type="composers"><item browseKey="LocalMusic:MG/LocalMusic-Composer?composer=Fugue+Master" text="Fugue Master" type="composer"></item></browse>',
-      },
-      {
-        match: /Albums%3Fcomposer=Fugue/,
-        body: `<browse type="albums">${albumItem("Cello Suites")}${albumItem("A Fugue for Two")}</browse>`,
-      },
-    ],
+  { overrides: fugueSearch() },
+);
+
+// SRH-11: the search areas (chips in the search field) choose the groups and skip the requests of an area
+// that is off; the choice is stored.
+test(
+  "SRH-11 search areas: chips in the search field, all on by default, stored",
+  async (t) => {
+    const chips = () =>
+      t.page.$$eval("#sin button", (x) => x.map((e) => e.textContent + ":" + e.getAttribute("aria-pressed")));
+    const area = (name) => t.page.click(`#sin button:text-is("${name}")`);
+    // Waits until the grid shows `want` (the chips search again at once)
+    const gridIs = async (want, what) => {
+      for (let i = 0; i < 50 && (await searchGrid(t)).join(" / ") !== want.join(" / "); i++) await t.settle(100);
+      eq((await searchGrid(t)).join(" / "), want.join(" / "), what);
+    };
+    const searches = () => t.reqs(/[?&]q=/).length;
+    const albumLists = () => t.reqs(/Albums(%3F|\?)expr=/).length;
+    const composers = () => t.reqs(/Composers(%3F|\?)expr=|LocalMusic-Composer\?composer=/).length;
+    eq((await chips()).join(), "Album:true,Artist:true,Composer:true", "all areas on by default");
+    await t.openSearch();
+    await t.page.fill("#q", "fugue");
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(/for/);
+    const [a0, c0] = [albumLists(), composers()];
+    ok(a0 > 0 && c0 > 0, "albums list and composers read with every area on");
+
+    await area("Composer");
+    await gridIs(
+      ["A Fugue for Two", "The F\u00FCgue Book", "| 2 albums for \u201Cfugue\u201D by the artist", "Night Moves", "Refugue"],
+      "Composer off: searched again without the composer group",
+    );
+    eq(composers(), c0, "no composer request");
+
+    await area("Album");
+    await gridIs(["Night Moves", "Refugue"], "Album off: only the artist group");
+    eq(await t.msg(), "2 albums for \u201Cfugue\u201D by the artist", "status line = artist group");
+
+    const n = searches();
+    await area("Artist");
+    await t.waitMsg("Select at least one search area.");
+    eq(searches(), n, "every area off: no search");
+
+    const a1 = albumLists();
+    await area("Composer");
+    await gridIs(["A Fugue for Two", "Cello Suites"], "only Composer: the albums of the composers found");
+    eq(await t.msg(), "2 albums for \u201Cfugue\u201D by the composer", "status line = composer group");
+    eq(albumLists(), a1, "no albums list read");
+
+    await t.reload();
+    await t.connect();
+    eq((await chips()).join(), "Album:false,Artist:false,Composer:true", "areas stored across a reload");
+    const m = searches();
+    await t.openSearch();
+    await area("Album");
+    await t.settle();
+    eq(searches(), m, "chip with an empty search field: no search");
   },
+  { overrides: fugueSearch() },
+);
+
+test(
+  "SRH-12 search field hidden until the search button, Esc and the button hide it and restore the view",
+  async (t) => {
+    const shown = () => t.page.isVisible("#qbox");
+    const focus = () => t.page.evaluate(() => document.activeElement.id);
+    const lists = () => t.reqs(/^\/(Browse|library)/).length;
+    ok(!(await shown()), "search field hidden at the start");
+    eq(await t.page.getAttribute("#sbtn", "aria-expanded"), "false", "search button collapsed");
+    const left = (sel) => t.page.$eval(sel, (e) => e.getBoundingClientRect().left);
+    ok((await left("#sbtn")) < (await left("#qbtn")), "search button left of the queue button");
+    await t.page.click("#sbtn");
+    ok((await shown()) && (await t.page.isVisible("#sin")), "field and search areas shown");
+    eq(await t.page.getAttribute("#sbtn", "aria-expanded"), "true", "search button expanded");
+    eq(await focus(), "q", "focus in the field");
+    await t.page.fill("#q", TD.TERM);
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(/for/);
+    let n = lists();
+    await t.page.press("#q", "Escape");
+    await t.waitMsg(nAlb(TD.FAV.length));
+    ok(!(await shown()), "Esc hides the field");
+    eq(await focus(), "sbtn", "focus back on the search button");
+    eq(await t.page.getAttribute('#az button[aria-label="Favourites"]', "aria-pressed"), "true", "view restored");
+    eq(lists(), n, "no request");
+    await t.page.click("#sbtn");
+    eq(await t.page.inputValue("#q"), "", "field empty when shown again");
+    await t.page.fill("#q", TD.TERM);
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(/for/);
+    n = lists();
+    await t.page.click("#sbtn");
+    await t.waitMsg(nAlb(TD.FAV.length));
+    ok(!(await shown()), "the search button hides the field");
+    eq(lists(), n, "no request");
+  },
+  R,
 );
 
 // ---------- 4.9 Player footer (FTR) ----------

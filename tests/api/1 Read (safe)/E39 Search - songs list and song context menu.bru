@@ -1,0 +1,80 @@
+meta {
+  name: E39 Search - songs list and song context menu
+  type: http
+  seq: 120
+}
+
+get {
+  url: http://{{host}}:11000/Browse
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Does a song of the player's search lead to its album? Search (/Browse searchKey + q) -> link "Songs" ->
+  // first song -> its context menu. Term: the first word of 3 or more letters in the title of the first song. Read only.
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const axios = require("axios");
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const items = (x) => x.match(/<item\b[^>]*>/g) || [];
+
+  const first = dec(((await get("/library/v1/Songs?service=LocalMusic&end=1")).match(/<title>([^<]+)<\/title>/) || [])[1] || "");
+  const term = (first.match(/[\p{L}\p{N}]{3,}/u) || [])[0];
+  if (!term) { bru.runner.skipRequest(); return; }
+  const link = items(await get("/Browse?key=" + encodeURIComponent("LocalMusic:Search") + "&q=" + encodeURIComponent(term))).find((t) => attr(t, "text") === "Songs");
+  const list = link ? await get("/Browse?key=" + encodeURIComponent(attr(link, "browseKey"))) : "";
+  const song = items(list).find((t) => attr(t, "type") === "track");
+  bru.setVar("eSongSearch", JSON.stringify({
+    term,
+    link: !!link,
+    listType: attr((list.match(/<browse\b[^>]*>/) || [""])[0], "type"),
+    song: song ? { browseKey: attr(song, "browseKey"), cm: attr(song, "contextMenuKey"), text2: attr(song, "text2"), playURL: attr(song, "playURL") } : null
+  }));
+  console.log("term: " + term + " | first song: " + (song ? attr(song, "text") + " / " + attr(song, "text2") : "none"));
+  if (!song || !attr(song, "contextMenuKey")) { bru.runner.skipRequest(); return; }
+  req.setUrl(H + "/Browse?key=" + encodeURIComponent(attr(song, "contextMenuKey")));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("explore-39-search-song-context-menu.xml");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const its = body.match(/<item\b[^>]*>/g) || [];
+  const s = JSON.parse(bru.getVar("eSongSearch") || "{}");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("the search menu has a link Songs", () => expect(s.link).to.equal(true));
+  test("songs list of type tracks", () => expect(s.listType).to.equal("tracks"));
+  test("a song has no browse key, but a context menu key with album and artist", () => {
+    expect(s.song.browseKey).to.equal("");
+    expect(s.song.cm).to.match(/:CM\/LocalMusic-Song\?album=.*&artist=/);
+  });
+  test("a song's text2 is 'artist • album'", () => expect(s.song.text2).to.match(/ • /));
+  test("a song plays by its file", () => expect(s.song.playURL).to.match(/[?&]file=/));
+  test("the song context menu has no link to the album", () => {
+    expect(its.length).to.be.above(0);
+    its.forEach((t) => { expect(attr(t, "browseKey")).to.equal(""); expect(attr(t, "text")).to.not.match(/album/i); });
+  });
+}

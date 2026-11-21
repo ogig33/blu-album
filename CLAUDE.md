@@ -88,7 +88,7 @@ Do not build these; when asked, point to the alternative.
 - **Failed requests:** errors of `api()` carry `url`, `status` and `body`; `apiFail(title, e)` shows them in the API response popup (`showApiResponse()`), `loadFailed(prefix, title, e)` also writes the status line. `xml()` and `cmd()` use the popup on failure.
 - **Outdated async results** are dropped: `ctx()` (player + source selection), `activeKey` (current view) and counters `plSeq`, `qSeq`, `dlgSeq`, `searchSeq`, `lazyTok`.
 - **Covers** are read with `fetch()` and shown as blob URLs (`showImg()`), not as `<img src="http://…">` (Firefox upgrades those to https on a `file://` page).
-- **Settings switches / segments:** `bindSwitch()`, `bindSegment()`; localStorage only for conveniences (IP, design, cover size, chip groups, pinned queue, disabled sources).
+- **Settings switches / segments:** `bindSwitch()` (also the search area chips), `bindSegment()`; localStorage only for conveniences (IP, design, cover size, chip groups, search areas, pinned queue, disabled sources).
 - **Configuration constants:** `APP`, `SVC_LIBRARY`, `SVC_PLAYLISTS`, `QUALITIES`, `FORMATS`, `LOSSY`, `REPEAT`, icons (`ICON_*`, `HEART`).
 
 ## Decisions
@@ -104,6 +104,7 @@ Do not build these; when asked, point to the alternative.
 - **No player status text** (e.g. paused, streaming): niche, not essential. The play / pause button still reflects the state.
 - **Do not use /ui endpoints:** these endpoints are specific to BluOS Controller app and too risky for other clients
 - **No default IP address** in the app.
+- **No song title search area:** the search's songs list has no link to the album of a song (no browse key, no "Go to album" in the song context menu); the album would need a self-built URL, which fails for samplers (the song carries the track artist, not the album artist).
 - **No song favourites:** no heart per track in the album popup and no "Favourite songs" chip, although the API supports both (`/AddFavourite?fn=`, `autoplayURL` with `category=FAVOURITES`); BluAlbum keeps to album favourites.
 - **Playlist chips keep the player's order:** no "Date added" sort (`/Playlists?sort=recent`) and no warning when the queue is saved under an existing playlist name.
 
