@@ -2403,6 +2403,22 @@ test(
     await t.waitMsg(nAlb(TD.FAV.length));
     ok(!(await shown()), "the search button hides the field");
     eq(lists(), n, "no request");
+    // Clear button of the field (Safari, Chrome; Firefox draws none): own cross, clears the field and restores the view
+    if (await t.page.evaluate(() => CSS.supports("selector(::-webkit-search-cancel-button)"))) {
+      await t.page.click("#sbtn");
+      await t.page.fill("#q", TD.TERM);
+      await t.page.press("#q", "Enter");
+      await t.waitMsg(/for/);
+      // middle of the 18 px cross at the right end of the text area (inside the field's right padding)
+      const r = await t.page.$eval("#q", (e) => ({
+        ...e.getBoundingClientRect().toJSON(),
+        pad: parseFloat(getComputedStyle(e).paddingRight),
+      }));
+      await t.page.mouse.click(r.right - r.pad - 9, r.top + r.height / 2);
+      await t.waitMsg(nAlb(TD.FAV.length));
+      eq(await t.page.inputValue("#q"), "", "the clear button empties the field");
+      ok(await shown(), "field stays shown");
+    }
   },
   R,
 );

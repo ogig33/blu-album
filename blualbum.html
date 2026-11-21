@@ -676,6 +676,22 @@ li.cur .qn {
 #q:focus-visible {
   outline: none;
 }
+/* Clear button of the search field (Safari, Chrome): filled circle with the cross knocked out, in the text
+   colours; the native one is dark grey and hardly visible in the dark design */
+#q::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  cursor: pointer;
+  background: var(--dim);
+  -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><mask id='m'><rect width='24' height='24' fill='white'/><path d='M8.5 8.5l7 7M15.5 8.5l-7 7' stroke='black' stroke-width='2.4' stroke-linecap='round'/></mask><circle cx='12' cy='12' r='11' mask='url(%23m)'/></svg>") center / contain no-repeat;
+  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><mask id='m'><rect width='24' height='24' fill='white'/><path d='M8.5 8.5l7 7M15.5 8.5l-7 7' stroke='black' stroke-width='2.4' stroke-linecap='round'/></mask><circle cx='12' cy='12' r='11' mask='url(%23m)'/></svg>") center / contain no-repeat;
+}
+#q::-webkit-search-cancel-button:hover {
+  background: var(--ink);
+}
 #sin {
   display: flex;
   gap: 4px;

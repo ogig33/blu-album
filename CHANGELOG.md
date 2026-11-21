@@ -10,6 +10,7 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 - Queue panel: the button for deleting the loaded playlist is gone (delete it on its tile instead).
 - Search: chips Album, Artist and Composer in the search field choose where to search (only Album on by default).
 - Search: the search field is hidden until you click the search button next to the queue button.
+- Search: the clear button (×) of the search field is well visible in the dark design.
 - Header shows the BluAlbum logo left of the title.
 - About popup no longer shows the independence notice.
 
