@@ -2,7 +2,7 @@
 
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
-## Unreleased
+## 0.11.0
 - About popup shows the BluAlbum logo.
 - Search: also finds the albums of a composer.
 - Search: results grouped by album title, artist and composer, each with its own status line.
