@@ -7,7 +7,7 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 - Playlists: one "Playlists" chip after New shows the saved playlists as tiles like albums, with play, add to queue, delete and a popup with the track list.
 - Playlists: the Playlists chip is always shown; its switch in the settings is gone.
 - Queue panel: the button for deleting the loaded playlist is gone (delete it on its tile instead).
-- Search: chips Album, Artist and Composer in the search field choose where to search (all on by default).
+- Search: chips Album, Artist and Composer in the search field choose where to search (only Album on by default).
 - Search: the search field is hidden until you click the search button next to the queue button.
 - Header shows the BluAlbum logo left of the title.
 - About popup no longer shows the independence notice.

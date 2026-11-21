@@ -1760,13 +1760,13 @@ dialog * {
   <!-- App logo: the favicon's double note knocked out of a circle, in the text colour -->
   <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><mask id="hdrlogo"><rect width="32" height="32" fill="white"/><g fill="black"><ellipse cx="8.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 8.3 26.5)"/><ellipse cx="22.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 22.3 26.5)"/><rect x="10.5" y="11" width="2.6" height="15"/><rect x="24.5" y="9" width="2.6" height="17"/><path d="M10.5 10 27.1 8v4.6L10.5 14.6z"/></g></mask><circle cx="16" cy="16" r="15" mask="url(#hdrlogo)"/></svg>
   <h1 id="ttl">BluAlbum</h1>
-  <!-- Search field with the search areas (chips, all on by default, stored); hidden until the search button -->
+  <!-- Search field with the search areas (chips, only Album on by default, stored); hidden until the search button -->
   <div id="qbox" hidden>
     <input id="q" type="search" placeholder="Search (Enter)" aria-label="Search">
     <div id="sin" role="group" aria-label="Search in">
       <button data-in="title" aria-pressed="true" title="Search in album titles">Album</button>
-      <button data-in="artist" aria-pressed="true" title="Search in album and track artists">Artist</button>
-      <button data-in="composer" aria-pressed="true" title="Search in composers">Composer</button>
+      <button data-in="artist" aria-pressed="false" title="Search in album and track artists">Artist</button>
+      <button data-in="composer" aria-pressed="false" title="Search in composers">Composer</button>
     </div>
   </div>
   <button id="sbtn" aria-label="Search" aria-expanded="false" aria-controls="qbox"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5.5 5.5"/></svg></button>
@@ -4211,13 +4211,13 @@ $("#q").onkeydown = (e) => {
   } else if (e.key === "Escape") showSearch(false);
 };
 $("#sbtn").onclick = () => showSearch($("#qbox").hidden);
-// Search areas (chips in the search field): all on by default; a change searches again when the field has text
+// Search areas (chips in the search field): only Album on by default; a change searches again when the field has text
 for (const k of ["title", "artist", "composer"])
   bindSwitch(`#sin [data-in=${k}]`, "searchin:" + k, () => {
     if (!$("#q").value.trim()) return;
     clearTimeout(searchTimer);
     search();
-  });
+  }, k === "title");
 // Settings panel: design, cover size and the filter chip switches (restored from localStorage)
 bindSegment("#themes", "theme", "theme", applyTheme);
 bindSegment("#sizes", "size", "tile", applySize);

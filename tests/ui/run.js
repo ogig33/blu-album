@@ -392,10 +392,11 @@ const eqCount = (a, b, msg) => (REAL ? ok(a >= b, `${msg}: expected at least ${b
 
 // Opens the app with a fresh browser profile, connects to the player and waits for the default view.
 // opts: connect (false = stay on the start page), storage (localStorage before start; genre and quality chips
-// are switched on unless appDefaults or stored), appDefaults (true = the app's own defaults: genre, quality and
-// decade chips off), locale, colorScheme, promptValue / dialog ("accept" | "dismiss") for prompt and confirm,
-// unreachable (every player request fails), blockStorage (localStorage throws), and the mock options (usb,
-// playing, listeningModes, statusPatch, overrides, mock).
+// and the search areas Artist and Composer are switched on unless appDefaults or stored), appDefaults (true =
+// the app's own defaults: genre, quality and decade chips off, only the search area Album on), locale,
+// colorScheme, promptValue / dialog ("accept" | "dismiss") for prompt and confirm, unreachable (every player
+// request fails), blockStorage (localStorage throws), and the mock options (usb, playing, listeningModes,
+// statusPatch, overrides, mock).
 async function start(browser, opts = {}) {
   const player = REAL ? createRecorder(BASE) : createPlayer(opts);
   // Now playing at the start of the test (the real player moves on during a run)
@@ -439,11 +440,13 @@ async function start(browser, opts = {}) {
     );
   if (opts.storage)
     await page.addInitScript((s) => Object.entries(s).forEach(([k, v]) => localStorage.setItem(k, v)), opts.storage);
-  // Most tests use the genre and quality chips, which are off by default: switched on in the fresh profile
-  // (only when not stored yet, so a switch changed by the test stays changed after a reload)
+  // Most tests use the genre and quality chips and search every area, which are off by default: switched on in
+  // the fresh profile (only when not stored yet, so a switch changed by the test stays changed after a reload)
   if (!opts.appDefaults && !opts.blockStorage)
     await page.addInitScript(() =>
-      ["genrechips", "qchips"].forEach((k) => localStorage.getItem(k) === null && localStorage.setItem(k, "1")),
+      ["genrechips", "qchips", "searchin:artist", "searchin:composer"].forEach(
+        (k) => localStorage.getItem(k) === null && localStorage.setItem(k, "1"),
+      ),
     );
   await page.goto(APP);
   const ready = async () => {
@@ -2309,7 +2312,7 @@ test(
 // SRH-11: the search areas (chips in the search field) choose the groups and skip the requests of an area
 // that is off; the choice is stored.
 test(
-  "SRH-11 search areas: chips in the search field, all on by default, stored",
+  "SRH-11 search areas: chips in the search field, only Album on by default, stored",
   async (t) => {
     const chips = () =>
       t.page.$$eval("#sin button", (x) => x.map((e) => e.textContent + ":" + e.getAttribute("aria-pressed")));
@@ -2322,20 +2325,22 @@ test(
     const searches = () => t.reqs(/[?&]q=/).length;
     const albumLists = () => t.reqs(/Albums(%3F|\?)expr=/).length;
     const composers = () => t.reqs(/Composers(%3F|\?)expr=|LocalMusic-Composer\?composer=/).length;
-    eq((await chips()).join(), "Album:true,Artist:true,Composer:true", "all areas on by default");
+    eq((await chips()).join(), "Album:true,Artist:false,Composer:false", "only Album on by default");
     await t.openSearch();
     await t.page.fill("#q", "fugue");
     await t.page.press("#q", "Enter");
     await t.waitMsg(/for/);
-    const [a0, c0] = [albumLists(), composers()];
-    ok(a0 > 0 && c0 > 0, "albums list and composers read with every area on");
+    await gridIs(["A Fugue for Two", "The F\u00FCgue Book"], "only Album: the title group");
+    eq(await t.msg(), "2 albums for \u201Cfugue\u201D in the album title", "status line = title group");
+    ok(albumLists() > 0, "albums list read");
+    eq(composers(), 0, "no composer request");
 
-    await area("Composer");
+    await area("Artist");
     await gridIs(
       ["A Fugue for Two", "The F\u00FCgue Book", "| 2 albums for \u201Cfugue\u201D by the artist", "Night Moves", "Refugue"],
-      "Composer off: searched again without the composer group",
+      "Artist on: searched again with the artist group",
     );
-    eq(composers(), c0, "no composer request");
+    eq(composers(), 0, "still no composer request");
 
     await area("Album");
     await gridIs(["Night Moves", "Refugue"], "Album off: only the artist group");
@@ -2361,7 +2366,7 @@ test(
     await t.settle();
     eq(searches(), m, "chip with an empty search field: no search");
   },
-  { overrides: fugueSearch() },
+  { overrides: fugueSearch(), appDefaults: true },
 );
 
 test(
