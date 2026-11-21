@@ -2315,6 +2315,8 @@ No answer body (HTTP 200, empty).
   | `capture-inputN-preset` | list | listening mode of the input (e.g. `MUSIC`, `TV`) | `capture-inputN` |
   | `capture-inputN-autosense`, `…-autosenseUngroup` | boolean | switch to the input on signal, ungroup then | `capture-inputN` |
   | `capture-inputN-lowLatency` | boolean | A/V mode | `capture-inputN` |
+
+- USB server mode (`server`), verified manually: `ON` → the music of the USB drive is indexed into the library (`LocalMusic`) together with the network shares, is available on the other players of the network and has favourites. `OFF` → the drive is a source of its own (the USB id) on this player only, without favourite actions. The change takes effect only after the drive is unplugged and plugged in again; `/Settings` reports the new value at once.
   | `capture-inputN-latency` | range | lip-sync delay 50 … 150 ms, steps of 10 | `capture-inputN` |
   | `capture-inputN-groupCompress` | boolean | compressed audio to grouped players | `capture-inputN` |
   | `capture-inputN-isMqaSource` | boolean | MQA pass-through (optical inputs) | `capture-inputN` |

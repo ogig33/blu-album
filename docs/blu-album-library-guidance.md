@@ -6,11 +6,30 @@ BluAlbum shows what the player has indexed: it reads no files itself and gets no
 
 ## Checklist
 
-1. One folder per album, with all its tracks.
-2. The same `ALBUM`, `ALBUMARTIST`, `YEAR` and `GENRE` on every track of an album.
-3. The cover as a separate JPEG file in the album folder, below 600 KB, as large in pixels as fits (typically 1000–1600 px).
-4. "Optimize Artwork" off in the BluOS Controller app, then rebuild the index once.
-5. Keep tags and covers consistent with a tagging app – see [Tags](#tags).
+1. The music on a network share, a local share or a USB drive – see [Music storage](#music-storage).
+2. Keep tags consistent with a tagging app – see [Tags](#tags).
+2. The cover as a separate JPEG file in the album folder - see [Cover art](#cover-art)
+
+## Music storage
+
+BluOS supports several options of integrating local music libraries. BluAlbum supports all of them.
+
+|                    | Network share | Local share | USB drive, "Server Mode" on | USB drive, "Server Mode" off |
+| ------------------ | ------------- | ----------- | --------------------------- | ---------------------------- |
+| Where the music is | SMB network share | A folder on the computer running the BluOS Controller desktop app | A drive plugged into a player | A drive plugged into the player |
+| BluOS Controller music library settings | Network shares | Local shares | Enable Server Mode = on | Enable Server Mode = off |
+| Music Available on | Every BluOS player in the network | Every BluOS player in the network (while your computer runs) | Every BluOS player in the network | Only the player the drive is plugged into |
+| Music library updates|Update on share, then reindex |Update on share, then reindex|Unplug USB,plug into Computer, update,plug into Player, reindex | Unplug USB,plug into Computer, update,plug into Player, reindex|
+| Appearance    | Under "Library" | Under "Library" | Under "Library" | Under "USB" |
+| Favourites support | Yes | Yes | Yes | No (not supported by BluOS) |
+
+Recommendations:
+- keep your albums on a network share, or on a USB drive with "Enable Server Mode" on.
+
+References:
+- https://support.bluos.net/hc/en-us/articles/360000469948-How-do-I-connect-music-on-my-NAS-PC-or-iTunes-Shared-Music-to-BluOS
+- https://support.bluos.net/hc/en-us/articles/360037137354-USB-Server-Mode-How-to-connect-external-USB-Library-to-the-BluOS-Players
+- https://support.bluos.net/hc/en-us/articles/360000465747-How-USB-Storage-Differs-From-A-Local-Library-when-Server-Mode-is-disabled
 
 ## Tags
 
@@ -31,11 +50,10 @@ BluOS reads the following tags. The last column says what BluAlbum does with the
 | `REPLAYGAIN` | Loudness levelling | Not used by BluAlbum; the player applies it (listening mode setting in the BluOS Controller app). |
 | `COMPILATION` | Marks a track of a compilation | Not used by BluAlbum: the player offers no compilation filter. Use the album artist instead (see `ALBUMARTIST`). |
 
-The quality chips (HD, CD, MQA) and the quality tag in the player bar come from the audio files themselves (format, sample rate, bit depth); there is nothing to tag.
-
-A tagging app keeps tags and covers consistent across the whole library. One option is [MusicBrainz Picard](https://picard.musicbrainz.org/), a free app for Windows, macOS and Linux that matches your albums with the [MusicBrainz](https://musicbrainz.org/) database and writes tags and covers; for how to install and use it, see the [Picard documentation](https://picard-docs.musicbrainz.org/). BluAlbum is not affiliated with Picard or any other tagging app and gives no support for them. Whatever tool you use, set it up to keep one folder per album, to fill the tags as described above and to save covers as separate files (see [Cover art](#cover-art)).
-
-After tagging, let the player rescan the library ("Reindex music collection" in the music library settings of the BluOS Controller app). A full "Rebuild Index" is only needed after changing "Optimize Artwork".
+Recommendations:
+- A tagging app keeps tags and covers consistent across the whole library. There is several apps to help you with that, e.g. [MusicBrainz Picard](https://picard.musicbrainz.org/)
+- Use one folder per album, to fill the tags as described above
+- After tagging, let the player Reindex music collection
 
 References:
 - https://support.bluos.net/hc/en-us/articles/360042352294-What-is-Metadata
@@ -43,29 +61,24 @@ References:
 
 ## Cover art
 
-BluAlbum lives from album covers. How sharp they are depends on the player setting "Optimize Artwork" (music library settings of the BluOS Controller app) at the time the library index was built.
+BluAlbum lives from album covers. There are 2 options how BluOS handles cover art:
 
-| | Optimize Artwork on (default) | Optimize Artwork off |
-| --- | --- | --- |
-| Stored cover | At most 600 × 600 px | The original image |
-| Cover file larger than 600 KB | Resized to 600 × 600 px (up to 4 MB) | Grey placeholder instead of the cover |
-| PNG cover | Resized to 600 × 600 px | – (use JPEG) |
-| Cover file larger than 4 MB | Not shown | Grey placeholder |
-| Result in BluAlbum | Covers look blurry at large cover sizes | Sharp covers at every cover size |
+|                               | Optimize Artwork on     | Optimize Artwork off |
+| ----------------------------- | ----------------------- | -------------------- |
+| Cover file < 600 KB           | No resizing             | The original image   |
+| Cover file 600 KB - 4MB       | Resized to 600 × 600 px | Not shown            |
+| Cover file > 4 MB             | Not shown               | Not shown            |
+| Performance impact            | Reindexing takes longer | No impact  |
 
-The pixel size is not the limit: covers up to 1600 × 1600 px are served, as long as the file is below 600 KB.
 
-### Recommended setup
-
-1. Save every cover as a separate JPEG file in the album folder (not embedded in the audio files), below 600 KB, as large in pixels as fits – typically 1000–1600 px at a JPEG quality of about 85–90.
-2. In the BluOS Controller app, turn "Optimize Artwork" off.
-3. Rebuild the index on the player's diagnostics page (BluOS Controller app: Help › Diagnostics, or `http://<player IP>/diagnostics` in a browser) › "Rebuild Index". A normal rescan ("Reindex music collection") keeps the covers stored before, so without this step the covers stay at 600 px.
-4. Wait until indexing has finished, then reload BluAlbum.
-
-Larger covers take longer to load: about 250–500 KB per cover at 1400–1600 px against 70–170 KB at 600 px. If the album wall loads too slowly on your network, use a smaller cover size in BluAlbum's settings or smaller cover files.
+Recommendations:
+- Save covers as a separate folder.jpg file in the album folder, below 600 KB (the resolution is not limited to 1200x1200 contrary to documentation)
+- Turn off "Optimize Artwork" in the BluOS Controller app
+- After changing the "Optimize Artwork" settings, it is best to rebuild the index on the player's diagnostics page.
 
 References:
 - https://support.bluos.net/hc/en-us/articles/360000368827-Why-are-some-of-my-Album-Cover-Art-too-large-or-missing
+
 ## Troubleshooting
 
 | Symptom in BluAlbum | Likely cause | Fix |
@@ -77,4 +90,5 @@ References:
 | An album is missing from the decade chips | No `YEAR` tag | Add the release date |
 | Too many genre chips | Many different or very specific genres | Use one genre per album from a short list |
 | All discs of an album in one list | No `DISCNUMBER` tag | Add the disc number |
+| No heart on the albums of a USB drive | "USB Server Mode" off: the player offers no favourites for the drive | Turn "USB Server Mode" on, or move the albums to a network share |
 | "No genres found" when connecting | The player has not finished indexing | Wait, then reconnect |
