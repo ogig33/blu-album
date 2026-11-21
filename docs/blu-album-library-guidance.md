@@ -8,7 +8,7 @@ BluAlbum shows what the player has indexed: it reads no files itself and gets no
 
 1. The music on a network share, a local share or a USB drive – see [Music storage](#music-storage).
 2. Keep tags consistent with a tagging app – see [Tags](#tags).
-2. The cover as a separate JPEG file in the album folder - see [Cover art](#cover-art)
+3. The cover as a separate JPEG file in the album folder - see [Cover art](#cover-art)
 
 ## Music storage
 
@@ -51,7 +51,7 @@ BluOS reads the following tags. The last column says what BluAlbum does with the
 | `COMPILATION` | Marks a track of a compilation | Not used by BluAlbum: the player offers no compilation filter. Use the album artist instead (see `ALBUMARTIST`). |
 
 Recommendations:
-- A tagging app keeps tags and covers consistent across the whole library. There is several apps to help you with that, e.g. [MusicBrainz Picard](https://picard.musicbrainz.org/)
+- A tagging app keeps tags and covers consistent across the whole library. There are several apps to help you with that, e.g. [MusicBrainz Picard](https://picard.musicbrainz.org/)
 - Use one folder per album, to fill the tags as described above
 - After tagging, let the player Reindex music collection
 
