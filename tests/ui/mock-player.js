@@ -32,6 +32,8 @@ const USB_GENRES = ["Soundtrack"];
 const USB_SECTIONS = ["A", "S"];
 const USB_YEARS = [{ t: "Soundtrack Classics", a: "Various", y: "1964" }];
 const VERSIONS = { bluos: "4.18.18", api: "v0.5.43" };
+// Tracks on the second page of a saved playlist (the first page is fixture 28 with 10 tracks)
+const PL_PAGE2 = 3;
 const COMMANDS =
   /^\/(Add|Play|Pause|Skip|Back|Load|Save|Delete|AddFavourite|DeleteFavourite|Clear|Shuffle|Repeat|Volume\?)/;
 
@@ -41,6 +43,7 @@ function createPlayer(opts = {}) {
     requests: [], // every request path
     usb: opts.usb !== false, // USB drive connected
     queueEmpty: false,
+    deletedPlaylists: [], // names of the saved playlists the app deleted (left out of the playlists list)
     shuffle: false,
     repeat: "2",
     songArtists: {}, // title -> artist, overrides the artist of single songs (compilation test)
@@ -164,7 +167,27 @@ function createPlayer(opts = {}) {
     }
     if (/:Album\/%2Flibrary%2Fv1%2FAlbums%3Fcomposer=/.test(key))
       return key.startsWith(USB) ? '<browse type="albums"></browse>' : fx("07");
-    if (key === "BluOS:") return fx("16");
+    if (key === "BluOS:")
+      return fx("16").replace(/\s*<item browseKey="BluOS:MG[^>]* text="([^"]*)"[\s\S]*?<\/contextMenu>\s*<\/item>/g, (m, n) =>
+        state.deletedPlaylists.includes(n.replace(/&amp;/g, "&")) ? "" : m,
+      );
+    // Track list of a saved playlist (Bruno A28): every playlist gets the recorded tracks under its own name.
+    // Like the real player, 10 tracks per page with nextKey; page 2 (offset=10) holds PL_PAGE2 more tracks,
+    // without autoplayURL, the playURL carries listindex (from 0 again) and offset.
+    const pln = (key.match(/^BluOS:MG\/BluOS-Playlist\?playlist=(.*)$/) || [])[1];
+    if (pln !== undefined) return fx("28").replace(/(playlist|name)=TTT\b/g, (_, p) => p + "=" + pln);
+    const pl2 = (key.match(/^BluOS:Song\/%2FSongs%3Fplaylist=(.*)&offset=10$/) || [])[1];
+    if (pl2 !== undefined) {
+      const tracks = [...fx("28").matchAll(/<item [^>]*type="track"><\/item>/g)].slice(0, PL_PAGE2).map((m, i) =>
+        m[0]
+          .replace(/ autoplayURL="[^"]*"/, "")
+          .replace(
+            /( playURL="[^"]*)"/,
+            `$1&amp;listindex=${i}&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;playlist=${pl2}&amp;offset=10"`,
+          ),
+      );
+      return `<browse serviceIcon="/images/BluOSIcon.png" serviceName="BluOS" type="tracks" playURL="/Load?service=BluOS&amp;name=${pl2}">${tracks.join("")}</browse>`;
+    }
     // Search menu: like the real player, the USB drive links to lists with its own keys
     if (/:Search$/.test(key)) return key.startsWith(USB) ? fx("18").replace(/LocalMusic/g, USB) : fx("18");
     if (/Albums%3Fexpr=/.test(key)) return fx("07");
@@ -321,6 +344,8 @@ function createPlayer(opts = {}) {
       return "<repeat>" + state.repeat + "</repeat>";
     }
     if (p === "/Save") return "<saved><entries>12</entries></saved>";
+    // Deleting a saved playlist: gone from the playlists list (the answer as for every other command)
+    if (p === "/Delete" && q.get("service") === "BluOS") state.deletedPlaylists.push(q.get("name"));
     if (p === "/Load") {
       state.queueEmpty = true; // the recorded playlists behave like the broken ones: empty queue
       return "<loaded/>";

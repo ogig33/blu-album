@@ -1188,33 +1188,14 @@ nav button.sp[aria-pressed=true] svg {
 nav button.sp[aria-pressed=true] {
   color: var(--accink);
 }
-/* Playlist chips: placed after the genre chips in the same row */
+/* Chip groups switched off in the settings (quality, decades, genres) */
 body.noqc .qc,
 body.nodc .dc,
-body.nodc .dcg,
-body.nopl .plc,
-body.nopl .plg {
+body.nodc .dcg {
   display: none;
 }
-nav button.plc {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 260px;
-}
-nav button.plc span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-nav button.plc svg {
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  flex: none;
-  color: var(--acc);
-}
-nav.nog button:not(.sp):not(.plc),
-nav.nog .gap:not(.plg):not(.dcg) {
+nav.nog button:not(.sp),
+nav.nog .gap:not(.dcg) {
   display: none;
 }
 /* Separator between chip groups: thin line in the icon colour */
@@ -1367,6 +1348,14 @@ nav .gap {
 }
 .play.favc[hidden] {
   display: none;
+}
+/* Delete button of a playlist tile: where an album has its heart */
+.play.delp {
+  right: 80px;
+}
+.play.delp svg {
+  width: 17px;
+  height: 17px;
 }
 .play.favc svg {
   width: 16px;
@@ -1833,7 +1822,6 @@ dialog * {
     <span id="qcount"></span>
     <button id="qshuf" aria-label="Shuffle" title="Shuffle" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
     <button id="qrep" aria-label="Repeat: off" title="Repeat: off" aria-pressed="false"></button>
-    <button id="qdel" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
     <button id="qsave" aria-label="Save queue as playlist" title="Save queue as playlist"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8 4v4h7V4M7.5 20v-6h9v6"/></svg></button>
     <button id="qclear" aria-label="Clear queue" title="Clear queue"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14M3 8.75h14M3 13.5h6M3 18.25h5" stroke-width="2.4"/><path d="M12.5 11.5l8.5 8.5M21 11.5L12.5 20" stroke-width="2.4"/></svg></button>
   </div>
@@ -1876,7 +1864,6 @@ dialog * {
     <div class="srow"><span>Quality</span><button type="button" id="qsw" class="sw" role="switch" aria-checked="false" aria-label="Show quality chips"></button></div>
     <div class="srow"><span>Decades</span><button type="button" id="dsw" class="sw" role="switch" aria-checked="false" aria-label="Show decade chips"></button></div>
     <div class="srow"><span>Genres</span><button type="button" id="gsw" class="sw" role="switch" aria-checked="false" aria-label="Show genre chips"></button></div>
-    <div class="srow"><span>Playlists</span><button type="button" id="psw" class="sw" role="switch" aria-checked="true" aria-label="Show playlist chips"></button></div>
   </section>
   <section id="libset" aria-live="polite"></section>
   <section id="about"><button type="button" id="aboutb" aria-haspopup="dialog" title="About this app"><span>About</span><span id="ver"></span></button></section>
@@ -1902,8 +1889,8 @@ dialog * {
  *   9. Album grid                      Lazy rendering of the album tiles and the random album tile.
  *  10. Favourites                      Favourite state and toggling for the heart on the cover.
  *  11. Popups                          Album popup and the popup for unsuccessful player answers.
- *  12. Playlists                       Saved playlists of the player as chips.
- *  13. Queue panel                     Play queue: list, pinning, shuffle, repeat, save / delete playlist, clear.
+ *  12. Playlists                       Saved playlists of the player: the Playlists chip, its tiles (play, add, delete), track lists.
+ *  13. Queue panel                     Play queue: list, pinning, shuffle, repeat, save as playlist, clear.
  *  14. Player footer & full screen     Now playing, progress, transport, volume, listening mode, status polling, full-screen view.
  *  15. Search                          The player's own search.
  *  16. Settings panel                  Panel, settings switches, library stats and settings, about.
@@ -1918,8 +1905,8 @@ dialog * {
 const APP = { name: "BluAlbum", version: "0.11.0", repo: "https://github.com/ogig33/blu-album" };
 // Latest release on GitHub (update check in the about popup, only on click). Answers with CORS "*".
 const RELEASES_LATEST = "https://api.github.com/repos/ogig33/blu-album/releases/latest";
-// Service names of the player: the music library and the saved playlists.
-const SVC_LIBRARY = "LocalMusic", SVC_PLAYLISTS = "BluOS";
+// Service name of the player's music library.
+const SVC_LIBRARY = "LocalMusic";
 // Shown when fetch() fails with a TypeError: usually the browser lacks Local Network permission.
 const LAN_MSG = "Please make sure your browser has permission to access the Local Area Network (LAN).";
 // Connect: the player must answer the first request (top menu, about 1 KB) within CONNECT_TIMEOUT ms,
@@ -1954,7 +1941,9 @@ const REPEAT = {
   0: { label: "queue", icon: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICON_REPEAT_PATH + "</svg>" },
   1: { label: "track", icon: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICON_REPEAT_PATH + '<path d="M11 10.5l1.5-1V15" stroke-width="1.6"/></svg>' }
 };
-// Playlist icon (queue button and saved playlist chips): list with a music note.
+// Trash icon (delete button on a playlist tile).
+const ICON_TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+// Playlist icon (queue button): list with a music note.
 const ICON_PLAYLIST = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h12M3 8.75h12M3 13.5h8.5M3 18.25h5" stroke-width="2.4"/><ellipse cx="15.6" cy="18.3" rx="3.9" ry="3.2" transform="rotate(-22 15.6 18.3)" fill="currentColor" stroke="none"/><path d="M18.6 17.5V5.2" stroke-width="2.2"/><path d="M17.5 4.6 21.9 2.7c.5-.2 1 .1 1 .7v3.7c0 .5-.3.8-.8.9-1.4.3-2.6.9-3.4 1.7L17.5 9z" fill="currentColor" stroke="none"/></svg>';
 // Source icons (USB stick / library = folder with music notes).
 // Favourites are managed only by the player: state and actions come from the album's context menu
@@ -1994,6 +1983,9 @@ const fmtTime = (n) => {
 };
 // "1 album" / "5 albums".
 const nAlb = (n) => n + (n === 1 ? " album" : " albums");
+// "1 playlist" / "3 playlists", "1 track" / "12 tracks".
+const nPl = (n) => n + (n === 1 ? " playlist" : " playlists");
+const nTr = (n) => n + (n === 1 ? " track" : " tracks");
 const errMsg = (prefix, e) => e.name === "TimeoutError" ? NO_REPLY_MSG : e instanceof TypeError && /fetch|load failed|network/i.test(e.message) ? LAN_MSG : prefix + e.message;
 // Status line below the genre chips.
 const msg = (t, err) => {
@@ -2082,9 +2074,9 @@ let sources = [], srcs = [], epoch = 0;
 // Album grid: lazy rendering observer, a token that cancels an older render, observer that loads the covers.
 let lazyObs = null, lazyTok = 0, coverObs = null, cutObs = null;
 // Saved playlists. playlistsKey: browse key ("" if the player has none), plSeq: request counter,
-// plChips: chip elements (re-added after the genre chips are rebuilt), plCount: number for the stats (null = unknown),
-// playlists: [{name, url}], plLoaded: the playlist loaded last (chip click or name reported with the queue).
-let playlistsKey = "", plSeq = 0, plChips = [], plCount = null, playlists = [], plLoaded = "";
+// plBtn: the Playlists chip (re-added after the genre chips are rebuilt), plCount: number for the stats (null = unknown),
+// playlists: tiles like albums (toAlbum() + pl: true).
+let playlistsKey = "", plSeq = 0, plBtn = null, plCount = null, playlists = [];
 // Decade chips: ctx() for which they were built or are loading ("" = not yet).
 let dcCtx = "";
 // Playback position: secs at time t (ms), so the current position can be interpolated between status updates.
@@ -2093,9 +2085,8 @@ let pos = { secs: 0, total: 0, t: 0, playing: false, canSeek: false };
 let dragging = false, vWant = 0, vTimer = 0, vLast = 0;
 // Long polling of /Status. pollId invalidates running loops, pollCtl aborts the pending request.
 let pollId = 0, pollCtl = null;
-// Queue panel: open (pinned), playlist id (pid), current song index, request counter,
-// qName: saved playlist the queue was loaded from ("" if none).
-let qOpen = false, qPid = "", qSong = "", qSeq = 0, qName = "";
+// Queue panel: open (pinned), playlist id (pid), current song index, request counter.
+let qOpen = false, qPid = "", qSong = "", qSeq = 0;
 // Album popup: only the newest opened album may fill the popup. popCache: album key -> [track list
 // (/Browse), songs (/library/v1/Songs)] of albums opened in this session.
 let dlgSeq = 0, popCache = {};
@@ -2120,11 +2111,10 @@ function resetPlayerState() {
   libRows = [];
   libStats = {};
   playerRows = [];
-  qPid = qSong = qName = "";
+  qPid = qSong = "";
   lmSync = "";
   fyWant = fyHave = "";
-  playlistsKey = plLoaded = "";
-  plChips = [];
+  playlistsKey = "";
   playlists = [];
   plCount = null;
 }
@@ -2303,7 +2293,7 @@ async function connect() {
     $("#iphelp").hidden = true;
     showConnected(true);
     sources = topItems.filter((i) => attr(i, "type") === "link" && (/USBIcon|LibraryIcon/.test(attr(i, "image")) || /^(USB|Library|Bibliothek)$/i.test(attr(i, "text")))).map((i) => ({ key: attr(i, "browseKey"), name: attr(i, "text"), icon: attr(i, "image") }));
-    // Saved playlists ("Playlists" / "Wiedergabelisten", icon ci_myplaylists) for the playlist chips
+    // Saved playlists ("Playlists" / "Wiedergabelisten", icon ci_myplaylists) for the Playlists chip
     const plItem = topItems.find((i) => /myplaylists/i.test(attr(i, "image")) || /^(playlists|wiedergabelisten)$/i.test(attr(i, "text")));
     playlistsKey = plItem ? attr(plItem, "browseKey") : "";
     loadPlaylists();
@@ -2335,7 +2325,7 @@ async function openSources() {
   $("#q").value = "";
   const on = sources.filter(sourceOn);
   if (!on.length) {
-    renderPlChips();
+    renderPlChip();
     msg("No music source enabled. Switch one on in the settings panel.", true);
     return;
   }
@@ -2383,7 +2373,7 @@ async function openSources() {
       bn.setAttribute("aria-pressed", "false");
       bn.textContent = "New";
       bn.title = "Recently added albums";
-      bn.className = "sp";
+      bn.className = "sp nw";
       bn.onclick = () => loadNew(bn);
       nav.append(bn);
       QUALITIES.forEach(([q, name, title]) => {
@@ -2407,10 +2397,10 @@ async function openSources() {
       nav.append(b);
     });
     msg("Select a genre.");
-    // Keep the playlist chips at the end of the row (they may have arrived while this function was waiting).
-    renderPlChips();
+    // Add the Playlists chip after New (the playlists may have arrived while this function was waiting).
+    renderPlChip();
     decadeChips();
-    // Default view: Favourites, or the first genre. Never pick by position: a playlist chip would start playback.
+    // Default view: Favourites, or the first genre (not the Playlists chip).
     nav.querySelector(hasAlbums ? "button[aria-label=Favourites]" : "button:not(.plc)")?.click();
   } catch (e) {
     if (mine !== ctx()) return;
@@ -2434,7 +2424,7 @@ async function decadeChips() {
       const d = await api("/ui/browseGrouped?browseIndex=1&menuGroupId=" + s + "&service=" + s + "&title=Albums&type=Album&url=" + encodeURIComponent("/library/v1/Albums?service=" + x.svc + "&sort=decade"));
       return [...d.querySelectorAll("index > item")].map((i) => attr(i, "key")).filter((k) => /^\d{4}$/.test(k));
     }));
-    const gap = $("#az .gap:not(.plg)");
+    const gap = $("#az .gap");
     if (mine !== ctx() || !gap) return;
     const keys = [...new Set(lists.flat())].sort();
     const dg = document.createElement("span");
@@ -2818,7 +2808,8 @@ function render(list, noRandom) {
     }), { rootMargin: "800px 0px" });
     more();
   } else list.forEach(addItem);
-  // One grid tile: cover (opens details) with play / add-to-queue buttons, title, artist link.
+  // One grid tile: cover (opens details) with play / add-to-queue buttons and the heart, title, artist link
+  // (a saved playlist: delete button instead of the heart, the line "Playlist" instead of the artist).
   function addItem(a) {
     if (a.line) {
       const l = document.createElement("div");
@@ -2853,25 +2844,40 @@ function render(list, noRandom) {
     pl.className = "play";
     pl.innerHTML = ICON_PLAY;
     pl.setAttribute("aria-label", "Play " + a.t);
-    pl.onclick = () => cmd(a.play, "Playing: " + a.t);
+    pl.onclick = () => a.pl ? playPlaylist(a) : cmd(a.play, "Playing: " + a.t);
     cw.append(cb, pl);
-    if (a.menu["addAll-last"]) {
+    // Add to the end of the queue: addAll-last of an album, add-last of a playlist
+    const addUrl = a.menu["addAll-last"] || a.menu["add-last"];
+    if (addUrl) {
       const aq = document.createElement("button");
       aq.className = "play addq";
       aq.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
       aq.setAttribute("aria-label", "Add " + a.t + " to end of queue");
       aq.title = "Add to end of queue";
-      aq.onclick = () => cmd(a.menu["addAll-last"], "Added to queue: " + a.t);
+      aq.onclick = () => cmd(addUrl, "Added to queue: " + a.t);
       cw.append(aq);
     }
-    // Favourite heart (only for albums whose player menu offers favourites)
-    const fh = document.createElement("button");
-    fh.className = "play favc";
-    fh.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + HEART + "</svg>";
-    fh.onclick = () => toggleFav(a);
-    coverHearts.set(a, fh);
-    paintHeart(fh, a);
-    cw.append(fh);
+    if (a.pl) {
+      // Delete button of a playlist (only when its player menu offers "delete")
+      if (a.menu.delete) {
+        const db = document.createElement("button");
+        db.className = "play delp";
+        db.innerHTML = ICON_TRASH;
+        db.title = "Delete playlist";
+        db.setAttribute("aria-label", "Delete playlist " + a.t);
+        db.onclick = () => deletePlaylist(a);
+        cw.append(db);
+      }
+    } else {
+      // Favourite heart (only for albums whose player menu offers favourites)
+      const fh = document.createElement("button");
+      fh.className = "play favc";
+      fh.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + HEART + "</svg>";
+      fh.onclick = () => toggleFav(a);
+      coverHearts.set(a, fh);
+      paintHeart(fh, a);
+      cw.append(fh);
+    }
     const tb = document.createElement("button");
     tb.className = "card";
     // Title and artist: one line each, text in a .mq span that fitLines() scrolls
@@ -2885,11 +2891,18 @@ function render(list, noRandom) {
     };
     tb.append(line("b", a.t));
     tb.onclick = () => openAlbum(a);
-    const ab = document.createElement("button");
-    ab.className = "card ar";
-    ab.setAttribute("aria-label", "Albums by " + a.a);
-    ab.append(line("span", a.a));
-    ab.onclick = () => showArtist(a.a);
+    let ab;
+    if (a.pl) {
+      ab = document.createElement("div");
+      ab.className = "card static";
+      ab.append(line("span", "Playlist"));
+    } else {
+      ab = document.createElement("button");
+      ab.className = "card ar";
+      ab.setAttribute("aria-label", "Albums by " + a.a);
+      ab.append(line("span", a.a));
+      ab.onclick = () => showArtist(a.a);
+    }
     item.append(cw, tb, ab);
     fitLines(item);
     if (sentinel.parentNode === g) g.insertBefore(item, sentinel);
@@ -3009,19 +3022,21 @@ async function toggleFav(a) {
 /* ---------- Popups ---------- */
 // Album popup and the popup for unsuccessful player answers.
 
-// Opens the album popup: details and the track list.
+// Opens the album popup: details and the track list; for a saved playlist (a.pl) its tracks (playlistTracks()).
 // Play, add to queue and the favourite heart are on the cover in the grid, not in the popup.
 async function openAlbum(a) {
   showImg($("#dimg"), imgUrl(a.img, COVER_FULL));
   $("#dt").textContent = a.t;
   const da = $("#da");
-  da.textContent = "";
-  const al = document.createElement("button");
-  al.className = "lnk";
-  al.textContent = a.a;
-  al.title = "Show albums by " + a.a;
-  al.onclick = () => showArtist(a.a);
-  da.append(al);
+  da.textContent = a.pl ? "Playlist" : "";
+  if (!a.pl) {
+    const al = document.createElement("button");
+    al.className = "lnk";
+    al.textContent = a.a;
+    al.title = "Show albums by " + a.a;
+    al.onclick = () => showArtist(a.a);
+    da.append(al);
+  }
   // Number of discs (only when several) and total playing time, below the artist line
   $("#dlen").textContent = "";
   albumDetails([]);
@@ -3049,6 +3064,7 @@ async function openAlbum(a) {
   // /library/v1/Songs of the same album (service and album/artist query taken from the album key).
   // Both answers are kept per album for the session (popCache), so opening it again sends no request.
   const seq = ++dlgSeq, svc = a.key.split(":")[0], q = a.key.split("?")[1] || "", mine = ctx();
+  if (a.pl) return playlistTracks(a, seq);
   try {
     const [bd, sd] = popCache[a.key] || await Promise.all([
       browse(a.key, "", false),
@@ -3083,30 +3099,35 @@ async function openAlbum(a) {
         ol.append(h);
       }
       disc = dn || disc;
-      const li = document.createElement("li"), b = document.createElement("button");
-      const n = document.createElement("span"), t = document.createElement("span");
-      n.className = "tn";
-      n.textContent = parts[k][1] || "";
-      t.className = "tt";
-      t.textContent = parts[k][2];
       const ar = sg ? txt(sg, "art") : "";
-      if (ar && ar !== a.a) {
-        const ta = document.createElement("small");
-        ta.className = "ta";
-        ta.textContent = ar;
-        t.append(ta);
-      }
-      const d = document.createElement("i"), s = +attr(i, "duration");
-      d.textContent = s ? fmtTime(s) : "";
-      b.append(n, t, d);
-      b.onclick = () => cmd(attr(i, "autoplayURL") || attr(i, "playURL"), "Track started");
-      li.append(b);
-      ol.append(li);
+      ol.append(trackItem(parts[k][1] || "", parts[k][2], ar !== a.a ? ar : "", +attr(i, "duration"), attr(i, "autoplayURL") || attr(i, "playURL")));
     });
   } catch (e) {
     ol.innerHTML = "";
     apiFail("Loading the tracks did not succeed", e);
   }
+}
+// One row of the popup's track list: number, title (with a second line `sub`, e.g. the track artist),
+// duration in seconds; a click plays `url`.
+function trackItem(num, title, sub, secs, url) {
+  const li = document.createElement("li"), b = document.createElement("button");
+  const n = document.createElement("span"), t = document.createElement("span");
+  n.className = "tn";
+  n.textContent = num;
+  t.className = "tt";
+  t.textContent = title;
+  if (sub) {
+    const ta = document.createElement("small");
+    ta.className = "ta";
+    ta.textContent = sub;
+    t.append(ta);
+  }
+  const d = document.createElement("i");
+  d.textContent = secs ? fmtTime(secs) : "";
+  b.append(n, t, d);
+  b.onclick = () => cmd(url, "Track started");
+  li.append(b);
+  return li;
 }
 // Year, quality tag and technical data of the album from its songs (/library/v1/Songs):
 // e.g. "1977" and "[CD] FLAC · 16 bit / 44.1 kHz · Stereo · Ø 850 kbit/s". Differing values are
@@ -3166,14 +3187,17 @@ function loadFailed(prefix, title, e) {
 }
 
 /* ---------- Playlists ---------- */
-// Saved playlists of the player as chips.
+// Saved playlists of the player: the Playlists chip, its tiles and track lists.
 
-// Loads the saved playlists (following nextKey paging) and builds one chip per playlist.
+// Loads the saved playlists (following nextKey paging) as album-like tiles: name, cover (the first track's),
+// browse key of the tracks, play URL and the actions of the context menu (add-last for the add button).
+// Called on connect, after saving / deleting a playlist and on every click of the Playlists chip; an open
+// Playlists view is drawn again when the list has changed.
 async function loadPlaylists() {
   const seq = ++plSeq, mine = base;
   if (!playlistsKey) {
-    plChips = [];
-    renderPlChips();
+    playlists = [];
+    renderPlChip();
     return;
   }
   try {
@@ -3183,55 +3207,93 @@ async function loadPlaylists() {
       const d = await browse(key);
       // Play URL: playURL, or else a "play" action from the item's context menu.
       items(d).forEach((it) => {
-        const pm = [...it.querySelectorAll("contextMenu > item")].find((m) => /^play/i.test(attr(m, "type")));
-        const url = attr(it, "playURL") || (pm ? attr(pm, "actionURL") : "");
-        if (url) list.push({ name: attr(it, "text"), url });
+        const p = toAlbum(it), pm = Object.keys(p.menu).find((m) => /^play/i.test(m));
+        p.play = p.play || (pm ? p.menu[pm] : "");
+        p.pl = true;
+        if (p.play) list.push(p);
       });
       key = attr(d.documentElement, "nextKey");
     }
     if (seq !== plSeq || mine !== base) return;
+    const sig = (l) => l.map((p) => [p.t, p.img, p.play].join("\n")).join("\n\n"), changed = sig(list) !== sig(playlists);
     plCount = list.length;
     playlists = list;
-    updateQDel();
     renderLib();
-    plChips = list.map((it) => {
-      const b = document.createElement("button");
-      b.className = "plc";
-      b.innerHTML = ICON_PLAYLIST;
-      const t = document.createElement("span");
-      t.textContent = it.name;
-      b.append(t);
-      b.title = "Play playlist \u201C" + it.name + "\u201D";
-      b.onclick = () => {
-        plLoaded = it.name;
-        // The new playlist id in /Status reloads the queue. A broken (empty) playlist may not change
-        // the id, so the queue is reloaded after 1.5 s only when that has not happened yet.
-        const seq = qSeq;
-        cmd(it.url, "Playing playlist: " + it.name).then(() => setTimeout(() => qOpen && qSeq === seq && loadQueue(), 1500));
-      };
-      return b;
-    });
-    renderPlChips();
+    renderPlChip();
+    if (changed && activeKey === "__pl") showPlaylists();
   } catch (e) {
-    if (seq === plSeq) {
-      plChips = [];
-      renderPlChips();
-      apiFail("Loading the playlists did not succeed", e);
-    }
+    if (seq === plSeq) apiFail("Loading the playlists did not succeed", e);
   }
 }
-// (Re-)adds the playlist chips, behind a separator, at the end of the chip row.
-function renderPlChips() {
+// (Re-)adds the Playlists chip next to the special chips, after New (first in the row when there is no New chip);
+// only when there are playlists.
+function renderPlChip() {
   const nav = $("#az");
-  nav.querySelectorAll(".plc, .plg").forEach((e) => e.remove());
-  if (!plChips.length) return;
-  const gp = document.createElement("span");
-  gp.className = "gap plg";
-  nav.append(gp, ...plChips);
+  plBtn?.remove();
+  if (!playlists.length) return;
+  if (!plBtn) {
+    plBtn = document.createElement("button");
+    plBtn.className = "sp plc";
+    plBtn.textContent = "Playlists";
+    plBtn.title = "Saved playlists";
+    plBtn.onclick = () => {
+      selectView("__pl", plBtn);
+      showPlaylists();
+      loadPlaylists();
+    };
+  }
+  plBtn.setAttribute("aria-pressed", activeKey === "__pl");
+  const nw = nav.querySelector(".nw");
+  if (nw) nw.after(plBtn);
+  else nav.prepend(plBtn);
+}
+// The Playlists view: one tile per saved playlist, no random tile.
+function showPlaylists() {
+  shown = playlists;
+  render(shown, true);
+  msg(shown.length ? nPl(shown.length) : "No saved playlists.");
+}
+// Deletes a saved playlist on the player after confirmation, with the "delete" action of its context menu
+// (/Delete?name=…&service=BluOS); the queue stays. Success: toast and the playlists read again (its tile goes).
+async function deletePlaylist(p) {
+  if (!confirm("Delete the playlist \u201C" + p.t + "\u201D from the player?\nThe current queue is not changed.")) return;
+  const r = await apiRaw(p.menu.delete);
+  if (r.ok && !/<error/i.test(r.body)) {
+    toast("Deleted playlist \u201C" + p.t + "\u201D");
+    loadPlaylists();
+    return;
+  }
+  showApiResponse("Deleting the playlist did not succeed", base + p.menu.delete, r.status, r.body);
+}
+// Plays a saved playlist (replaces the queue).
+function playPlaylist(p) {
+  // The new playlist id in /Status reloads the queue. A broken (empty) playlist may not change
+  // the id, so the queue is reloaded after 1.5 s only when that has not happened yet.
+  const seq = qSeq;
+  cmd(p.play, "Playing playlist: " + p.t).then(() => setTimeout(() => qOpen && qSeq === seq && loadQueue(), 1500));
+}
+// Track list of a saved playlist in the popup: every page of the playlist's browse list (10 tracks each),
+// number, title, "track artist \u2022 album" and duration; a click plays the playlist from that track (the
+// track's autoplayURL). Not kept in popCache: saving the queue under the name changes the playlist.
+async function playlistTracks(p, seq) {
+  const ol = $("#tracks");
+  try {
+    const tr = await fetchItems(p.key, "track");
+    if (seq !== dlgSeq) return;
+    ol.innerHTML = "";
+    const secs = tr.reduce((t, i) => t + (+attr(i, "duration") || 0), 0);
+    $("#dlen").textContent = [nTr(tr.length), secs && fmtTime(secs)].filter(Boolean).join(" \u00B7 ");
+    ol.style.setProperty("--tnw", String(tr.length).length + "ch");
+    tr.forEach((i, k) => ol.append(trackItem(String(k + 1), attr(i, "text"), attr(i, "text2"), +attr(i, "duration"), attr(i, "autoplayURL") || attr(i, "playURL"))));
+  } catch (e) {
+    if (seq !== dlgSeq) return;
+    ol.innerHTML = "";
+    apiFail("Loading the tracks did not succeed", e);
+  }
 }
 
 /* ---------- Queue panel ---------- */
-// Play queue: list, pinning, shuffle, repeat, save / delete playlist, clear.
+// Play queue: list, pinning, shuffle, repeat, save as playlist, clear.
 
 // Repeat button: icon and label for the <repeat> value of /Status (2 = off, 0 = queue, 1 = track).
 function showRepeat(v) {
@@ -3260,11 +3322,10 @@ async function loadQueue() {
   }
   try {
     const songs = [], STEP = 200;
-    let total = 0, start = 0, name = "";
+    let total = 0, start = 0;
     do {
       const d = await api("/Playlist?start=" + start + "&end=" + (start + STEP - 1));
       total = +d.documentElement.getAttribute("length") || 0;
-      name = d.documentElement.getAttribute("name") || "";
       songs.push(...d.documentElement.querySelectorAll(":scope > song"));
       start += STEP;
     } while (start < total && start < 2e3);
@@ -3309,11 +3370,6 @@ async function loadQueue() {
     });
     const totalSecs = songs.reduce((n, sg) => n + (+(sg.querySelector("time") || {}).textContent || 0), 0);
     $("#qsave").disabled = $("#qclear").disabled = $("#qshuf").disabled = $("#qrep").disabled = !total;
-    // Saved playlist for the delete button, empty queue or not: the name the player reports for the queue,
-    // otherwise the playlist chip clicked last (a broken playlist may load as an empty queue without a name).
-    if (name) plLoaded = name;
-    qName = plLoaded;
-    updateQDel();
     // Two lines: number of tracks, total playing time
     $("#qcount").textContent = total ? total + (total === 1 ? " track" : " tracks") + (totalSecs ? "\n" + fmtTime(totalSecs) : "") : "";
     markCur(true);
@@ -3344,17 +3400,6 @@ function qpanel(open) {
   if (open) {
     setBars();
     loadQueue();
-  }
-}
-// The saved playlist the current queue was loaded from (matched by name), or undefined.
-const queuePlaylist = () => qName ? playlists.find((x) => x.name === qName) : void 0;
-// Shows the "delete playlist" button only when the queue came from a saved playlist on the player.
-function updateQDel() {
-  const pl = queuePlaylist(), b = $("#qdel");
-  b.hidden = !pl;
-  if (pl) {
-    b.title = "Delete playlist \u201C" + pl.name + "\u201D from the player";
-    b.setAttribute("aria-label", b.title);
   }
 }
 
@@ -3656,6 +3701,7 @@ async function search() {
   const btns = document.querySelectorAll("#az button");
   if (!v) {
     btns.forEach((b) => b.setAttribute("aria-pressed", b === activeBtn));
+    if (activeKey === "__pl") return showPlaylists();
     render(shown);
     msg(shown.length ? nAlb(shown.length) : "Select a genre.");
     return;
@@ -4007,22 +4053,6 @@ $("#qsave").onclick = async () => {
   }
   showApiResponse("Saving the playlist did not succeed", base + path, r.status, r.body);
 };
-// Deletes the saved playlist on the player: /Delete?service=BluOS&name=... (as described in /Services);
-// the queue itself stays.
-$("#qdel").onclick = async () => {
-  const pl = queuePlaylist();
-  if (!pl || !confirm("Delete the playlist \u201C" + pl.name + "\u201D from the player?\nThe current queue is not changed.")) return;
-  const url = "/Delete?service=" + SVC_PLAYLISTS + "&name=" + encodeURIComponent(pl.name);
-  const r = await apiRaw(url);
-  if (r.ok && !/<error/i.test(r.body)) {
-    toast("Deleted playlist \u201C" + pl.name + "\u201D");
-    qName = plLoaded = "";
-    updateQDel();
-    loadPlaylists();
-    return;
-  }
-  showApiResponse("Deleting the playlist did not succeed", base + url, r.status, r.body);
-};
 // Switches shuffle on / off: /Shuffle?state=1|0. The player reorders the queue (and restores the
 // original order when switched off); the button state follows the <shuffle> value of /Status,
 // the changed playlist id reloads the queue.
@@ -4089,11 +4119,11 @@ bindSwitch("#dsw", "decadechips", (on) => {
   document.body.classList.toggle("nodc", !on);
   if (on) decadeChips();
 }, false);
-bindSwitch("#psw", "plchips", (on) => document.body.classList.toggle("nopl", !on));
 // Remove values stored by older versions: local favourites (now on the player only), the former
-// single-source choice (now one switch per source) and the genre map of the former genre crawl.
+// single-source choice (now one switch per source), the genre map of the former genre crawl and the former
+// switch of the playlist chips (the Playlists chip is always shown).
 try {
-  Object.keys(localStorage).filter((k) => /^(fav|src|genres):/.test(k)).forEach((k) => localStorage.removeItem(k));
+  Object.keys(localStorage).filter((k) => /^(fav|src|genres):|^plchips$/.test(k)).forEach((k) => localStorage.removeItem(k));
 } catch { // storage blocked: nothing to clean up
 }
 $("#cvb").onclick = () => showFull($("#full").hidden);

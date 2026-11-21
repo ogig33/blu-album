@@ -45,6 +45,9 @@ script:post-response {
     }
   };
   saveFixture("16-saved-playlists.xml");
+  // Track list of the first playlist (A28)
+  const first = items("playlist")[0];
+  bru.setVar("playlistKey", first ? attr(first, "browseKey") : "");
 }
 
 tests {

@@ -231,6 +231,14 @@ async function buildTD(get) {
     D.PL.push(...itemsOf(x, ofType("playlist")));
     k = ent((x.match(/<browse [^>]*nextKey="([^"]*)"/) || [])[1] || "");
   }
+  // TD-PL-TRK: tracks of the first saved playlist, every page (like fetchItems of the app)
+  D.PL_TRK = [];
+  for (let k = D.PL.length ? D.PL[0].browseKey : "", seen = new Set(); k && !seen.has(k); ) {
+    seen.add(k);
+    const x = await browse(k);
+    D.PL_TRK.push(...itemsOf(x, ofType("track")));
+    k = ent((x.match(/<browse [^>]*nextKey="([^"]*)"/) || [])[1] || "");
+  }
   // TD-STATUS, TD-QUEUE (pages of 200, at most 2000 like the app), TD-SET, TD-LM, TD-VER
   D.STATUS = (await get("/Status")) || "";
   // TD-NOW-LIB: a title of a library source is playing or paused
@@ -362,6 +370,8 @@ const fmtTime = (n) => {
   return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0");
 };
 const nAlb = (n) => n + (n === 1 ? " album" : " albums");
+const nPl = (n) => n + (n === 1 ? " playlist" : " playlists");
+const nTr = (n) => n + (n === 1 ? " track" : " tracks");
 const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const re = (s) => new RegExp(reEsc(s));
 
@@ -565,6 +575,32 @@ const openAlbumBy = (t, find, argv) =>
   t.page.evaluate(([f, a]) => openAlbum(shown.find((x) => new Function("x", "a", "return " + f)(x, a))), [find, argv]);
 const openLibAlbum = async (t) => {
   await openAlbumBy(t, "x.key === a.key", TD.ALB_LIB);
+  await t.page.waitForSelector("#tracks li button");
+};
+// Playlists view (Playlists chip); the tile of a saved playlist in it (selector, waits until it is drawn)
+const openPlaylists = async (t) => {
+  await t.page.click("#az .plc");
+  await t.waitMsg(/^\d+ playlists?$/);
+};
+const openTile = async (t, name) => {
+  await openPlaylists(t);
+  const has = (n) => [...document.querySelectorAll("#grid .item b")].some((e) => e.textContent === n);
+  await t.page.waitForFunction(has, name);
+  const i = await t.page.evaluate(
+    (n) => [...document.querySelectorAll("#grid .item")].findIndex((e) => e.querySelector("b")?.textContent === n),
+    name,
+  );
+  return `#grid .item:nth-child(${i + 1})`;
+};
+// Plays a saved playlist with the play button of its tile
+const playPlaylist = async (t, name) => {
+  const tile = await openTile(t, name);
+  await t.page.hover(tile);
+  await t.page.click(tile + " .play:not(.addq):not(.favc)");
+};
+// Opens the popup of a saved playlist (cover of its tile) and waits for the tracks
+const openPlaylistPopup = async (t, name) => {
+  await t.page.click((await openTile(t, name)) + " > .cw > .card");
   await t.page.waitForSelector("#tracks li button");
 };
 // A track of TD-TRK as the popup shows it: number without dot, title, duration
@@ -859,7 +895,7 @@ test("SRC-04 switch state is stored per player", async (t) => {
 });
 
 test(
-  "SRC-05 all sources off: message, no genre chips, playlist chips stay",
+  "SRC-05 all sources off: message, no genre chips, Playlists chip stays",
   async (t) => {
     await t.page.click("#gear");
     await t.page.click("#srcl .srow:nth-child(1) .sw");
@@ -867,7 +903,7 @@ test(
     await t.page.click("#srcl .srow:nth-child(2) .sw");
     await t.waitMsg("No music source enabled. Switch one on in the settings panel.");
     eq(await t.page.$$eval("#az button:not(.plc)", (x) => x.length), 0, "no genre chips");
-    eq(await t.page.$$eval("#az .plc", (x) => x.length), TD.PL.length, "playlist chips");
+    eq(await t.$$text("#az .plc"), ["Playlists"], "Playlists chip");
   },
   { ...U, needs: ["usb", "playlist"] },
 );
@@ -895,23 +931,14 @@ test(
 
 // ---------- 4.3 Chips & views (CHP) ----------
 test(
-  "CHP-01 PLS-01 chip row: special chips, genres of both sources, playlists",
+  "CHP-01 PLS-01 chip row: special chips, genres of both sources, Playlists chip",
   async (t) => {
     const c = await t.$$text("#az button");
     const lead = await t.page.evaluate(() => QUALITIES.map((q) => q[1]));
-    eq(c.slice(0, 3 + lead.length), ["All", "Favourites", "New", ...lead], "special chips");
-    eq(c.slice(3 + lead.length, 3 + lead.length + TD.GEN.length), TD.GEN, "genres of both sources, A-Z");
-    eq(
-      c.slice(-TD.PL.length),
-      TD.PL.map((p) => p.text),
-      "playlist chips at the end",
-    );
-    eq(
-      await t.page.$$eval("#az .plc", (x) => x.map((e) => e.title)),
-      TD.PL.map((p) => `Play playlist \u201C${p.text}\u201D`),
-      "playlist tooltips",
-    );
-    ok(await t.page.$("#az .plg + .plc"), "separator before the playlists");
+    eq(c.slice(0, 4 + lead.length), ["All", "Favourites", "New", "Playlists", ...lead], "special chips, Playlists after New");
+    eq(c.slice(4 + lead.length), TD.GEN, "genres of both sources, A-Z");
+    eq(await t.page.getAttribute("#az .plc", "title"), "Saved playlists", "tooltip");
+    ok(!(await t.page.$("#az .plc svg")), "no icon");
   },
   { ...R, needs: ["playlist"] },
 );
@@ -1236,14 +1263,13 @@ const yearReqs = (t) =>
   t.reqs(/^\/library\/v1\/Albums\?/).filter((r) => /[?&]section=/.test(r) && !/[?&]quality=/.test(r));
 
 test(
-  "CHP-15 SET-02 quality, decade and genre chips are off by default: special chips and playlists, no decade request",
+  "CHP-15 SET-02 quality, decade and genre chips are off by default: special chips and Playlists, no decade request",
   async (t) => {
     await t.openPanel();
     for (const [s, v] of [
       ["#qsw", "false"],
       ["#dsw", "false"],
       ["#gsw", "false"],
-      ["#psw", "true"],
     ])
       eq(await t.page.getAttribute(s, "aria-checked"), v, s);
     await t.settle();
@@ -1251,7 +1277,7 @@ test(
       await t.page.$$eval("#az > button", (x) =>
         x.filter((e) => e.offsetParent).map((e) => e.getAttribute("aria-label") || e.textContent),
       ),
-      ["All", "Favourites", "New", ...TD.PL.map((p) => p.text)],
+      ["All", "Favourites", "New", "Playlists"],
       "visible chips",
     );
     eq(await t.page.$$("#az .dc"), [], "no decade chips");
@@ -1269,11 +1295,8 @@ test(
     eq(decadeReqs(t).length, TD.SVC.filter((s) => TD.SECS[s].length).length, "one decade index request per source");
     const c = await t.$$text("#az button");
     const lead = await t.page.evaluate(() => QUALITIES.map((q) => q[1]));
-    eq(
-      c.slice(3 + lead.length, 3 + lead.length + TD.DEC.length),
-      TD.DEC.map(decLabel),
-      "decade chips after the quality chips",
-    );
+    const at = c.indexOf(lead[lead.length - 1]) + 1;
+    eq(c.slice(at, at + TD.DEC.length), TD.DEC.map(decLabel), "decade chips after the quality chips");
     eq(
       await t.page.$$eval("#az .dc", (x) => x.map((e) => e.title)),
       TD.DEC.map((k) => `Albums from the ${k}s`),
@@ -3066,7 +3089,7 @@ test(
     ok(/^Queue \d{4}-\d\d-\d\d \d\d:\d\d$/.test(t.dialogs.log[0].value), "default name " + t.dialogs.log[0].value);
     eq(t.cmds(new RegExp(`^/Save\\?name=${TEST_LIST}$`)).length, 1, "save sent");
     await t.settle();
-    ok(t.reqs(/key=BluOS:$/).length > pl, "playlist chips reloaded");
+    ok(t.reqs(/key=BluOS:$/).length > pl, "playlists reloaded");
   },
   {
     ...W,
@@ -3250,64 +3273,6 @@ test(
 );
 
 test(
-  "QUE-13 PLS-02 delete the loaded playlist: confirm, request, toast, chips reloaded",
-  async (t) => {
-    // real player: a playlist saved for this test (never one of the owner's)
-    const pl = REAL ? { text: TEST_LIST, playURL: "/Load?service=BluOS&name=" + TEST_LIST } : TD.PL[TD.PL.length - 1];
-    await t.page.click("#qbtn");
-    await t.settle();
-    // real player: the saved queue already carries a playlist name
-    if (!REAL) ok(await t.page.$eval("#qdel", (e) => e.hidden), "no delete button without a loaded playlist");
-    await t.page.click(`#az .plc span:text-is("${pl.text}")`);
-    await t.waitToast("Playing playlist: " + pl.text);
-    ok(t.player.state.commands.includes(decodeURIComponent(pl.playURL)), "play URL of the playlist");
-    await t.page.waitForFunction(() => !document.querySelector("#qdel").hidden, null, { timeout: 4000 });
-    const n = t.reqs(/key=BluOS:$/).length;
-    await t.page.click("#qdel");
-    await t.waitToast(`Deleted playlist \u201C${pl.text}\u201D`);
-    ok(t.dialogs.log.pop().message.includes(pl.text), "confirm names the playlist");
-    ok(t.player.state.commands.includes(`/Delete?service=BluOS&name=${pl.text}`), "delete sent with the name");
-    ok(await t.page.$eval("#qdel", (e) => e.hidden), "button hidden");
-    await t.settle();
-    ok(t.reqs(/key=BluOS:$/).length > n, "chips reloaded");
-  },
-  {
-    ...W,
-    before: (get) => get("/Save?name=" + encodeURIComponent(TEST_LIST)),
-    cleanup: (get) => get("/Delete?service=BluOS&name=" + encodeURIComponent(TEST_LIST)),
-  },
-);
-
-test(
-  "QUE-14 delete cancelled: nothing sent",
-  async (t) => {
-    await t.page.click("#qbtn");
-    await t.settle();
-    await t.page.click(`#az .plc span:text-is("${TD.PL[0].text}")`);
-    await t.page.waitForFunction(() => !document.querySelector("#qdel").hidden, null, { timeout: 6000 });
-    await t.page.click("#qdel");
-    await t.settle();
-    eq(t.cmds(/^\/Delete\?service=/), [], "no delete");
-  },
-  { ...W, needs: ["playlist"], dialog: "dismiss" },
-);
-
-test(
-  "QUE-14 delete not successful: popup",
-  async (t) => {
-    await t.page.click("#qbtn");
-    await t.settle();
-    await t.page.click(`#az .plc span:text-is("${TD.PL[0].text}")`);
-    await t.page.waitForFunction(() => !document.querySelector("#qdel").hidden, null, { timeout: 4000 });
-    await t.page.click("#qdel");
-    await t.page.waitForSelector("#apidlg[open]");
-    eq(await t.page.textContent("#apit"), "Deleting the playlist did not succeed", "title");
-    eq(await t.page.textContent("#apib"), "<error>Test failure</error>", "raw answer");
-  },
-  { overrides: [{ match: /^\/Delete\?service=/, body: "<error>Test failure</error>" }] },
-);
-
-test(
   "QUE-16 empty queue: buttons disabled, no count",
   async (t) => {
     await t.page.click("#qbtn");
@@ -3351,16 +3316,43 @@ test(
   { overrides: [{ match: /^\/Playlist\?/, status: 500 }] },
 );
 
-// ---------- 4.12 Playlist chips (PLS) ----------
+// ---------- 4.12 Playlists (PLS) ----------
+test(
+  "PLS-01 Playlists chip: tiles with cover, name and \"Playlist\", no random tile, list read again",
+  async (t) => {
+    const n = t.reqs(/key=BluOS:$/).length;
+    await openPlaylists(t);
+    eq(await t.page.getAttribute("#az .plc", "aria-pressed"), "true", "chip selected");
+    eq(await t.page.textContent("#msg"), nPl(TD.PL.length), "status line");
+    eq(await t.$$text("#grid .item b"), TD.PL.map((p) => p.text), "one tile per playlist, in the player's order");
+    eq(await t.$$text("#grid .item > .card.static"), TD.PL.map(() => "Playlist"), "second line");
+    eq(await t.page.$$("#grid .item .ar"), [], "no artist link");
+    ok(!(await t.page.$("#grid .item .rnd")), "no random tile");
+    eq(
+      await t.page.$$eval("#grid .item .cov img", (x) => x.length),
+      TD.PL.filter((p) => p.image).length,
+      "cover of every playlist with an image",
+    );
+    await t.page.hover("#grid .item:first-child");
+    eq(await t.page.$$("#grid .item .favc"), [], "no heart");
+    ok(await t.page.isVisible("#grid .item:first-child .delp"), "delete button");
+    ok(await t.page.isVisible("#grid .item:first-child .addq"), "add button");
+    ok(t.reqs(/key=BluOS:$/).length > n, "playlists read again");
+  },
+  { ...R, needs: ["playlist"] },
+);
+
 test(
   "PLS-02 playing a playlist reloads the open queue once",
   async (t) => {
     await t.openQueue();
+    await openPlaylists(t);
     await t.settle(2500);
     const loads = () => t.player.state.requests.filter((x) => /^\/Playlist\?start=0&/.test(x)).length;
     const n = loads();
-    await t.page.click(`#az .plc span:text-is("${TD.PL[0].text}")`);
+    await playPlaylist(t, TD.PL[0].text);
     await t.waitToast("Playing playlist: " + TD.PL[0].text);
+    ok(t.player.state.commands.includes(decodeURIComponent(TD.PL[0].playURL)), "play URL of the playlist");
     await t.settle(3000);
     eq(loads() - n, 1, "queue reloaded once (new playlist id, or after 1.5 s when it stays)");
   },
@@ -3370,7 +3362,7 @@ test(
 test(
   "PLS-02 play URL from the context menu when the playlist has no playURL",
   async (t) => {
-    await t.page.click(`#az .plc span:text-is("${TD.PL[0].text}")`);
+    await playPlaylist(t, TD.PL[0].text);
     await t.settle();
     eq(t.cmds(/^\/Add\?clear=0&playlist=/).length, 1, "play action of the context menu");
   },
@@ -3385,9 +3377,9 @@ test(
 );
 
 test(
-  "PLS-03 player without saved playlists: no chips, no statistic",
+  "PLS-03 player without saved playlists: no chip, no statistic",
   async (t) => {
-    eq(await t.page.$$eval("#az .plc, #az .plg", (x) => x.length), 0, "no playlist chips, no separator");
+    eq(await t.page.$$("#az .plc"), [], "no Playlists chip");
     await t.page.click("#gear");
     await t.page.click("#aboutb");
     await t.waitText("#infodlg", /Composers\s*[\d,]/);
@@ -3397,15 +3389,15 @@ test(
 );
 
 test(
-  "PLS-04 playlist chips stay at the end after a source change",
+  "PLS-04 Playlists chip stays after New after a source change",
   async (t) => {
     await t.page.click("#gear");
     await t.page.click("#srcl .srow:nth-child(2) .sw");
     await t.settle(800);
     await t.page.click("#srcl .srow:nth-child(2) .sw");
     await t.waitMsg(/in favourites/);
-    eq(await t.page.$$eval("#az .plc", (x) => x.length), TD.PL.length, "chips");
-    ok(await t.page.$eval("#az", (n) => n.lastElementChild.classList.contains("plc")), "at the end");
+    eq(await t.$$text("#az .plc"), ["Playlists"], "chip");
+    eq(await t.page.$eval("#az .plc", (b) => b.previousElementSibling.textContent), "New", "after New");
   },
   { ...U, needs: ["usb", "playlist"] },
 );
@@ -3413,11 +3405,8 @@ test(
 test(
   "PLS-05 saved playlists over several pages",
   async (t) => {
-    eq(
-      await t.page.$$eval("#az .plc span", (x) => x.map((e) => e.textContent)),
-      [...TD.PL.map((p) => p.text), "Page two"],
-      "playlists of both pages",
-    );
+    await openPlaylists(t);
+    eq(await t.$$text("#grid .item b"), [...TD.PL.map((p) => p.text), "Page two"], "playlists of both pages");
   },
   {
     overrides: [
@@ -3428,6 +3417,127 @@ test(
       },
     ],
   },
+);
+
+test(
+  "PLS-06 add a playlist to the end of the queue",
+  async (t) => {
+    const name = TD.PL[0].text,
+      tile = await openTile(t, name);
+    await t.page.hover(tile);
+    await t.page.click(tile + " .addq");
+    await t.waitToast("Added to queue: " + name);
+    eq(t.cmds(/^\/Add\?playlist=.*&where=last$/).length, 1, "add-last of the playlist's context menu");
+  },
+  { ...W, needs: ["playlist"] },
+);
+
+test(
+  "PLS-07 playlist popup: name, track count and time, tracks of every page, not cached",
+  async (t) => {
+    const p = TD.PL[0];
+    await openPlaylistPopup(t, p.text);
+    eq(await t.page.textContent("#dt"), p.text, "name");
+    eq((await t.page.textContent("#da")).trim(), "Playlist", "second line");
+    ok(!(await t.page.$("#da button")), "no artist link");
+    const secs = TD.PL_TRK.reduce((n, x) => n + (+x.duration || 0), 0);
+    eq(
+      await t.page.textContent("#dlen"),
+      [nTr(TD.PL_TRK.length), secs && fmtTime(secs)].filter(Boolean).join(" · "),
+      "track count and total time",
+    );
+    eq(
+      await trackRows(t),
+      TD.PL_TRK.map((x, i) => [String(i + 1), x.text, x.duration ? fmtTime(+x.duration) : ""]),
+      "position, title and duration of every track",
+    );
+    eq(await t.$$text("#tracks .ta"), TD.PL_TRK.map((x) => x.text2), "track artist and album per track");
+    eq((await t.page.textContent("#dy")) + (await t.page.textContent("#dtech")), "", "no year, no quality");
+    const n = t.reqs(/BluOS-Playlist/).length;
+    await t.page.click("#close");
+    await openPlaylistPopup(t, p.text);
+    ok(t.reqs(/BluOS-Playlist/).length > n, "read again when opened again");
+  },
+  { ...R, needs: ["playlist"] },
+);
+
+test(
+  "PLS-08 click on a playlist track plays the playlist from that track",
+  async (t) => {
+    await openPlaylistPopup(t, TD.PL[0].text);
+    const last = TD.PL_TRK[TD.PL_TRK.length - 1];
+    await t.page.click("#tracks li:last-child button");
+    await t.waitToast("Track started");
+    ok(t.player.state.commands.includes(decodeURIComponent(last.autoplayURL || last.playURL)), "track URL");
+  },
+  { ...W, needs: ["playlist"] },
+);
+
+test(
+  "PLS-09 empty search field returns to the Playlists view",
+  async (t) => {
+    await openPlaylists(t);
+    await t.openSearch();
+    await t.page.fill("#q", TD.TERM);
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(/for/);
+    await t.page.fill("#q", "");
+    await t.waitMsg(nPl(TD.PL.length));
+    eq(await t.page.getAttribute("#az .plc", "aria-pressed"), "true", "chip pressed again");
+    eq(await t.$$text("#grid .item b"), TD.PL.map((p) => p.text), "playlist tiles, no random tile");
+  },
+  { ...R, needs: ["playlist"] },
+);
+
+test(
+  "PLS-10 delete a playlist with the button on its tile: confirm, request, toast, tile gone",
+  async (t) => {
+    // real player: a playlist saved for this test (never one of the owner's)
+    const name = REAL ? TEST_LIST : TD.PL[TD.PL.length - 1].text,
+      tile = await openTile(t, name);
+    await t.page.hover(tile);
+    eq(await t.page.getAttribute(tile + " .delp", "aria-label"), "Delete playlist " + name, "button label");
+    const n = t.reqs(/key=BluOS:$/).length;
+    await t.page.click(tile + " .delp");
+    await t.waitToast(`Deleted playlist \u201C${name}\u201D`);
+    ok(t.dialogs.log.pop().message.includes(name), "confirm names the playlist");
+    eq(t.cmds(/^\/Delete\?/).length, 1, "one delete");
+    ok(/^\/Delete\?name=.+&service=BluOS$/.test(t.cmds(/^\/Delete\?/)[0]), "delete action of the context menu");
+    await t.settle();
+    ok(t.reqs(/key=BluOS:$/).length > n, "playlists reloaded");
+    ok(!(await t.$$text("#grid .item b")).includes(name), "tile gone");
+  },
+  {
+    ...W,
+    before: (get) => get("/Save?name=" + encodeURIComponent(TEST_LIST)),
+    cleanup: (get) => get("/Delete?service=BluOS&name=" + encodeURIComponent(TEST_LIST)),
+  },
+);
+
+test(
+  "PLS-11 delete cancelled: nothing sent",
+  async (t) => {
+    const tile = await openTile(t, TD.PL[0].text);
+    await t.page.hover(tile);
+    await t.page.click(tile + " .delp");
+    await t.settle();
+    eq(t.cmds(/^\/Delete\?/), [], "no delete");
+    eq(await t.$$text("#grid .item b"), TD.PL.map((p) => p.text), "all tiles stay");
+  },
+  { ...R, needs: ["playlist"], dialog: "dismiss" },
+);
+
+test(
+  "PLS-11 delete not successful: popup",
+  async (t) => {
+    const tile = await openTile(t, TD.PL[0].text);
+    await t.page.hover(tile);
+    await t.page.click(tile + " .delp");
+    await t.page.waitForSelector("#apidlg[open]");
+    eq(await t.page.textContent("#apit"), "Deleting the playlist did not succeed", "title");
+    eq(await t.page.textContent("#apib"), "<error>Test failure</error>", "raw answer");
+  },
+  { overrides: [{ match: /^\/Delete\?name=/, body: "<error>Test failure</error>" }] },
 );
 
 // ---------- 4.13 Settings panel (SET) ----------
@@ -3454,7 +3564,7 @@ test(
 );
 
 test(
-  "SET-02 SET-03 chip switches hide genres / quality / playlists, stored, on again",
+  "SET-02 SET-03 chip switches hide genres / quality, stored, on again; Playlists chip always shown",
   async (t) => {
     await t.page.click("#gear");
     const visible = () =>
@@ -3462,19 +3572,18 @@ test(
         x.filter((e) => e.offsetParent).map((e) => e.getAttribute("aria-label") || e.textContent),
       );
     const before = await visible();
+    ok(!(await t.page.$("#psw")), "no switch for the Playlists chip");
     await t.page.click("#gsw");
     await t.page.click("#qsw");
-    await t.page.click("#psw");
-    eq(await visible(), ["All", "Favourites", "New"], "only special chips left");
+    eq(await visible(), ["All", "Favourites", "New", "Playlists"], "only special chips and Playlists left");
     await t.reload();
     await t.settle(200);
-    for (const s of ["#gsw", "#qsw", "#psw"])
+    for (const s of ["#gsw", "#qsw"])
       eq(await t.page.getAttribute(s, "aria-checked"), "false", s + " remembered");
     await t.connect();
     await t.openPanel();
     await t.page.click("#gsw");
     await t.page.click("#qsw");
-    await t.page.click("#psw");
     eq(await visible(), before, "all chips back");
   },
   R,
@@ -3968,13 +4077,13 @@ test(
   async (t) => {
     const keys = await t.page.evaluate(() => Object.keys(localStorage));
     eq(
-      keys.filter((k) => /^(fav|src|genres):/.test(k)),
+      keys.filter((k) => /^(fav|src|genres):|^plchips$/.test(k)),
       [],
-      "fav:, src:, genres: removed",
+      "fav:, src:, genres:, plchips removed",
     );
     ok(keys.includes("ip") && keys.includes("keep"), "other values kept");
   },
-  { ...R, connect: false, storage: { ip: IP, keep: "1", "fav:x": "1", "src:y": "1", "genres:z": "1" } },
+  { ...R, connect: false, storage: { ip: IP, keep: "1", "fav:x": "1", "src:y": "1", "genres:z": "1", plchips: "0" } },
 );
 
 // ---------- 4.17 Layout & accessibility (LAY) ----------

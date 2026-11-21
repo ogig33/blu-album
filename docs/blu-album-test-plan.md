@@ -26,15 +26,15 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | SRH | 4.8 Search | Player search, albums of found composers, groups by album title / artist / composer, search areas, search button, typing rules, empty field, errors | 12 | 12 | 4 |
 | FTR | 4.9 Player footer | Now playing, quality tag, transport, progress, volume, listening mode, long polling | 18 | 18 | 10 |
 | FUL | 4.10 Full screen | Full-screen now playing view, background from the cover, full-size cover | 7 | 7 | 5 |
-| QUE | 4.11 Queue panel | Pinning, list, remove, shuffle, repeat, save, delete playlist, clear | 16 | 16 | 15 |
-| PLS | 4.12 Playlist chips | Saved playlists as chips, loading a playlist | 5 | 5 | 3 |
+| QUE | 4.11 Queue panel | Pinning, list, remove, shuffle, repeat, save as playlist, clear | 14 | 14 | 13 |
+| PLS | 4.12 Playlists | Playlists chip, playlists as tiles, playing / queueing / deleting a playlist, playlist popup | 11 | 11 | 9 |
 | SET | 4.13 Settings panel | Panel, chip switches, cover size, design, library settings | 9 | 9 | 9 |
 | ABT | 4.14 About popup | Content, statistics, versions, update check | 6 | 6 | 6 |
 | ERR | 4.15 Error handling | Failed requests in the popup, expected failures not shown, request headers | 8 | 8 | 2 |
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 5 | 4 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 4 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **162** | **162** | **115** |
+| | | **Total** | **166** | **166** | **119** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -108,7 +108,8 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | TD-QCD | Quality lists (13, 15) | Albums in CD quality per section (only counted through the requests) |
 | TD-DEC | Decade index per source (mock: counted from TD-YEARS) | Decades of `/ui/browseGrouped` with `sort=decade` (keys like `1980`), union of the sources, sorted; chip label "80s" (full decade when two share the short form) |
 | TD-YEARS | `/library/v1/Albums` per filled section without a filter (13; mock: section A of the library, `USB_YEARS` in USB section S) | Albums with a year (`date`) of every source as {title, year} |
-| TD-PL | Saved playlists (16) | Saved playlists with play URL (`/Load…`) |
+| TD-PL | Saved playlists (16) | Saved playlists with name, cover (`image`), browse key and play URL (`/Load…`) |
+| TD-PL-TRK | Track list of the first playlist of TD-PL (28; the mock adds a second page) | Tracks of every page (`nextKey`) with `text`, `text2` ("artist • album"), `duration`, `autoplayURL` (or `playURL` on later pages) |
 | TD-SEARCH | Search answer (18) | Search result menu with links to artists / albums / songs / composers |
 | TD-STATUS | `/Status` (19 + mock state) | Now playing (`title1`–`title3`, `image`, `quality`, `streamFormat`, `secs`, `totlen`, `canSeek`, `volume`, `pid`, `song`, `shuffle`, `repeat`, `syncStat`); with the real player read again at the start of every test |
 | TD-NOW-LIB | `/Status` | A title of a source of TD-SRC is playing or paused |
@@ -154,14 +155,14 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | SRC-02 | Without USB drive | Option `usb: false` | Only the library row | – | Auto |
 | SRC-03 | Switch a source off | Switch USB off | Chips rebuilt from the remaining source; New contains no album of TD-NEW (USB); default view loads again | read | Auto |
 | SRC-04 | Switch state is stored per player | Switch USB off, reload, connect again | USB still off (`srcoff:<player URL>`); a different player IP starts with all sources on | – | Auto |
-| SRC-05 | All sources off | Switch every source off | Status line "No music source enabled …"; no genre chips; playlist chips stay | read | Auto |
+| SRC-05 | All sources off | Switch every source off | Status line "No music source enabled …"; no genre chips; the Playlists chip stays | read | Auto |
 | SRC-06 | Two sources with the same name | Top menu with two USB links of the same name | Rows show name plus key, e.g. "USB (<key>)" | – | Auto |
 
 ### 4.3 Chips & views (CHP)
 
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
-| CHP-01 | Chip row | Connect (quality and genre chips switched on, as in most tests) | Order: All, Favourites (heart icon), New, HD, CD, MQA, separator, genres of TD-GEN sorted A–Z, separator, playlists of TD-PL (decade chips off by default) | read | Auto |
+| CHP-01 | Chip row | Connect (quality and genre chips switched on, as in most tests) | Order: All, Favourites (heart icon), New, Playlists, HD, CD, MQA, separator, genres of TD-GEN sorted A–Z (decade chips off by default) | read | Auto |
 | CHP-02 | Default view Favourites | Connect | Favourites chip pressed; tiles = albums of TD-FAV (count and titles); request `/library/v1/Albums?…category=FAVOURITES` per source | read | Auto |
 | CHP-03 | No favourites | Fixture 12 without albums | Status line "No favourite albums yet." | – | Auto |
 | CHP-04 | New | Click **New** | Tiles = TD-NEW library albums (newest first) followed by the USB albums; status "N albums recently added, newest first"; at most 200 per source | read | Auto |
@@ -175,7 +176,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | CHP-12 | Outdated result is dropped | Click All, click New before All has finished | Grid and status line show New; the late All result does not replace it; All loading stops | – | Auto |
 | CHP-13 | Selecting a chip clears the search | Search, then click a chip | Search field empty, chip pressed, its view shown | read | Auto |
 | CHP-14 | Loading error | Mock answers HTTP 500 for the view | Status line "Loading failed: Player responded with 500" in red; popup "Loading the albums did not succeed" with request, HTTP 500 and the answer | – | Auto |
-| CHP-15 | Default chip switches | Fresh profile (app defaults), connect, open the settings | Quality, Decades, Genres off, Playlists on; visible chips: All, Favourites, New, playlists of TD-PL; no `/ui/browseGrouped` request | read | Auto |
+| CHP-15 | Default chip switches | Fresh profile (app defaults), connect, open the settings | Quality, Decades, Genres off (no switch for Playlists); visible chips: All, Favourites, New, Playlists; no `/ui/browseGrouped` request | read | Auto |
 | CHP-16 | Decade chips switched on | Switch "Decade chips" on | One request per source with album sections (`/ui/browseGrouped…url=…sort=decade`); chips of TD-DEC behind a separator after the quality chips, tooltip "Albums from the 1980s"; no album request yet; switched off → hidden; stored, built again after reload + connect | read | Auto |
 | CHP-17 | Decade | Decade chips on, click the first decade of TD-DEC, then the last | One request per filled section of TD-SEC per source (`limit=500&section=…`, no filter), at most 6 in parallel; tiles = TD-YEARS of that decade; status "N albums from the 1980s"; second decade sends no request | read | Auto |
 
@@ -305,29 +306,33 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | QUE-08 | Queue reloads once after a change | Remove, shuffle, clear | Exactly one `/Playlist` load per change, triggered by the new `pid` in `/Status` | write | Auto |
 | QUE-09 | Shuffle | Click shuffle twice | `/Shuffle?state=1`, then `0`; button follows `<shuffle>` of `/Status`; toast "Shuffle on / off" | write | Auto |
 | QUE-10 | Repeat | Click repeat three times | off → queue → track → off; `/Repeat?state=0`, `1`, `2`; label "Repeat: …", pressed unless off | write | Auto |
-| QUE-11 | Save as playlist | Click save, answer the prompt with TD-SETVAL | Prompt default "Queue YYYY-MM-DD HH:MM"; `/Save?name=<answer>`; toast "Saved playlist “<name>” (N tracks)"; playlist chips reloaded | write | Auto |
+| QUE-11 | Save as playlist | Click save, answer the prompt with TD-SETVAL | Prompt default "Queue YYYY-MM-DD HH:MM"; `/Save?name=<answer>`; toast "Saved playlist “<name>” (N tracks)"; playlists reloaded | write | Auto |
 | QUE-12 | Save cancelled / failed | Cancel the prompt; mock answers `<saved><entries>0</entries></saved>` | Cancel: no request; failure: popup "Saving the playlist did not succeed" with request, status and raw answer | read (part) | Auto |
-| QUE-13 | Delete the loaded playlist | Load a playlist of TD-PL (chip), confirm delete | Delete button visible only for a queue from a saved playlist; confirm text names it; `/Delete?service=BluOS&name=<name>`; toast; button hidden; chips reloaded | write | Auto |
-| QUE-14 | Delete cancelled / failed | Cancel the confirm; mock answers with `<error>` | Cancel: no request; failure: popup "Deleting the playlist did not succeed" | write (part) | Auto |
 | QUE-15 | Clear the queue | Click clear, confirm / cancel | Confirm: `/Clear`; cancel: nothing sent | write | Auto |
 | QUE-16 | Empty queue, long queue, error | Empty `/Playlist`; more than 200 songs; HTTP 500 | Empty: save, clear, shuffle, repeat disabled, no count; long: loaded in pages of 200, at most 2000; error: "Could not load queue" and popup "Loading the queue did not succeed" with the `/Playlist` request | – | Auto |
 
-### 4.12 Playlist chips (PLS)
+### 4.12 Playlists (PLS)
 
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
-| PLS-01 | Chips for saved playlists | Connect | One chip per playlist of TD-PL with icon and name, after a separator at the end of the row; tooltip "Play playlist “<name>”" | read | Auto |
-| PLS-02 | Play a playlist | Click a playlist chip | Its play URL (`/Load…` or the "play" action of the context menu); toast "Playing playlist: <name>"; open queue reloaded after 1.5 s if the playlist id did not change | write (part) | Auto |
-| PLS-03 | Player without playlists | Top menu without the playlists link | No playlist chips, no separator; statistics without "Playlists" | – | Auto |
-| PLS-04 | Chips survive a source change | Switch a source off and on | Playlist chips again at the end of the row | read | Auto |
-| PLS-05 | Paging | Playlists answer with `nextKey` | All pages read (at most 20) | – | Auto |
+| PLS-01 | Playlists chip and view | Connect; click the Playlists chip | One chip "Playlists" (text, no icon) right after New, tooltip "Saved playlists"; click: chip selected, playlists read again, status line "N playlists", one tile per playlist of TD-PL in the player's order with cover, name and the line "Playlist" (no artist link), no random tile; hover: play, add and delete buttons, no heart | read | Auto |
+| PLS-02 | Play a playlist | Play button of a playlist tile | Its play URL (`/Load…` or the "play" action of the context menu); toast "Playing playlist: <name>"; open queue reloaded after 1.5 s if the playlist id did not change | write (part) | Auto |
+| PLS-03 | Player without playlists | Top menu without the playlists link | No Playlists chip; statistics without "Playlists" | – | Auto |
+| PLS-04 | Chip survives a source change | Switch a source off and on | The Playlists chip again right after New | read | Auto |
+| PLS-05 | Paging | Playlists answer with `nextKey` | All pages read (at most 20), tiles of every page | – | Auto |
+| PLS-06 | Add a playlist to the queue | Add button of a playlist tile | The `add-last` URL of the playlist's context menu; toast "Added to queue: <name>" | write | Auto |
+| PLS-07 | Playlist popup | Click the cover of the first playlist of TD-PL; close, open again | Name, line "Playlist" (no link), "N tracks · total time"; tracks of TD-PL-TRK of every page: position, title, "artist • album", duration; no year, no quality; read again on every opening (not cached) | read | Auto |
+| PLS-08 | Play a playlist track | Click the last track of the popup | Its `autoplayURL` (later pages: `playURL` with `offset`); toast "Track started" | write | Auto |
+| PLS-09 | Search and the Playlists view | Playlists view, search TD-TERM, empty the field | Playlists view back: chip pressed, playlist tiles, "N playlists" | read | Auto |
+| PLS-10 | Delete a playlist | Delete button (trash icon) of a playlist tile (real player: `__blualbum_test_list__`, saved for the test), confirm | Button label "Delete playlist <name>"; confirm text names it; the "delete" action of its context menu (`/Delete?name=<name>&service=BluOS`); toast "Deleted playlist “<name>”"; playlists reloaded, its tile gone | write | Auto |
+| PLS-11 | Delete cancelled / failed | Cancel the confirm; mock answers with `<error>` | Cancel: no request, all tiles stay; failure: popup "Deleting the playlist did not succeed" | read (part) | Auto |
 
 ### 4.13 Settings panel (SET)
 
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
 | SET-01 | Open and close | Menu button opens; back button, click on the scrim, Esc close | Opens / closes; `aria-expanded` follows; Esc with an open popup closes only the popup (POP-12) | read | Auto |
-| SET-02 | Chip switches | Section "Filter chips" (Quality, Decades, Genres, Playlists, in the order of the chip row): switch genre, quality and playlist chips off; decade chips on and off (CHP-16) | Only All, Favourites, New visible; switched on again → chips back; decade chips hidden when switched off | read | Auto |
+| SET-02 | Chip switches | Section "Filter chips" (Quality, Decades, Genres, in the order of the chip row): switch genre and quality chips off; decade chips on and off (CHP-16) | No switch for the Playlists chip; only All, Favourites, New, Playlists visible; switched on again → chips back; decade chips hidden when switched off | read | Auto |
 | SET-03 | Switches are stored | After SET-02 / CHP-16, reload | Switches keep their state (decade chips on → built again after connecting) | read | Auto |
 | SET-04 | Cover size | Select S, M, L | Tile width and spacing between tiles S < M < L, more space between rows than columns; stored as `tile`; pressed segment follows | read | Auto |
 | SET-05 | Design | Day, Night, System with light / dark system scheme | Background light / dark accordingly; stored as `theme` | read | Auto |
@@ -354,7 +359,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | ERR-01 | Failed command | Mock answers HTTP 500 for `/Add` (tile play) | Popup "The player command did not succeed" with request (without host), HTTP 500 and the answer; no other change | – | Auto |
 | ERR-02 | Command before connecting | Not connected, click play/pause or save the queue | Toast "Connect first"; no request | read | Auto |
 | ERR-03 | Player error answer | Mock answers `<e><message>…</message></e>` | Treated as failure: the player's message in the status line, the raw `<e>` answer (HTTP 200) in the popup; also for commands (`/Shuffle`) | – | Auto |
-| ERR-04 | Popup for unsuccessful answers | See QUE-12 / QUE-14 | Title, request path without host, HTTP status, raw body ("(empty response)" when empty); close button not focused | – | Auto |
+| ERR-04 | Popup for unsuccessful answers | See QUE-12 / PLS-11 | Title, request path without host, HTTP status, raw body ("(empty response)" when empty); close button not focused | – | Auto |
 | ERR-05 | English answers | Any request | Header `Accept-Language: en` on every player request except the images (covers `/Artwork` and source icons `/images/…`, read with a plain `fetch()`) | read | Auto |
 | ERR-06 | No genres | Genre lists empty | Error "No genres found. Has the library finished indexing?"; panel open | – | Auto |
 | ERR-07 | Every failed player request is shown | See CON-07, CON-13, CHP-14, FAV-05, POP-13, SRH-08, QUE-16, ERR-01, ERR-03 | Popup with a title per action, request path without host, status (HTTP status or "No answer – …") and raw answer; status line messages stay | – | Auto |
@@ -368,7 +373,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | SEC-02 | Covers as blob URLs | Grid, popup and footer covers | Read with `fetch()` and shown as `blob:` (works in Firefox on `file://`); now playing cover requested once for footer and full screen | read | Auto |
 | SEC-03 | Broken cover | `/Artwork` answers HTTP 404 | Grid: image removed, tile stays; footer: cover hidden | – | Auto |
 | SEC-04 | Blocked storage | localStorage throws (private mode) | App works; conveniences are not kept | read | Auto |
-| SEC-05 | Old stored values removed | localStorage with `fav:…`, `src:…`, `genres:…` | Keys removed on start | read | Auto |
+| SEC-05 | Old stored values removed | localStorage with `fav:…`, `src:…`, `genres:…`, `plchips` | Keys removed on start | read | Auto |
 
 ### 4.17 Layout & accessibility (LAY)
 
