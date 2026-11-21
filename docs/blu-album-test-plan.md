@@ -27,14 +27,14 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | FTR | 4.9 Player footer | Now playing, quality tag, transport, progress, volume, listening mode, long polling | 18 | 18 | 10 |
 | FUL | 4.10 Full screen | Full-screen now playing view, background from the cover, full-size cover | 7 | 7 | 5 |
 | QUE | 4.11 Queue panel | Pinning, list, remove, reorder (drag and drop, keyboard), shuffle, repeat, save as playlist, clear | 18 | 18 | 16 |
-| PLS | 4.12 Playlists | Playlists chip, playlists as tiles, playing / queueing / deleting a playlist, playlist popup | 11 | 11 | 9 |
+| PLS | 4.12 Playlists | Playlists chip, playlists as tiles, random playlist, playing / queueing / deleting a playlist, playlist popup | 12 | 12 | 10 |
 | SET | 4.13 Settings panel | Panel, chip switches, cover size, design, library settings | 9 | 9 | 9 |
 | ABT | 4.14 About popup | Content, statistics, versions, update check | 6 | 6 | 6 |
 | ERR | 4.15 Error handling | Failed requests in the popup, expected failures not shown, request headers | 8 | 8 | 2 |
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 5 | 4 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 4 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **170** | **170** | **122** |
+| | | **Total** | **171** | **171** | **123** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -319,7 +319,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
-| PLS-01 | Playlists chip and view | Connect; click the Playlists chip | One chip "Playlists" (text, no icon) right after New, tooltip "Saved playlists"; click: chip selected, playlists read again, status line "N playlists", one tile per playlist of TD-PL in the player's order with cover, name and the line "Playlist" (no artist link), no random tile; hover: play, add and delete buttons, no heart | read | Auto |
+| PLS-01 | Playlists chip and view | Connect; click the Playlists chip | One chip "Playlists" (text, no icon) right after New, tooltip "Saved playlists"; click: chip selected, playlists read again, status line "N playlists", first the random playlist tile ("Random playlist", "from N playlists"), then one tile per playlist of TD-PL in the player's order with cover, name and the line "Playlist" (no artist link); hover: play, add and delete buttons, no heart | read | Auto |
 | PLS-02 | Play a playlist | Play button of a playlist tile | Its play URL (`/Load…` or the "play" action of the context menu); toast "Playing playlist: <name>"; open queue reloaded after 1.5 s if the playlist id did not change | write (part) | Auto |
 | PLS-03 | Player without playlists | Top menu without the playlists link | No Playlists chip; statistics without "Playlists" | – | Auto |
 | PLS-04 | Chip survives a source change | Switch a source off and on | The Playlists chip again right after New | read | Auto |
@@ -327,9 +327,10 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | PLS-06 | Add a playlist to the queue | Add button of a playlist tile | The `add-last` URL of the playlist's context menu; toast "Added to queue: <name>" | write | Auto |
 | PLS-07 | Playlist popup | Click the cover of the first playlist of TD-PL; close, open again | Name, line "Playlist" (no link), "N tracks · total time"; tracks of TD-PL-TRK of every page: position, title, "artist • album", duration; no year, no quality; read again on every opening (not cached) | read | Auto |
 | PLS-08 | Play a playlist track | Click the last track of the popup | Its `autoplayURL` (later pages: `playURL` with `offset`); toast "Track started" | write | Auto |
-| PLS-09 | Search and the Playlists view | Playlists view, search TD-TERM, empty the field | Playlists view back: chip pressed, playlist tiles, "N playlists" | read | Auto |
+| PLS-09 | Search and the Playlists view | Playlists view, search TD-TERM, empty the field | Playlists view back: chip pressed, random playlist tile and playlist tiles, "N playlists" | read | Auto |
 | PLS-10 | Delete a playlist | Delete button (trash icon) of a playlist tile (real player: `__blualbum_test_list__`, saved for the test), confirm | Button label "Delete playlist <name>"; confirm text names it; the "delete" action of its context menu (`/Delete?name=<name>&service=BluOS`); toast "Deleted playlist “<name>”"; playlists reloaded, its tile gone | write | Auto |
 | PLS-11 | Delete cancelled / failed | Cancel the confirm; mock answers with `<error>` | Cancel: no request, all tiles stay; failure: popup "Deleting the playlist did not succeed" | read (part) | Auto |
+| PLS-12 | Random playlist | Playlists view: play button, add button of the random playlist tile | Play: label "Play a random playlist", the play URL of a playlist of TD-PL, toast "Playing playlist: <name>"; add: its `add-last` URL, toast "Added to queue: <name>" | write | Auto |
 
 ### 4.13 Settings panel (SET)
 

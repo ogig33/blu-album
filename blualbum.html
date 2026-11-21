@@ -2932,11 +2932,13 @@ function render(list, noRandom) {
     else g.append(item);
   }
 }
-// Picks a random album from `list` (the albums of the selected chip / view).
+// Picks a random album (or playlist) from `list` (the tiles of the selected chip / view).
 const randomAlbum = (list) => list[Math.floor(Math.random() * list.length)];
 // First tile of the grid. Click / play button: plays a random album of the current view,
 // add button: appends one to the queue. No popup; a toast tells which album was picked.
+// In the Playlists view the same for a random saved playlist.
 function randomTile(list) {
+  const isPl = !!list[0].pl, kind = isPl ? "playlist" : "album", name = (a) => isPl ? a.t : a.t + " \u2013 " + a.a;
   const item = document.createElement("div");
   item.className = "item";
   const cw = document.createElement("div");
@@ -2956,33 +2958,34 @@ function randomTile(list) {
   cb.append(cov);
   const play = () => {
     const a = randomAlbum(list);
-    cmd(a.play, "Playing: " + a.t + " \u2013 " + a.a);
+    if (isPl) playPlaylist(a);
+    else cmd(a.play, "Playing: " + name(a));
   };
   const pl = document.createElement("button");
   pl.className = "play";
   pl.innerHTML = ICON_PLAY;
-  pl.setAttribute("aria-label", "Play a random album");
+  pl.setAttribute("aria-label", "Play a random " + kind);
   pl.onclick = play;
   const aq = document.createElement("button");
   aq.className = "play addq";
   aq.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
-  aq.setAttribute("aria-label", "Add a random album to end of queue");
-  aq.title = "Add a random album to end of queue";
+  aq.setAttribute("aria-label", "Add a random " + kind + " to end of queue");
+  aq.title = "Add a random " + kind + " to end of queue";
   aq.onclick = () => {
-    const a = randomAlbum(list);
-    if (a.menu["addAll-last"]) cmd(a.menu["addAll-last"], "Added to queue: " + a.t + " \u2013 " + a.a);
+    const a = randomAlbum(list), url = a.menu["addAll-last"] || a.menu["add-last"];
+    if (url) cmd(url, "Added to queue: " + name(a));
     else toast("Could not add " + a.t);
   };
   cw.append(cb, pl, aq);
   const tb = document.createElement("div");
   tb.className = "card static";
   const t = document.createElement("b");
-  t.textContent = "Random album";
+  t.textContent = "Random " + kind;
   tb.append(t);
   const sb = document.createElement("div");
   sb.className = "card static";
   const sp = document.createElement("span");
-  sp.textContent = "from " + nAlb(list.length);
+  sp.textContent = "from " + (isPl ? nPl : nAlb)(list.length);
   sb.append(sp);
   item.append(cw, tb, sb);
   return item;
@@ -3270,10 +3273,10 @@ function renderPlChip() {
   if (nw) nw.after(plBtn);
   else nav.prepend(plBtn);
 }
-// The Playlists view: one tile per saved playlist, no random tile.
+// The Playlists view: the random playlist tile, then one tile per saved playlist.
 function showPlaylists() {
   shown = playlists;
-  render(shown, true);
+  render(shown);
   msg(shown.length ? nPl(shown.length) : "No saved playlists.");
 }
 // Deletes a saved playlist on the player after confirmation, with the "delete" action of its context menu

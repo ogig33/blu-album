@@ -3466,25 +3466,29 @@ test(
 
 // ---------- 4.12 Playlists (PLS) ----------
 test(
-  "PLS-01 Playlists chip: tiles with cover, name and \"Playlist\", no random tile, list read again",
+  "PLS-01 Playlists chip: random playlist tile, tiles with cover, name and \"Playlist\", list read again",
   async (t) => {
     const n = t.reqs(/key=BluOS:$/).length;
     await openPlaylists(t);
     eq(await t.page.getAttribute("#az .plc", "aria-pressed"), "true", "chip selected");
     eq(await t.page.textContent("#msg"), nPl(TD.PL.length), "status line");
-    eq(await t.$$text("#grid .item b"), TD.PL.map((p) => p.text), "one tile per playlist, in the player's order");
-    eq(await t.$$text("#grid .item > .card.static"), TD.PL.map(() => "Playlist"), "second line");
+    eq(await t.$$text("#grid .item:not(:has(.rnd)) b"), TD.PL.map((p) => p.text), "one tile per playlist, in the player's order");
+    eq(await t.$$text("#grid .item:not(:has(.rnd)) > .card.static"), TD.PL.map(() => "Playlist"), "second line");
     eq(await t.page.$$("#grid .item .ar"), [], "no artist link");
-    ok(!(await t.page.$("#grid .item .rnd")), "no random tile");
+    eq(
+      await t.$$text("#grid .item:first-child > .card"),
+      ["Random playlist", "from " + nPl(TD.PL.length)],
+      "random playlist tile first",
+    );
     eq(
       await t.page.$$eval("#grid .item .cov img", (x) => x.length),
       TD.PL.filter((p) => p.image).length,
       "cover of every playlist with an image",
     );
-    await t.page.hover("#grid .item:first-child");
+    await t.page.hover("#grid .item:nth-child(2)");
     eq(await t.page.$$("#grid .item .favc"), [], "no heart");
-    ok(await t.page.isVisible("#grid .item:first-child .delp"), "delete button");
-    ok(await t.page.isVisible("#grid .item:first-child .addq"), "add button");
+    ok(await t.page.isVisible("#grid .item:nth-child(2) .delp"), "delete button");
+    ok(await t.page.isVisible("#grid .item:nth-child(2) .addq"), "add button");
     ok(t.reqs(/key=BluOS:$/).length > n, "playlists read again");
   },
   { ...R, needs: ["playlist"] },
@@ -3554,7 +3558,7 @@ test(
   "PLS-05 saved playlists over several pages",
   async (t) => {
     await openPlaylists(t);
-    eq(await t.$$text("#grid .item b"), [...TD.PL.map((p) => p.text), "Page two"], "playlists of both pages");
+    eq(await t.$$text("#grid .item:not(:has(.rnd)) b"), [...TD.PL.map((p) => p.text), "Page two"], "playlists of both pages");
   },
   {
     overrides: [
@@ -3632,7 +3636,8 @@ test(
     await t.page.fill("#q", "");
     await t.waitMsg(nPl(TD.PL.length));
     eq(await t.page.getAttribute("#az .plc", "aria-pressed"), "true", "chip pressed again");
-    eq(await t.$$text("#grid .item b"), TD.PL.map((p) => p.text), "playlist tiles, no random tile");
+    eq(await t.$$text("#grid .item:not(:has(.rnd)) b"), TD.PL.map((p) => p.text), "playlist tiles");
+    ok(await t.page.$("#grid .item:first-child .rnd"), "random playlist tile first");
   },
   { ...R, needs: ["playlist"] },
 );
@@ -3670,7 +3675,7 @@ test(
     await t.page.click(tile + " .delp");
     await t.settle();
     eq(t.cmds(/^\/Delete\?/), [], "no delete");
-    eq(await t.$$text("#grid .item b"), TD.PL.map((p) => p.text), "all tiles stay");
+    eq(await t.$$text("#grid .item:not(:has(.rnd)) b"), TD.PL.map((p) => p.text), "all tiles stay");
   },
   { ...R, needs: ["playlist"], dialog: "dismiss" },
 );
@@ -3686,6 +3691,39 @@ test(
     eq(await t.page.textContent("#apib"), "<error>Test failure</error>", "raw answer");
   },
   { overrides: [{ match: /^\/Delete\?name=/, body: "<error>Test failure</error>" }] },
+);
+
+test(
+  "PLS-12 random playlist: play button plays a playlist of the view",
+  async (t) => {
+    await openPlaylists(t);
+    await t.page.hover("#grid .item:first-child");
+    eq(await t.page.getAttribute("#grid .item:first-child .play:not(.addq)", "aria-label"), "Play a random playlist", "label");
+    await t.page.click("#grid .item:first-child .play:not(.addq)");
+    await t.waitToast(/^Playing playlist: .+$/);
+    const name = (await t.page.textContent("#toast")).replace(/^Playing playlist: /, ""),
+      p = TD.PL.find((x) => x.text === name);
+    ok(p, "a playlist of the view: " + name);
+    ok(t.player.state.commands.includes(decodeURIComponent(p.playURL)), "its play URL");
+  },
+  { ...W, needs: ["playlist"] },
+);
+
+test(
+  "PLS-12 random playlist: add button appends a playlist of the view",
+  async (t) => {
+    await openPlaylists(t);
+    await t.page.hover("#grid .item:first-child");
+    await t.page.click("#grid .item:first-child .addq");
+    await t.waitToast(/^Added to queue: .+$/);
+    const name = (await t.page.textContent("#toast")).replace(/^Added to queue: /, "");
+    ok(
+      TD.PL.some((x) => x.text === name),
+      "a playlist of the view: " + name,
+    );
+    eq(t.cmds(/^\/Add\?playlist=.*&where=last$/).length, 1, "add-last of its context menu");
+  },
+  { ...W, needs: ["playlist"] },
 );
 
 // ---------- 4.13 Settings panel (SET) ----------
