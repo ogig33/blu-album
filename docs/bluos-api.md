@@ -724,6 +724,7 @@ GET /Playlists?service=BluOS&sort=<alpha|recent>&playlist=<name>&myPlaylists=1
 **Notes**
 
 - One request, no paging; `start` / `end` have no effect (verified).
+- **No search for playlists** (verified 2026-11-21, BluOS 4.18.18): `expr`, `search`, `q`, `filter`, `name`, `text` are ignored (all playlists); the service `BluOS` has no `searchKey` (`/Browse?key=BluOS:Search&q=…` answers HTTP 500), the library search menu links only to artists, albums, songs and composers, `/library/v1/Playlists?expr=…` lists only imported playlists (none here), and [`/mcp`](#get-post-mcp) `search_music` with `type=playlists` fails for `BluOS` (the same HTTP 500) and `LocalMusic`. Finding a playlist by name means filtering the list of this endpoint (or of `/Browse` with `browseKey="BluOS:"`) in the client.
 - No play URL – that comes from `/Browse`.
 - The BluOS Controller opens a single playlist with `/Playlists?service=BluOS&playlist=<name>&playlistid=` (action `context-browse` in `/ui/Home`) and the playlist list with `/Playlists?myPlaylists=1&service=BluOS&sort=recent`.
 
