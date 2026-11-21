@@ -21,7 +21,7 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results | 14 | 14 | 10 |
 | GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons, status line | 10 | 10 | 8 |
 | FAV | 4.5 Favourites | Heart on the cover, toggling via the player, no local favourites | 6 | 6 | 5 |
-| ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache | 4 | 4 | 4 |
+| ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache, one link per artist of several | 5 | 5 | 4 |
 | POP | 4.7 Album popup | Details, technical data, track list, playing a track, closing | 15 | 15 | 10 |
 | SRH | 4.8 Search | Player search, albums of found composers, groups by album title / artist / composer, search areas, search button, typing rules, empty field, errors | 12 | 12 | 4 |
 | FTR | 4.9 Player footer | Now playing, quality tag, transport, progress, volume, listening mode, long polling | 18 | 18 | 10 |
@@ -34,7 +34,7 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 5 | 4 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 4 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **171** | **171** | **123** |
+| | | **Total** | **172** | **172** | **123** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -215,6 +215,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | ART-02 | Favourite state in the artist view | Same as ART-01 | Favourites of the library asked once; context menu read only for TD-FAV-ART (`&isFavourite=1`); those hearts filled, the others empty; remove URL from the player | read | Auto |
 | ART-03 | Artist view from the popup | Open an album popup, click the artist link | Popup closes, artist view as ART-01, page scrolled to the top | read | Auto |
 | ART-04 | Artist view is cached | Artist, another chip, same artist again | No `/Browse` request the second time | read | Auto |
+| ART-05 | Several artists (comma) | App defaults; album artist "Harold Budd ,Brian Eno, Earth"; click "Brian Eno" in the tile, switch Album and Composer on, then click "Harold Budd" in the album popup | Tile and popup: one link per artist (spaces trimmed), separated by ", ", no link for the whole name; a click closes the popup, shows the search field with the artist, switches the search area Artist on and Album and Composer off (stored, also when they were switched on again) and searches every source once, no composer request | – | Auto |
 
 ### 4.7 Album popup (POP)
 

@@ -1323,9 +1323,22 @@ nav .gap {
 .card.ar {
   margin-top: 1px;
 }
-.card.ar:hover span {
+button.card.ar:hover span,
+.card.ar button:hover {
   color: var(--ink);
   text-decoration: underline;
+}
+/* Several artists in the artist line: one link each (artistLinks()) */
+.card.ar button {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.card.ar button:focus-visible {
+  outline-offset: -2px;
 }
 .lnk {
   background: none;
@@ -2762,6 +2775,36 @@ async function showArtist(name) {
     if (activeKey === key) loadFailed("Loading failed: ", "Loading the albums did not succeed", e);
   }
 }
+// The artists of an album artist: a comma separates several artists (e.g. "Harold Budd, Brian Eno").
+const artistNames = (s) => s.split(",").map((p) => p.trim()).filter(Boolean);
+// Artist links (album popup; grid tile with several artists): one artist opens its albums (showArtist()),
+// several artists get one link each that searches the artist (searchArtist()), separated by ", ".
+function artistLinks(name, cls = "") {
+  const names = artistNames(name), one = names.length < 2;
+  return (one ? [name] : names).flatMap((n, i) => {
+    const b = document.createElement("button");
+    b.className = cls;
+    b.textContent = n;
+    b.title = one ? "Show albums by " + n : "Search for " + n + " in the track artists";
+    b.onclick = () => one ? showArtist(n) : searchArtist(n);
+    return i ? [", ", b] : [b];
+  });
+}
+// Clicking one of several artists: the player's search for the name in the search area Artist only (track
+// artists, so it also finds the albums the artist shares with others); Album and Composer are switched off.
+// The areas are stored like a click on their chips, but searched only once.
+function searchArtist(name) {
+  if ($("#dlg").open) $("#dlg").close();
+  scrollTo(0, 0);
+  showSearch(true);
+  $("#q").value = name;
+  clearTimeout(searchTimer);
+  for (const k of ["title", "artist", "composer"]) {
+    $(`#sin [data-in=${k}]`).setAttribute("aria-pressed", k === "artist");
+    store.set("searchin:" + k, k === "artist" ? "1" : "0");
+  }
+  search();
+}
 
 /* ---------- Album grid ---------- */
 // Lazy rendering of the album tiles and the random album tile.
@@ -2919,11 +2962,11 @@ function render(list, noRandom) {
     }
     const tb = document.createElement("button");
     tb.className = "card";
-    // Title and artist: one line each, text in a .mq span that fitLines() scrolls
-    const line = (tag, text) => {
+    // Title and artist: one line each, text (or the artist links) in a .mq span that fitLines() scrolls
+    const line = (tag, ...content) => {
       const e = document.createElement(tag), m = document.createElement("span");
       m.className = "mq";
-      m.textContent = text;
+      m.append(...content);
       e.append(m);
       cutObs.observe(e);
       return e;
@@ -2935,6 +2978,11 @@ function render(list, noRandom) {
       ab = document.createElement("div");
       ab.className = "card static";
       ab.append(line("span", "Playlist"));
+    } else if (artistNames(a.a).length > 1) {
+      // Several artists: one link each in the artist line
+      ab = document.createElement("div");
+      ab.className = "card static ar";
+      ab.append(line("span", ...artistLinks(a.a)));
     } else {
       ab = document.createElement("button");
       ab.className = "card ar";
@@ -3071,14 +3119,7 @@ async function openAlbum(a) {
   $("#dt").textContent = a.t;
   const da = $("#da");
   da.textContent = a.pl ? "Playlist" : "";
-  if (!a.pl) {
-    const al = document.createElement("button");
-    al.className = "lnk";
-    al.textContent = a.a;
-    al.title = "Show albums by " + a.a;
-    al.onclick = () => showArtist(a.a);
-    da.append(al);
-  }
+  if (!a.pl) da.append(...artistLinks(a.a, "lnk"));
   // Number of discs (only when several) and total playing time, below the artist line
   $("#dlen").textContent = "";
   albumDetails([]);

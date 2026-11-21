@@ -1664,6 +1664,64 @@ test(
   R,
 );
 
+// ART-05: an album artist with commas is several artists: one link each, which searches the track artists
+test(
+  "ART-05 several artists (comma): one link each in the tile and the popup, each searches the artist",
+  async (t) => {
+    const multi = "Harold Budd ,Brian Eno, Earth";
+    const title = await t.page.evaluate((m) => {
+      shown[0].a = m;
+      render(shown);
+      return shown[0].t;
+    }, multi);
+    const tile = `#grid .item:nth-child(${await t.tileOf(title)})`;
+    eq(await t.page.textContent(tile + " .card.ar"), "Harold Budd, Brian Eno, Earth", "artist line: names, comma and space");
+    eq(
+      await t.page.$$eval(tile + " .card.ar button", (b) => b.map((x) => x.textContent)),
+      ["Harold Budd", "Brian Eno", "Earth"],
+      "one link per artist in the tile",
+    );
+    ok(!(await t.page.$(tile + " button.card.ar")), "no link for the whole name");
+    const chips = () =>
+      t.page.$$eval("#sin button", (x) => x.map((e) => e.textContent + ":" + e.getAttribute("aria-pressed")));
+    eq((await chips()).join(), "Album:true,Artist:false,Composer:false", "Artist area off before");
+    await t.page.click(tile + ' .card.ar button:text-is("Brian Eno")');
+    await t.waitMsg("“Brian Eno”");
+    ok(await t.page.isVisible("#qbox"), "search field shown");
+    eq(await t.page.inputValue("#q"), "Brian Eno", "the artist in the search field");
+    eq((await chips()).join(), "Album:false,Artist:true,Composer:false", "only the Artist area on");
+    eq(
+      await t.page.evaluate(() => ["title", "artist", "composer"].map((k) => localStorage.getItem("searchin:" + k))),
+      ["0", "1", "0"],
+      "areas stored",
+    );
+    eq(t.reqs(/[?&]q=Brian Eno(&|$)/).length, TD.SRC.length, "one search per source");
+    // Album popup: the same links; a link closes the popup and searches only the Artist area again
+    await t.page.press("#q", "Escape");
+    await t.waitMsg(/^\d+ albums?$/);
+    await t.openSearch();
+    await t.page.click('#sin button:text-is("Album")');
+    await t.page.click('#sin button:text-is("Composer")');
+    await t.page.press("#q", "Escape");
+    await t.page.evaluate(() => openAlbum(shown[0]));
+    await t.page.waitForSelector("#dlg[open]");
+    eq(await t.page.textContent("#da"), "Harold Budd, Brian Eno, Earth", "artist line in the popup");
+    eq(
+      await t.page.$$eval("#da button", (b) => b.map((x) => x.className + ":" + x.textContent)),
+      ["lnk:Harold Budd", "lnk:Brian Eno", "lnk:Earth"],
+      "one link per artist in the popup",
+    );
+    await t.page.click('#da button:text-is("Harold Budd")');
+    await t.waitMsg("“Harold Budd”");
+    ok(!(await t.page.$("#dlg[open]")), "popup closed");
+    eq(await t.page.inputValue("#q"), "Harold Budd", "the artist in the search field");
+    eq((await chips()).join(), "Album:false,Artist:true,Composer:false", "Album and Composer switched off");
+    eq(t.reqs(/[?&]q=Harold Budd(&|$)/).length, TD.SRC.length, "one search per source");
+    eq(t.reqs(/Composers(%3F|\?)expr=/).length, 0, "no composer request");
+  },
+  { appDefaults: true },
+);
+
 // ---------- 4.7 Album popup (POP) ----------
 test("POP-01 popup opens from cover and title: details, source line, loading text", async (t) => {
   t.player.state.overrides.push({ match: /MG\/LocalMusic-Album/, delay: 800 });
