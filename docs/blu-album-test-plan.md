@@ -32,9 +32,9 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | ABT | 4.14 About popup | Content, statistics, versions, update check | 6 | 6 | 6 |
 | ERR | 4.15 Error handling | Failed requests in the popup, expected failures not shown, request headers | 8 | 8 | 2 |
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 5 | 4 |
-| LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard | 2 | 2 | 2 |
+| LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 4 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **160** | **160** | **113** |
+| | | **Total** | **162** | **162** | **115** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -377,6 +377,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | LAY-01 | Readable titles, no horizontal scrolling | Every cover size in every design; Day and Night with pinned queue and open popup | Contrast ≥ 4.5 (WCAG AA) of album titles, now playing title, queue titles, popup title and tracks; no horizontal scrolling | read | Auto |
 | LAY-02 | Keyboard and screen reader labels | Queue pinned; all visible controls; Tab on the chip row | Every control has a name (`aria-label`, text, title or label); chips have `aria-pressed`, switches `aria-checked`, menu and queue button `aria-expanded`; Tab moves to the next chip (Safari: Option-Tab, its default for buttons) | read | Auto |
 | LAY-03 | Favicon | Open the app (no connection) | `link rel="icon"` is an embedded SVG (`data:` URI, no request): double note knocked out of a circle, dark in light mode and cream in dark mode (`prefers-color-scheme`); the image loads; the tab shows it in Chrome, Edge and Firefox (Safari shows no favicon for `file://` pages) | read | Auto |
+| LAY-04 | Header logo | Open the app (no connection) | Menu button first, then the app logo (double note in a circle, text colour) left of the title "BluAlbum" | read | Auto |
 
 ### 4.18 Regression & session (REG)
 

@@ -4093,6 +4093,23 @@ test(
   { ...R, connect: false },
 );
 
+test(
+  "LAY-04 header: menu button, then the logo left of the title",
+  async (t) => {
+    const r = await t.page.evaluate(() => {
+      const h = document.querySelector("header"), logo = h.querySelector("svg.logo");
+      const box = (e) => e.getBoundingClientRect();
+      return {
+        menuFirst: h.firstElementChild.id === "gear",
+        logo: !!logo && logo.previousElementSibling.id === "gear" && logo.nextElementSibling.id === "ttl" && box(logo).width > 0,
+        order: !!logo && box(document.querySelector("#gear")).right <= box(logo).left && box(logo).right <= box(document.querySelector("#ttl")).left,
+      };
+    });
+    eq(r, { menuFirst: true, logo: true, order: true }, "header");
+  },
+  { ...R, connect: false },
+);
+
 // ---------- 4.18 Regression & session (REG) ----------
 test(
   "REG-01 connect: no playback command on page load (regression)",

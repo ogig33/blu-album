@@ -127,6 +127,13 @@ input {
   place-items: center;
   flex: none;
 }
+/* App logo left of the title */
+header .logo {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  fill: var(--ink);
+}
 /* Search and queue button at the right end of the header */
 #sbtn,
 #qbtn {
@@ -666,7 +673,7 @@ li.cur .qn {
   color: var(--accink);
   border-color: var(--acc);
 }
-/* Narrow window: the search field in a row of its own below menu, title, search and queue button */
+/* Narrow window: the search field in a row of its own below menu, logo, title, search and queue button */
 @media (max-width: 700px) {
   #qbox {
     order: 1;
@@ -1743,9 +1750,11 @@ dialog * {
 </style>
 </head>
 <body>
-<!-- Header: settings button, title, search, queue button -->
+<!-- Header: settings button, logo, title, search, queue button -->
 <header>
   <button id="gear" aria-label="Menu" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <!-- App logo: the favicon's double note knocked out of a circle, in the text colour -->
+  <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><mask id="hdrlogo"><rect width="32" height="32" fill="white"/><g fill="black"><ellipse cx="8.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 8.3 26.5)"/><ellipse cx="22.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 22.3 26.5)"/><rect x="10.5" y="11" width="2.6" height="15"/><rect x="24.5" y="9" width="2.6" height="17"/><path d="M10.5 10 27.1 8v4.6L10.5 14.6z"/></g></mask><circle cx="16" cy="16" r="15" mask="url(#hdrlogo)"/></svg>
   <h1 id="ttl">BluAlbum</h1>
   <!-- Search field with the search areas (chips, all on by default, stored); hidden until the search button -->
   <div id="qbox" hidden>

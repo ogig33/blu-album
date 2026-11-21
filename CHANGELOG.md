@@ -5,6 +5,7 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 ## Unreleased
 - Search: chips Album, Artist and Composer in the search field choose where to search (all on by default).
 - Search: the search field is hidden until you click the search button next to the queue button.
+- Header shows the BluAlbum logo left of the title.
 
 ## 0.11.0
 - About popup shows the BluAlbum logo.
