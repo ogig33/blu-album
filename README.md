@@ -10,7 +10,7 @@
 
 - **Album wall** supports player's local music library (network share and USB drive), loaded lazily
 - **Filters:** All, Favourites, New, quality (HD, CD, MQA), decades, genres
-- **Search** using the player's own search: finds album titles, album artists, track artists and composers; opened with the search button, chips in the search field choose where to search
+- **Search** using the player's own search: finds album titles, track artists and composers (not album artists: the player does not search them); opened with the search button, chips in the search field choose where to search
 - **Quick album actions:** play, add to the queue, mark as favourite
 - **Random album:** available for whole collection and any filter, play or add to queue
 - **Album details:** year, quality, format, bit depth, sample rate, average bitrate, artist per track, number of tracks, playing time, breakdown of multi-disc albums

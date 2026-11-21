@@ -1765,7 +1765,7 @@ dialog * {
     <input id="q" type="search" placeholder="Search (Enter)" aria-label="Search">
     <div id="sin" role="group" aria-label="Search in">
       <button data-in="title" aria-pressed="true" title="Search in album titles">Album</button>
-      <button data-in="artist" aria-pressed="false" title="Search in album and track artists">Artist</button>
+      <button data-in="artist" aria-pressed="false" title="Search in track artists">Artist</button>
       <button data-in="composer" aria-pressed="false" title="Search in composers">Composer</button>
     </div>
   </div>
@@ -3803,8 +3803,8 @@ function showSearch(open) {
 const searchIn = (k) => $(`#sin [data-in=${k}]`).getAttribute("aria-pressed") === "true";
 // Uses the player's own search (Enter, or while typing, see SEARCH_MIN / SEARCH_DELAY).
 // The result comes in groups, each A-Z by title and each album once: album title (the term is in the title),
-// artist (the rest of the search's albums list: album artist or a track artist) and composer (the albums of
-// the composers found). The status line names the first group, a line in the grid every further group.
+// artist (the rest of the search's albums list: a track artist; the player does not match the album artist)
+// and composer (the albums of the composers found). The status line names the first group, a line in the grid every further group.
 // Only the groups of the search areas that are on; an area that is off costs no request (albums list only for
 // title or artist, composers only for composer).
 // Fewer than SEARCH_MIN characters or no search area: no search, only a hint (the view stays).

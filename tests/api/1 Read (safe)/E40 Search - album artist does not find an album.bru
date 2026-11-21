@@ -1,0 +1,103 @@
+meta {
+  name: E40 Search - album artist does not find an album
+  type: http
+  seq: 122
+}
+
+get {
+  url: http://{{host}}:11000/Browse
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Does the albums list of the player's search (/Browse searchKey + q, link "Albums") match the album artist?
+  // Album artists come from the sectioned artists list of the library; the first album artist with an album whose
+  // title and track artists do not contain the name is searched for. Read only.
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const axios = require("axios");
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const items = (x) => x.match(/<item\b[^>]*>/g) || [];
+  const low = (s) => s.toLowerCase();
+
+  // Sectioned artists list of the library menu (link "Artists"): its sections, then the artists of each section
+  const menu = await get("/Browse?key=" + encodeURIComponent("LocalMusic:"));
+  const artLink = items(menu).find((t) => attr(t, "text") === "Artists");
+  if (!artLink) { bru.runner.skipRequest(); return; }
+  const secs = items(await get("/Browse?key=" + encodeURIComponent(attr(artLink, "browseKey")))).filter((t) => attr(t, "type") === "section");
+  // An album of `name` whose title and track artists do not contain the name (first 10 albums), or null
+  const albumOf = async (name) => {
+    // With artist= the album title is the text of <album> (inside <artist name="…">)
+    const list = [...(await get("/library/v1/Albums?service=LocalMusic&artist=" + encodeURIComponent(name))).matchAll(/<album\b[^>]*>([^<]*)<\/album>/g)].slice(0, 10);
+    for (const a of list) {
+      const album = dec(a[1]);
+      const arts = [...(await get("/library/v1/Songs?service=LocalMusic&album=" + encodeURIComponent(album) + "&artist=" + encodeURIComponent(name))).matchAll(/<art>([^<]*)<\/art>/g)].map((m) => low(dec(m[1])));
+      if (arts.length && !low(album).includes(low(name)) && !arts.some((x) => x.includes(low(name)))) return { name, album };
+    }
+    return null;
+  };
+  // Album artists of the sectioned list; "Various" (samplers, see E29) first, as its tracks rarely carry the name
+  const names = [];
+  for (const s of secs) {
+    const sec = (attr(s, "browseKey").match(/section=([^&]+)/) || [])[1];
+    names.push(...[...(await get("/library/v1/Artists?service=LocalMusic&section=" + sec)).matchAll(/<art>([^<]+)<\/art>/g)].map((m) => dec(m[1])));
+  }
+  let target = null, checked = 0;
+  for (const name of [...names.filter((n) => /^various/i.test(n)), ...names.filter((n) => n.length >= 4)]) {
+    if (++checked > 30 || (target = await albumOf(name))) break;
+  }
+  console.log("album artists checked: " + checked + " | target: " + (target ? target.album + " / " + target.name : "none"));
+  if (!target) { bru.runner.skipRequest(); return; }
+  // Albums of the search's "Albums" link (all sections), as the app reads them
+  const albumsOf = async (key) => {
+    const its = items(await get("/Browse?key=" + encodeURIComponent(key)));
+    const s = its.filter((t) => attr(t, "type") === "section" && attr(t, "text2") !== "0");
+    if (!s.length) return its.filter((t) => attr(t, "type") === "album").map((t) => attr(t, "text") + " / " + attr(t, "text2"));
+    const out = [];
+    for (const x of s) out.push(...await albumsOf(attr(x, "browseKey")));
+    return out;
+  };
+  const search = await get("/Browse?key=" + encodeURIComponent("LocalMusic:Search") + "&q=" + encodeURIComponent(target.name));
+  const link = items(search).find((t) => attr(t, "text") === "Albums");
+  const found = link ? await albumsOf(attr(link, "browseKey")) : [];
+  const all = (await get("/library/v1/Albums?service=LocalMusic&artist=" + encodeURIComponent(target.name))).match(/<album\b/g) || [];
+  console.log("albums of the album artist: " + all.length + " | albums of the search with this album artist: " + found.filter((x) => x.endsWith(" / " + target.name)).length);
+  bru.setVar("eAlbumArtistTarget", target.album + " / " + target.name);
+  bru.setVar("eAlbumArtistFound", JSON.stringify(found));
+  // The request itself: the albums of the album artist through its browse menu (sectioned artists list), as a contrast
+  req.setUrl(H + "/Browse?key=" + encodeURIComponent("LocalMusic:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=" + encodeURIComponent(target.name).replace(/%20/g, "+") + "&service=LocalMusic"));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("explore-40-search-album-artist.xml");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const albums = (body.match(/<item\b[^>]*>/g) || []).filter((t) => attr(t, "type") === "album").map((t) => attr(t, "text") + " / " + attr(t, "text2"));
+  const target = bru.getVar("eAlbumArtistTarget");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("the albums of the album artist contain the album", () => expect(albums).to.include(target));
+  test("a search for the album artist does not find the album", () => expect(JSON.parse(bru.getVar("eAlbumArtistFound") || "[]")).to.not.include(target));
+}

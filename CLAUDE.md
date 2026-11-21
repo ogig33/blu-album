@@ -106,6 +106,7 @@ Do not build these; when asked, point to the alternative.
 - **Do not use /ui endpoints:** these endpoints are specific to BluOS Controller app and too risky for other clients
 - **No default IP address** in the app.
 - **No song title search area:** the search's songs list has no link to the album of a song (no browse key, no "Go to album" in the song context menu); the album would need a self-built URL, which fails for samplers (the song carries the track artist, not the album artist).
+- **No album artist search:** the player's search does not match the album artist (see pitfalls). Finding album artists would need the whole artists list of the library (one request per section, about 25) and a match in the app, plus 2 requests per artist found; not wanted. The Artist search area finds track artists only; a compilation is found by the artist of one of its tracks, not by its album artist (e.g. "Various").
 - **No song favourites:** no heart per track in the album popup and no "Favourite songs" chip, although the API supports both (`/AddFavourite?fn=`, `autoplayURL` with `category=FAVOURITES`); BluAlbum keeps to album favourites.
 - **No playlist search:** the player offers none (see `/Playlists` in `docs/bluos-api.md`); a name filter in the app would be possible, but is not wanted.
 - **The Playlists view keeps the player's order:** no "Date added" sort (`/Playlists?sort=recent`) and no warning when the queue is saved under an existing playlist name.
@@ -114,3 +115,4 @@ Do not build these; when asked, point to the alternative.
 
 - Safari collapses a flex child with an indefinite height to 0 (happened with the popup track list) – avoid flex sizing for scrolling lists, use a max-height.
 - Safari may keep an old version of the local file: reload without cache (⌥⌘R) before chasing a "bug".
+- The player's search does not find albums by their album artist, only by title and track artists (Bruno E40, `docs/bluos-api.md`): albums of "Various" or "Putumayo Presents" whose tracks carry other artists are not found. An earlier version of `docs/bluos-api.md` said otherwise; test search behaviour with albums whose album artist is on none of their tracks.

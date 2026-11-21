@@ -38,7 +38,7 @@ BluOS reads the following tags. The last column says what BluAlbum does with the
 | Tag | Meaning | Effect in BluAlbum |
 | --- | --- | --- |
 | `ALBUM` | Name of the album | Album title. Together with the album artist it identifies the album: keep both the same on every track, or the album may appear more than once. Give different editions of an album different names (e.g. "Remastered", "Hi-Res"). |
-| `ALBUMARTIST` | Artist the album is listed under | Artist below the cover; searched by the search field. Use one name for all compilations (e.g. "Various Artists"): BluOS has no compilation filter, so you find your compilations by searching for that name. |
+| `ALBUMARTIST` | Artist the album is listed under | Artist below the cover. **Not searched:** the player's search ignores the album artist, so an album is found by its artists only when a track carries the name. Use one name for all compilations (e.g. "Various Artists") to keep them together in the player; you find a compilation in BluAlbum by its title or by the artist of one of its tracks. |
 | `ARTIST` | Artist of the track | Shown next to a track in the album popup when it differs from the album artist (e.g. on compilations); searched by the search field, so a compilation is found by the artist of one of its tracks. |
 | `TITLE` | Name of the track | Track list of the album popup. Not searched: the search finds albums, and the player matches their title and artists only. |
 | `TRACK` | Number of the track on the album (or disc) | Order of the track list. |
