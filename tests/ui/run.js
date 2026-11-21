@@ -958,30 +958,31 @@ const tileLines = (page, i) =>
     })),
   );
 
-test(
-  "GRD-11 status line underlined with a fine line as wide as the grid, also with the pinned queue",
-  async (t) => {
-    await t.waitMsg(nAlb(TD.FAV.length));
-    // left / right of the status line's fine line and of the grid's content box (inside its side padding)
-    const edges = () =>
-      t.page.evaluate(() => {
-        const m = document.querySelector("#msg"), g = document.querySelector("#grid");
-        const ms = getComputedStyle(m), gs = getComputedStyle(g), mr = m.getBoundingClientRect(), gr = g.getBoundingClientRect();
-        return {
-          line: ms.borderBottomStyle === "solid" && parseFloat(ms.borderBottomWidth) > 0,
-          msg: [Math.round(mr.left), Math.round(mr.right)],
-          grid: [Math.round(gr.left + parseFloat(gs.paddingLeft)), Math.round(gr.right - parseFloat(gs.paddingRight))],
-        };
-      });
-    let e = await edges();
-    ok(e.line, "fine line under the status line");
-    eq(e.msg.join(), e.grid.join(), "line as wide as the grid");
-    if (VIEWPORT.width < 800) return; // the queue covers the page instead of being pinned
-    await t.openQueue();
-    e = await edges();
-    eq(e.msg.join(), e.grid.join(), "line as wide as the grid with the pinned queue");
-  },
-);
+test("GRD-11 status line underlined with a fine line as wide as the grid, also with the pinned queue", async (t) => {
+  await t.waitMsg(nAlb(TD.FAV.length));
+  // left / right of the status line's fine line and of the grid's content box (inside its side padding)
+  const edges = () =>
+    t.page.evaluate(() => {
+      const m = document.querySelector("#msg"),
+        g = document.querySelector("#grid");
+      const ms = getComputedStyle(m),
+        gs = getComputedStyle(g),
+        mr = m.getBoundingClientRect(),
+        gr = g.getBoundingClientRect();
+      return {
+        line: ms.borderBottomStyle === "solid" && parseFloat(ms.borderBottomWidth) > 0,
+        msg: [Math.round(mr.left), Math.round(mr.right)],
+        grid: [Math.round(gr.left + parseFloat(gs.paddingLeft)), Math.round(gr.right - parseFloat(gs.paddingRight))],
+      };
+    });
+  let e = await edges();
+  ok(e.line, "fine line under the status line");
+  eq(e.msg.join(), e.grid.join(), "line as wide as the grid");
+  if (VIEWPORT.width < 800) return; // the queue covers the page instead of being pinned
+  await t.openQueue();
+  e = await edges();
+  eq(e.msg.join(), e.grid.join(), "line as wide as the grid with the pinned queue");
+});
 
 test(
   "GRD-10 long title and artist: one line each, fade out, scroll while hovering",
@@ -2167,12 +2168,20 @@ test(
     eq(t.reqs(/LocalMusic-Composer\?composer=Test/).length, 1, "menu of the first composer read");
     eq(t.reqs(/LocalMusic-Composer\?composer=Other/).length, 1, "menu of the second composer read");
     const lines = await searchLines(t);
-    eq(searchTotal(lines), TD.SRC.length + 2, "album of the title search per source plus the new albums of the composers");
+    eq(
+      searchTotal(lines),
+      TD.SRC.length + 2,
+      "album of the title search per source plus the new albums of the composers",
+    );
     ok(lines.includes(`2 albums for \u201C${TD.TERM}\u201D by the composer`), "composer group: " + lines.join(" | "));
     const tiles = await t.tiles();
     eq(tiles.filter((x) => x === "Composer Album").length, 1, "album of both composers shown once");
     ok(tiles.includes("Second Composer Album"), "album of the second composer");
-    eq(tiles.filter((x) => x === first).length, TD.SRC.length, "album of the title search and of a composer once per source");
+    eq(
+      tiles.filter((x) => x === first).length,
+      TD.SRC.length,
+      "album of the title search and of a composer once per source",
+    );
   },
   {
     overrides: [
@@ -2205,11 +2214,18 @@ test(
     await t.waitMsg(/for/);
     eq(await t.msg(), "2 albums for \u201Cfugue\u201D in the album title", "status line = first group");
     const ruled = (sel) =>
-      t.page.$$eval(sel, (x) => x.map((e) => getComputedStyle(e).borderBottomStyle === "solid" && parseFloat(getComputedStyle(e).borderBottomWidth) > 0));
+      t.page.$$eval(sel, (x) =>
+        x.map(
+          (e) =>
+            getComputedStyle(e).borderBottomStyle === "solid" && parseFloat(getComputedStyle(e).borderBottomWidth) > 0,
+        ),
+      );
     eq((await ruled("#msg, #grid .gl")).join(), "true,true,true", "fine line under every group line");
     // grid in order: group lines and tiles
     const grid = await t.page.$$eval("#grid > *", (x) =>
-      x.map((e) => (e.classList.contains("gl") ? "| " + e.textContent : e.querySelector("b")?.textContent)).filter(Boolean),
+      x
+        .map((e) => (e.classList.contains("gl") ? "| " + e.textContent : e.querySelector("b")?.textContent))
+        .filter(Boolean),
     );
     eq(
       grid.join(" / "),
@@ -2224,7 +2240,11 @@ test(
       ].join(" / "),
       "groups: title (word start, accents ignored), artist (the rest), composer",
     );
-    eq(await t.page.$$eval("#grid .item b", (x) => x.filter((e) => e.textContent === "Random album").length), 0, "no random tile");
+    eq(
+      await t.page.$$eval("#grid .item b", (x) => x.filter((e) => e.textContent === "Random album").length),
+      0,
+      "no random tile",
+    );
   },
   {
     overrides: [
