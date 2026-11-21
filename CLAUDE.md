@@ -10,7 +10,7 @@
 - Focus on music albums: album art is the visual navigation; show covers in the highest quality possible.
 - Expects a tagged music library with cover art.
 - Owner: Ingmar Gebert. MIT licence. Repository: `blu-album`.
-- Independent project, not affiliated with Lenbrook / Bluesound (notice in README, file header and about popup – keep it).
+- Independent project, not affiliated with Lenbrook / Bluesound (notice in README and file header – keep it; not in the about popup).
 - Owner's test setup: Bluesound Powernode, BluOS 4.18.18, API v0.5.43, library on a network share plus a USB drive. Main browser: Safari on macOS; Chrome as second browser.
 
 ## Not in scope
@@ -66,6 +66,7 @@ Do not build these; when asked, point to the alternative.
   - Fixtures with personal data stay in `tests/api/fixtures/` (git-ignored); copy them with `tests/tools/sanitize-fixtures.js`.
   - Find new endpoints with `node tests/tools/crawl-endpoints.js <player IP>` (read-only, compares with `docs/bluos-api.md`); verify each finding in Bruno before documenting it.
 - UI tests must not assume a window size (use `VIEWPORT`).
+- UI test browsers: locally only Chrome and Safari (WebKit), the default of `npm test`; GitHub Actions runs Safari, Chrome, Edge and Firefox (Edge and Firefox are not installed on the owner's Mac).
 - Lint (ESLint) and format (Prettier, test scripts only; `blualbum.html` keeps its compact style) run **only on GitHub**; the owner does not run them locally.
 
 ## Git and publishing

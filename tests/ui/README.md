@@ -13,15 +13,15 @@ Every function of the app is a test case in the test plan `docs/blu-album-test-p
   with personal details removed
 
 ## Run
-Requires Node.js 18+, Google Chrome and Microsoft Edge installed. Safari is tested with
+Locally the tests run in Chrome and Safari; GitHub Actions runs all four browsers (see below). Requires Node.js 18+ and Google Chrome installed. Safari is tested with
 Playwright's WebKit build (the engine of Safari), because Playwright cannot automate the
-Safari app itself. Firefox is tested with Playwright's Firefox build.
+Safari app itself. Edge (installed app) and Firefox (Playwright's build) run locally only with `--browser`.
 
 ```
 cd tests/ui
 npm install
-npx playwright install webkit firefox
-npm test                            # tests ../../blualbum.html in Chrome, Safari (WebKit), Edge, Firefox
+npx playwright install webkit
+npm test                            # tests ../../blualbum.html in Chrome and Safari (WebKit)
 node run.js --browser safari        # one browser: chrome, safari, edge or firefox (comma list allowed)
 node run.js --only QUE-             # only tests whose name contains "QUE-" (the queue block of the test plan)
 UI_SLOW=2 npm test                  # doubles the fixed waits (slow machines, CI)

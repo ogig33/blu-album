@@ -46,10 +46,10 @@ The test cases of chapter 4 are the same in every environment; the environments 
 
 | ID | Environment | Execution | Platform (OS, browsers) | Scope (window sizes, cases) | Player / data | State | Run |
 |---|---|---|---|---|---|---|---|
-| ENV-1 | Browsers, local, mock data | Automated | macOS (owner's Mac): Chrome and Edge (installed apps), Safari (Playwright's WebKit), Firefox (Playwright's build) | 1200x800 (other sizes with `--viewport`); all 147 cases | Mock player, fixtures | In place | `npm test` in `tests/ui` |
+| ENV-1 | Browsers, local, mock data | Automated | macOS (owner's Mac): Chrome (installed app), Safari (Playwright's WebKit) | 1200x800 (other sizes with `--viewport`); all 147 cases | Mock player, fixtures | In place | `npm test` in `tests/ui` |
 | ENV-2 | Browsers, remote (GitHub Actions), mock data | Automated | macOS: Safari (WebKit), Chrome · Windows: Edge, Chrome, Firefox · Linux: Chrome, Firefox | 1280x800, 1440x900@2, 1920x1080; all 147 cases; screenshots of the main views (`--shots`) as artifact | Mock player, fixtures | In place | `.github/workflows/ui-tests.yml`: push, pull request, Mondays, on demand |
 | ENV-3 | Mobile browsers, mock data | Automated | Playwright device emulation: iPhone (WebKit), Android phone (Chromium); local and GitHub runners | Phone viewport, touch, no hover; cases to be adapted (section 3.2) | Mock player, fixtures | **Missing** | — |
-| ENV-4 | Browsers, local, real player | Automated | macOS (owner's Mac, home network): Chrome, Edge, Safari (WebKit), Firefox | 1200x800; the cases marked read (with `--write` also write) – 110 of 147 (86 read, 24 write) | Owner's player, live answers | In place | `node run.js --player <ip>` (read) or `--player <ip> --write` |
+| ENV-4 | Browsers, local, real player | Automated | macOS (owner's Mac, home network): Chrome, Safari (WebKit) | 1200x800; the cases marked read (with `--write` also write) – 110 of 147 (86 read, 24 write) | Owner's player, live answers | In place | `node run.js --player <ip>` (read) or `--player <ip> --write` |
 | ENV-5 | Safari app, real player | Manual, before a release | macOS: the Safari app (Playwright's WebKit is its engine, not the app) | Main views; the Safari pitfalls of `CLAUDE.md`: popup track list of a long album (height 0), old cached file (reload with ⌥⌘R) | Owner's player | In place | By hand |
 | ENV-6 | Phone, real player | Manual, before a release | A real phone (iOS Safari or Android Chrome) | Main views, touch without hover | Owner's player | In place | By hand |
 
@@ -340,7 +340,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
-| ABT-01 | Content | Open About | App logo (double note in a circle, text colour) above the app name, app name, "Version v<APP.version>", copyright line, GitHub link (`APP.repo`, new tab), independence notice, player rows: room, BluOS version and API version of TD-VER | read | Auto |
+| ABT-01 | Content | Open About | App logo (double note in a circle, text colour) above the app name, app name, "Version v<APP.version>", copyright line, GitHub link (`APP.repo`, new tab), no independence notice, player rows: room, BluOS version and API version of TD-VER | read | Auto |
 | ABT-02 | Statistics loaded on opening, once | Open About twice | No versions / statistics before opening; then `/GitVersion`, `/Version` and four section lists per source; none on the second opening | read | Auto |
 | ABT-03 | Statistic values | Open About | Albums = sum of the section counts (TD-SEC) of all sources; Artists / Songs / Composers summed per source; Genres = number of TD-GEN names; Playlists = number of TD-PL; "…" while loading, "–" when not available | read (part) | Auto |
 | ABT-04 | Statistics reload after a source change | Open About, switch a source off, open again | Statistics loaded again for the new selection | read | Auto |

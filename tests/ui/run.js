@@ -3,7 +3,8 @@
 // against a real player (--player).
 // Usage: node run.js [path/to/blualbum.html] [--only <text>] [--browser chrome|safari|edge|firefox]
 //                    [--viewport WIDTHxHEIGHT[@SCALE]] [--shots] [--player <ip> [--write]] [--list]
-// Without --browser all four browsers run one after another. --viewport sets the window size and the
+// Without --browser Chrome and Safari run one after another (the local default; GitHub Actions
+// runs every browser with --browser). --viewport sets the window size and the
 // device pixel ratio (default 1200x800, e.g. 1440x900@2 for a Retina laptop). --shots also saves
 // screenshots of the main views to test-results/views/ (for a visual check per browser and size).
 // --player <ip> runs the tests marked real: "read" against that player (nothing is changed on it);
@@ -56,7 +57,7 @@ const BROWSERS = {
   edge: { label: "Edge", launch: () => chromium.launch({ channel: "msedge" }) },
   firefox: { label: "Firefox", launch: () => firefox.launch() },
 };
-const PICK = arg("--browser") ? arg("--browser").split(",") : Object.keys(BROWSERS);
+const PICK = arg("--browser") ? arg("--browser").split(",") : ["chrome", "safari"];
 const unknown = PICK.filter((b) => !BROWSERS[b]);
 if (unknown.length) {
   console.error(`Unknown browser: ${unknown.join(", ")} (use ${Object.keys(BROWSERS).join(", ")})`);
@@ -3647,7 +3648,7 @@ test(
       }),
       "logo above the app name",
     );
-    ok(/independent project/.test(await t.page.textContent("#infodlg .legal")), "independence notice");
+    ok(!/independent project/.test(await t.page.textContent("#infodlg .abt")), "no independence notice");
     const link = await t.page.$eval("#infodlg a#repo", (a) => ({
       href: a.href,
       text: a.textContent,
