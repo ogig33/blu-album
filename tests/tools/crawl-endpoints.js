@@ -15,6 +15,8 @@ const fs = require("fs"),
 const root = path.join(__dirname, "..", "..");
 const DOC = path.join(root, "docs", "bluos-api.md");
 const OUT = path.join(root, "tests", "api", "fixtures", "crawl-endpoints.json");
+// A name from a player answer as a literal part of a regular expression
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const args = process.argv.slice(2);
 const host = args.find((a) => !a.startsWith("--") && !/^\d+$/.test(a));
@@ -239,7 +241,7 @@ function report() {
   console.log("\n== Parameters not mentioned in the section of a documented endpoint");
   for (const e of list.filter((x) => docs.has(x.path))) {
     const sec = docs.get(e.path);
-    const named = (n) => new RegExp(`(^|[^\\w])${n}=`).test(sec) || sec.includes(`\`${n}\``);
+    const named = (n) => new RegExp(`(^|[^\\w])${reEsc(n)}=`).test(sec) || sec.includes(`\`${n}\``);
     const missing = [...e.params.keys()].filter((n) => !named(n));
     for (const n of missing) {
       const x = e.params.get(n);
@@ -249,7 +251,7 @@ function report() {
 
   // XML declaration and schema attributes say nothing about the API
   const boilerplate = (n) => /^(xml|xmlns|xsi)\b|^(standalone|encoding)$/.test(n);
-  const inDoc = (n) => new RegExp(`\\b${n.replace(/[.]/g, "\\.")}\\b`).test(text);
+  const inDoc = (n) => new RegExp(`\\b${reEsc(n)}\\b`).test(text);
   const unknown = [...fields].filter(([n]) => !boilerplate(n) && !inDoc(n));
   console.log(`\n== Element / attribute names that appear nowhere in docs/bluos-api.md (${unknown.length})`);
   for (const [n, from] of unknown.sort()) console.log(`  ${n}  (${[...from].slice(0, 3).join(", ")})`);

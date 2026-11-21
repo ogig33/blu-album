@@ -3475,9 +3475,16 @@ test(
     const cur = +t.st("song");
     await t.page.waitForFunction((id) => document.querySelector(`#qlist li[data-id="${id}"]`)?.classList.contains("cur"), cur);
     const title = await t.page.textContent("#qlist li.cur .qt b"),
-      to = cur > 0 ? 0 : 2;
+      to = cur > 0 ? 0 : 2,
+      loads = () => t.player.state.requests.filter((x) => /^\/Playlist\?start=0&/.test(x)).length,
+      n = loads();
     await dragRow(t, cur, to, to ? 0.75 : 0.25);
     eq(t.cmds(/^\/Move/), [`/Move?new=${to}&old=${cur}`], "/Move sent");
+    // Checked after the reload of the queue (new playlist id): a /Status answer still on its way during the
+    // drag may carry the old position for a moment
+    for (let i = 0; i < 60 && loads() === n; i++) await t.settle(100);
+    await t.settle(500);
+    eq(loads() - n, 1, "queue loaded again (new playlist id)");
     eq(await t.page.textContent("#qlist li.cur .qt b"), title, "same entry marked");
     eq(await t.page.getAttribute("#qlist li.cur", "data-id"), String(to), "at its new position");
   },

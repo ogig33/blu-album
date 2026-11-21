@@ -310,6 +310,8 @@ function createPlayer(opts = {}) {
         : '<status etag="idle"><state>stop</state><syncStat>' +
           state.syncStat +
           "</syncStat><volume>19</volume></status>";
+      // After /Move the playing entry is at its new position, like the real player (Bruno W34–W37)
+      if (state.queueOrder) x = x.replace(/<song>(\d+)<\/song>/, (m, s) => `<song>${state.queueOrder.indexOf(s)}</song>`);
       for (const [tag, v] of Object.entries(state.statusPatch)) {
         const re = new RegExp("<" + tag + ">[^<]*</" + tag + ">");
         x = re.test(x)
