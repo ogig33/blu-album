@@ -10,7 +10,7 @@
 - Focus on music albums: album art is the visual navigation; show covers in the highest quality possible.
 - Expects a tagged music library with cover art.
 - Owner: Ingmar Gebert. MIT licence. Repository: `blu-album`.
-- Independent project, not affiliated with Lenbrook / Bluesound (notice in README and file header – keep it; not in the about popup).
+- Independent project, not affiliated with Lenbrook / Bluesound (notice only in the README – keep it; not in the file header or the about popup).
 - Owner's test setup: Bluesound Powernode, BluOS 4.18.18, API v0.5.43, library on a network share plus a USB drive. Main browser: Safari on macOS; Chrome as second browser.
 
 ## Not in scope
