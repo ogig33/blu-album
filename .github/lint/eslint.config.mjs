@@ -8,7 +8,7 @@ import globals from "globals";
 // Functions and variables of the app that the UI tests call inside page.evaluate()
 const APP_GLOBALS = [
   "shown", "openAlbum", "setState", "showArtist", "imgUrl", "render", "APP", "playerName", "favOf",
-  "activeKey", "cache", "pos", "curPos",
+  "activeKey", "cache", "pos", "curPos", "openSources", "playlists",
   "LAN_MSG", "QUALITIES", "FORMATS", "LOSSY", "SEARCH_MIN", "SEARCH_DELAY", "TILE", "ONOFF", "RELEASES_LATEST",
   "CONNECT_TIMEOUT", "NO_REPLY_MSG",
 ];
