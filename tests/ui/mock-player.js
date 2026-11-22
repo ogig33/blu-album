@@ -170,8 +170,9 @@ function createPlayer(opts = {}) {
     if (/:Album\/%2Flibrary%2Fv1%2FAlbums%3Fcomposer=/.test(key))
       return key.startsWith(USB) ? '<browse type="albums"></browse>' : fx("07");
     if (key === "BluOS:")
-      return fx("16").replace(/\s*<item browseKey="BluOS:MG[^>]* text="([^"]*)"[\s\S]*?<\/contextMenu>\s*<\/item>/g, (m, n) =>
-        state.deletedPlaylists.includes(n.replace(/&amp;/g, "&")) ? "" : m,
+      return fx("16").replace(
+        /\s*<item browseKey="BluOS:MG[^>]* text="([^"]*)"[\s\S]*?<\/contextMenu>\s*<\/item>/g,
+        (m, n) => (state.deletedPlaylists.includes(n.replace(/&amp;/g, "&")) ? "" : m),
       );
     // Track list of a saved playlist (Bruno A28): every playlist gets the recorded tracks under its own name.
     // Like the real player, 10 tracks per page with nextKey; page 2 (offset=10) holds PL_PAGE2 more tracks,
@@ -180,14 +181,16 @@ function createPlayer(opts = {}) {
     if (pln !== undefined) return fx("28").replace(/(playlist|name)=TTT\b/g, (_, p) => p + "=" + pln);
     const pl2 = (key.match(/^BluOS:Song\/%2FSongs%3Fplaylist=(.*)&offset=10$/) || [])[1];
     if (pl2 !== undefined) {
-      const tracks = [...fx("28").matchAll(/<item [^>]*type="track"><\/item>/g)].slice(0, PL_PAGE2).map((m, i) =>
-        m[0]
-          .replace(/ autoplayURL="[^"]*"/, "")
-          .replace(
-            /( playURL="[^"]*)"/,
-            `$1&amp;listindex=${i}&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;playlist=${pl2}&amp;offset=10"`,
-          ),
-      );
+      const tracks = [...fx("28").matchAll(/<item [^>]*type="track"><\/item>/g)]
+        .slice(0, PL_PAGE2)
+        .map((m, i) =>
+          m[0]
+            .replace(/ autoplayURL="[^"]*"/, "")
+            .replace(
+              /( playURL="[^"]*)"/,
+              `$1&amp;listindex=${i}&amp;nextlist=1&amp;where=last&amp;cursor=last&amp;playnow=1&amp;playlist=${pl2}&amp;offset=10"`,
+            ),
+        );
       return `<browse serviceIcon="/images/BluOSIcon.png" serviceName="BluOS" type="tracks" playURL="/Load?service=BluOS&amp;name=${pl2}">${tracks.join("")}</browse>`;
     }
     // Search menu: like the real player, the USB drive links to lists with its own keys
@@ -311,7 +314,8 @@ function createPlayer(opts = {}) {
           state.syncStat +
           "</syncStat><volume>19</volume></status>";
       // After /Move the playing entry is at its new position, like the real player (Bruno W34–W37)
-      if (state.queueOrder) x = x.replace(/<song>(\d+)<\/song>/, (m, s) => `<song>${state.queueOrder.indexOf(s)}</song>`);
+      if (state.queueOrder)
+        x = x.replace(/<song>(\d+)<\/song>/, (m, s) => `<song>${state.queueOrder.indexOf(s)}</song>`);
       for (const [tag, v] of Object.entries(state.statusPatch)) {
         const re = new RegExp("<" + tag + ">[^<]*</" + tag + ">");
         x = re.test(x)

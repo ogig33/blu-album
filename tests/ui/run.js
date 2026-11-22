@@ -233,7 +233,7 @@ async function buildTD(get) {
   }
   // TD-PL-TRK: tracks of the first saved playlist, every page (like fetchItems of the app)
   D.PL_TRK = [];
-  for (let k = D.PL.length ? D.PL[0].browseKey : "", seen = new Set(); k && !seen.has(k); ) {
+  for (let k = D.PL.length ? D.PL[0].browseKey : "", seen = new Set(); k && !seen.has(k);) {
     seen.add(k);
     const x = await browse(k);
     D.PL_TRK.push(...itemsOf(x, ofType("track")));
@@ -938,7 +938,11 @@ test(
   async (t) => {
     const c = await t.$$text("#az button");
     const lead = await t.page.evaluate(() => QUALITIES.map((q) => q[1]));
-    eq(c.slice(0, 4 + lead.length), ["All", "Favourites", "New", "Playlists", ...lead], "special chips, Playlists after New");
+    eq(
+      c.slice(0, 4 + lead.length),
+      ["All", "Favourites", "New", "Playlists", ...lead],
+      "special chips, Playlists after New",
+    );
     eq(c.slice(4 + lead.length), TD.GEN, "genres of both sources, A-Z");
     eq(await t.page.getAttribute("#az .plc", "title"), "Saved playlists", "tooltip");
     ok(!(await t.page.$("#az .plc svg")), "no icon");
@@ -1675,7 +1679,11 @@ test(
       return shown[0].t;
     }, multi);
     const tile = `#grid .item:nth-child(${await t.tileOf(title)})`;
-    eq(await t.page.textContent(tile + " .card.ar"), "Harold Budd, Brian Eno, Earth", "artist line: names, comma and space");
+    eq(
+      await t.page.textContent(tile + " .card.ar"),
+      "Harold Budd, Brian Eno, Earth",
+      "artist line: names, comma and space",
+    );
     eq(
       await t.page.$$eval(tile + " .card.ar button", (b) => b.map((x) => x.textContent)),
       ["Harold Budd", "Brian Eno", "Earth"],
@@ -2310,7 +2318,9 @@ test(
 // Grid of a search result in order: "| " + group line, album title of every tile
 const searchGrid = (t) =>
   t.page.$$eval("#grid > *", (x) =>
-    x.map((e) => (e.classList.contains("gl") ? "| " + e.textContent : e.querySelector("b")?.textContent)).filter(Boolean),
+    x
+      .map((e) => (e.classList.contains("gl") ? "| " + e.textContent : e.querySelector("b")?.textContent))
+      .filter(Boolean),
   );
 // Search "fugue" (SRH-10, SRH-11): library albums list with title and artist hits (word start, accents),
 // empty on the USB drive; one composer with one new album and one album of the albums list.
@@ -2395,7 +2405,13 @@ test(
 
     await area("Artist");
     await gridIs(
-      ["A Fugue for Two", "The F\u00FCgue Book", "| 2 albums for \u201Cfugue\u201D by the artist", "Night Moves", "Refugue"],
+      [
+        "A Fugue for Two",
+        "The F\u00FCgue Book",
+        "| 2 albums for \u201Cfugue\u201D by the artist",
+        "Night Moves",
+        "Refugue",
+      ],
       "Artist on: searched again with the artist group",
     );
     eq(composers(), 0, "still no composer request");
@@ -3399,12 +3415,16 @@ test(
 const qTitles = (t) => t.page.$$eval("#qlist li .qt b", (x) => x.map((e) => e.textContent));
 // Waits until the queue panel has slid in (the row positions are read for mouse moves)
 const qStill = (t) =>
-  t.page.waitForFunction(() => {
-    const r = document.querySelector("#qside").getBoundingClientRect();
-    const was = window.__qRight;
-    window.__qRight = r.right;
-    return was === r.right && r.right <= innerWidth;
-  }, null, { polling: 100 });
+  t.page.waitForFunction(
+    () => {
+      const r = document.querySelector("#qside").getBoundingClientRect();
+      const was = window.__qRight;
+      window.__qRight = r.right;
+      return was === r.right && r.right <= innerWidth;
+    },
+    null,
+    { polling: 100 },
+  );
 // Drags queue row `from` (0-based) with the mouse to `frac` of the height of row `over` (0 = its top edge)
 const dragRow = async (t, from, over, frac) => {
   await qStill(t);
@@ -3473,7 +3493,10 @@ test(
   async (t) => {
     await t.openQueue();
     const cur = +t.st("song");
-    await t.page.waitForFunction((id) => document.querySelector(`#qlist li[data-id="${id}"]`)?.classList.contains("cur"), cur);
+    await t.page.waitForFunction(
+      (id) => document.querySelector(`#qlist li[data-id="${id}"]`)?.classList.contains("cur"),
+      cur,
+    );
     const title = await t.page.textContent("#qlist li.cur .qt b"),
       to = cur > 0 ? 0 : 2,
       loads = () => t.player.state.requests.filter((x) => /^\/Playlist\?start=0&/.test(x)).length,
@@ -3547,14 +3570,22 @@ test(
 
 // ---------- 4.12 Playlists (PLS) ----------
 test(
-  "PLS-01 Playlists chip: random playlist tile, tiles with cover, name and \"Playlist\", list read again",
+  'PLS-01 Playlists chip: random playlist tile, tiles with cover, name and "Playlist", list read again',
   async (t) => {
     const n = t.reqs(/key=BluOS:$/).length;
     await openPlaylists(t);
     eq(await t.page.getAttribute("#az .plc", "aria-pressed"), "true", "chip selected");
     eq(await t.page.textContent("#msg"), nPl(TD.PL.length), "status line");
-    eq(await t.$$text("#grid .item:not(:has(.rnd)) b"), TD.PL.map((p) => p.text), "one tile per playlist, in the player's order");
-    eq(await t.$$text("#grid .item:not(:has(.rnd)) > .card.static"), TD.PL.map(() => "Playlist"), "second line");
+    eq(
+      await t.$$text("#grid .item:not(:has(.rnd)) b"),
+      TD.PL.map((p) => p.text),
+      "one tile per playlist, in the player's order",
+    );
+    eq(
+      await t.$$text("#grid .item:not(:has(.rnd)) > .card.static"),
+      TD.PL.map(() => "Playlist"),
+      "second line",
+    );
     eq(await t.page.$$("#grid .item .ar"), [], "no artist link");
     eq(
       await t.$$text("#grid .item:first-child > .card"),
@@ -3639,7 +3670,11 @@ test(
   "PLS-05 saved playlists over several pages",
   async (t) => {
     await openPlaylists(t);
-    eq(await t.$$text("#grid .item:not(:has(.rnd)) b"), [...TD.PL.map((p) => p.text), "Page two"], "playlists of both pages");
+    eq(
+      await t.$$text("#grid .item:not(:has(.rnd)) b"),
+      [...TD.PL.map((p) => p.text), "Page two"],
+      "playlists of both pages",
+    );
   },
   {
     overrides: [
@@ -3684,7 +3719,11 @@ test(
       TD.PL_TRK.map((x, i) => [String(i + 1), x.text, x.duration ? fmtTime(+x.duration) : ""]),
       "position, title and duration of every track",
     );
-    eq(await t.$$text("#tracks .ta"), TD.PL_TRK.map((x) => x.text2), "track artist and album per track");
+    eq(
+      await t.$$text("#tracks .ta"),
+      TD.PL_TRK.map((x) => x.text2),
+      "track artist and album per track",
+    );
     eq((await t.page.textContent("#dy")) + (await t.page.textContent("#dtech")), "", "no year, no quality");
     const n = t.reqs(/BluOS-Playlist/).length;
     await t.page.click("#close");
@@ -3717,7 +3756,11 @@ test(
     await t.page.fill("#q", "");
     await t.waitMsg(nPl(TD.PL.length));
     eq(await t.page.getAttribute("#az .plc", "aria-pressed"), "true", "chip pressed again");
-    eq(await t.$$text("#grid .item:not(:has(.rnd)) b"), TD.PL.map((p) => p.text), "playlist tiles");
+    eq(
+      await t.$$text("#grid .item:not(:has(.rnd)) b"),
+      TD.PL.map((p) => p.text),
+      "playlist tiles",
+    );
     ok(await t.page.$("#grid .item:first-child .rnd"), "random playlist tile first");
   },
   { ...R, needs: ["playlist"] },
@@ -3756,7 +3799,11 @@ test(
     await t.page.click(tile + " .delp");
     await t.settle();
     eq(t.cmds(/^\/Delete\?/), [], "no delete");
-    eq(await t.$$text("#grid .item:not(:has(.rnd)) b"), TD.PL.map((p) => p.text), "all tiles stay");
+    eq(
+      await t.$$text("#grid .item:not(:has(.rnd)) b"),
+      TD.PL.map((p) => p.text),
+      "all tiles stay",
+    );
   },
   { ...R, needs: ["playlist"], dialog: "dismiss" },
 );
@@ -3779,7 +3826,11 @@ test(
   async (t) => {
     await openPlaylists(t);
     await t.page.hover("#grid .item:first-child");
-    eq(await t.page.getAttribute("#grid .item:first-child .play:not(.addq)", "aria-label"), "Play a random playlist", "label");
+    eq(
+      await t.page.getAttribute("#grid .item:first-child .play:not(.addq)", "aria-label"),
+      "Play a random playlist",
+      "label",
+    );
     await t.page.click("#grid .item:first-child .play:not(.addq)");
     await t.waitToast(/^Playing playlist: .+$/);
     const name = (await t.page.textContent("#toast")).replace(/^Playing playlist: /, ""),
@@ -3845,8 +3896,7 @@ test(
     eq(await visible(), ["All", "Favourites", "New", "Playlists"], "only special chips and Playlists left");
     await t.reload();
     await t.settle(200);
-    for (const s of ["#gsw", "#qsw"])
-      eq(await t.page.getAttribute(s, "aria-checked"), "false", s + " remembered");
+    for (const s of ["#gsw", "#qsw"]) eq(await t.page.getAttribute(s, "aria-checked"), "false", s + " remembered");
     await t.connect();
     await t.openPanel();
     await t.page.click("#gsw");
@@ -4474,12 +4524,20 @@ test(
   "LAY-04 header: menu button, then the logo left of the title",
   async (t) => {
     const r = await t.page.evaluate(() => {
-      const h = document.querySelector("header"), logo = h.querySelector("svg.logo");
+      const h = document.querySelector("header"),
+        logo = h.querySelector("svg.logo");
       const box = (e) => e.getBoundingClientRect();
       return {
         menuFirst: h.firstElementChild.id === "gear",
-        logo: !!logo && logo.previousElementSibling.id === "gear" && logo.nextElementSibling.id === "ttl" && box(logo).width > 0,
-        order: !!logo && box(document.querySelector("#gear")).right <= box(logo).left && box(logo).right <= box(document.querySelector("#ttl")).left,
+        logo:
+          !!logo &&
+          logo.previousElementSibling.id === "gear" &&
+          logo.nextElementSibling.id === "ttl" &&
+          box(logo).width > 0,
+        order:
+          !!logo &&
+          box(document.querySelector("#gear")).right <= box(logo).left &&
+          box(logo).right <= box(document.querySelector("#ttl")).left,
       };
     });
     eq(r, { menuFirst: true, logo: true, order: true }, "header");
