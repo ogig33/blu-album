@@ -2196,10 +2196,18 @@ test("POP-20 closed popup: late failure is dropped, an album opened at once stil
   }
   // the close event arrives after the next album was opened: it must not cancel that album
   await album();
-  await t.page.evaluate((k) => {
-    document.querySelector("#dlg").close();
-    openAlbum(shown.find((x) => x.key === k));
-  }, b);
+  const next = t.player.state.hold(new RegExp("key=" + reEsc(b) + "$")); // its answer must come after the event
+  await t.page.evaluate(
+    (k) =>
+      new Promise((closed) => {
+        const dlg = document.querySelector("#dlg");
+        dlg.addEventListener("close", closed, { once: true });
+        dlg.close();
+        openAlbum(shown.find((x) => x.key === k));
+      }),
+    b,
+  );
+  await next.release();
   await t.page.waitForSelector("#tracks li button");
 });
 
@@ -2650,7 +2658,7 @@ test("SRH-13 a view that finishes during a search waits until the search is clea
   const byArtist = () => t.page.evaluate((a) => void showArtist(a), artist);
   const changedPlaylists = () =>
     t.page.evaluate(() => {
-      playlists = playlists.slice(1);
+      playlists.shift(); // as if one playlist was new on the player
       document.querySelector("#az .plc").click();
     });
   const failed = "Loading failed: Player responded with 500";
