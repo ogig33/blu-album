@@ -119,6 +119,7 @@ Do not build these; when asked, point to the alternative.
 - **No player status text** (e.g. paused, streaming): niche, not essential. The play / pause button still reflects the state.
 - **Do not use /ui endpoints:** these endpoints are specific to BluOS Controller app and too risky for other clients
 - **No "Recently played" chip:** the only source found for this list is `/ui/RecentlyPlayed` (see the rule above; checked 2026-11-22 with BluOS 4.18.18), the "Recent" album sort means recently added (same as New); no own history in localStorage either, it would miss what other clients play.
+- **No workaround for the empty MQA chip:** BluOS bug, albums with `mqaBrowse` songs are in no quality list (`docs/bluos-api.md`); the chip keeps the player's filter. Documented only.
 - **No default IP address** in the app.
 - **No song title search area:** the search's songs list has no link to the album of a song (no browse key, no "Go to album" in the song context menu); the album would need a self-built URL, which fails for samplers (the song carries the track artist, not the album artist).
 - **No album artist search:** the player's search does not match the album artist (see pitfalls). Finding album artists would need the whole artists list of the library (1 request per source with `section=all`, 20 KB) and a match in the app, plus 2 requests per artist found; not wanted. The Artist search area finds track artists only; a compilation is found by the artist of one of its tracks, not by its album artist (e.g. "Various").
@@ -131,3 +132,9 @@ Do not build these; when asked, point to the alternative.
 - Safari collapses a flex child with an indefinite height to 0 (happened with the popup track list) – avoid flex sizing for scrolling lists, use a max-height.
 - Safari may keep an old version of the local file: reload without cache (⌥⌘R) before chasing a "bug".
 - The player's search does not find albums by their album artist, only by title and track artists (Bruno E40, `docs/bluos-api.md`): albums of "Various" or "Putumayo Presents" whose tracks carry other artists are not found. An earlier version of `docs/bluos-api.md` said otherwise; test search behaviour with albums whose album artist is on none of their tracks.
+- MQA comes in FLAC: format, bit depth and sample rate do not rule it out. An empty MQA chip is the BluOS bug (see Decisions), not an app bug.
+- `section=all` fails silently: `category`, `recent` and `composer` are ignored (all albums), its index (`length=1`) counts 0 with `artist` / `expr`, Songs and Composers list nothing, in a browse key only the first section answers (`docs/bluos-api.md`).
+- The `close` event of `<dialog>` arrives late: the next album may be open already, check `dlg.open` in the handler.
+- App names used in `page.evaluate()` belong in `APP_GLOBALS` (`.github/lint/eslint.config.mjs`) and must not be assigned: ESLint fails, and only on GitHub.
+- `--player`: GRD-06, FAV-04 and POP-06 fail on the fixed 400 ms wait; repeat with `UI_SLOW=8` before chasing a bug.
+- GitHub macOS runners: SET-02 (Chrome loses localStorage) and SRH-11 (WebKit page error on reload) fail now and then; re-run before chasing a bug.

@@ -88,6 +88,7 @@ References:
 | Covers look blurry | "Optimize Artwork" on, or the index was not rebuilt after turning it off | Turn it off and rebuild the index (see [Recommended setup](#recommended-setup)) |
 | An album appears twice or with tracks missing | `ALBUM` or `ALBUMARTIST` differ between its tracks | Give all tracks the same album and album artist |
 | An album is missing from the decade chips | No `YEAR` tag | Add the release date |
+| An MQA album is missing from the quality chips | BluOS bug: its album filter leaves out some MQA albums (seen with BluOS 4.18.18) | None; find the album with All or the search |
 | Too many genre chips | Many different or very specific genres | Use one genre per album from a short list |
 | All discs of an album in one list | No `DISCNUMBER` tag | Add the disc number |
 | No heart on the albums of a USB drive | "USB Server Mode" off: the player offers no favourites for the drive | Turn "USB Server Mode" on, or move the albums to a network share |

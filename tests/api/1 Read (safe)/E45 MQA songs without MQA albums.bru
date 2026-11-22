@@ -17,7 +17,7 @@ settings {
 script:pre-request {
   // Player bug: albums whose songs all have quality mqaBrowse are in no quality list of /library/v1/Albums
   // (hr, cd, mqa, mqaBrowse), although the songs filter quality=mqa finds the songs. Skipped without such songs.
-  // When this fails after a firmware update, the bug may be fixed. Whether the files are MQA is not checked. Read only.
+  // When this fails after a firmware update, the bug may be fixed. Files checked 2026-11-22: real MQA. Read only.
   const svc = bru.getVar("libSvc");
   if (!svc) { bru.runner.skipRequest(); return; }
   const H = "http://" + bru.getEnvVar("host") + ":11000";

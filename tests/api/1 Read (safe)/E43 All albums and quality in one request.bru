@@ -37,6 +37,12 @@ script:pre-request {
     }
   }
   bru.setVar("e43", JSON.stringify(out));
+  // category, recent and composer are ignored with section=all: the answer is every album, without an error
+  const ignored = [];
+  for (const f of ["&category=FAVOURITES", "&recent=1", "&composer=no-such-composer"]) {
+    ignored.push({ f, albums: albums(await get(list(svc, "Albums") + f + "&section=all")).length, all: out[0].albums });
+  }
+  bru.setVar("e43ignored", JSON.stringify(ignored));
   req.setUrl(H + list(svc, "Albums") + "&quality=hr&section=all");
 }
 
@@ -64,4 +70,5 @@ tests {
   test("the library has albums", () => expect(r[0].albums).to.be.above(0));
   test("as many albums as the index counts", () => r.forEach((x) => expect(x.albums, x.what).to.equal(x.counted)));
   test("same albums as the requests per section", () => r.forEach((x) => expect(x.same, x.what).to.equal(true)));
+  test("category, recent and composer are ignored", () => JSON.parse(bru.getVar("e43ignored")).forEach((x) => expect(x.albums, x.f).to.equal(x.all)));
 }
