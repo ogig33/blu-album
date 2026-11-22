@@ -46,7 +46,7 @@ Do not build these; when asked, point to the alternative.
 - **Modular code structure.** Structure the code so that features reuse shared functions as much as possible.
 - **One implementation per feature.** No second implementation as a fallback. Only the variant verified against the real player (Bruno) is implemented.
 - **Avoid hard-coding.** Derive as much of the app logic as possible from API answers, e.g. source names, play / action URLs, quality. Accepted exceptions are the configuration constants (see "Code conventions").
-- **Avoid self-built API URLs.** Play / queue / favourite URLs come from `/Browse`; the only exception are the `/library/v1` lists (New, Favourites, quality, decades), built by the fixed pattern in `libAlbum()`.
+- **Avoid self-built API URLs.** Play / queue / favourite URLs come from `/Browse`; the only exception are the `/library/v1` lists (New, Favourites, quality, decades, genres), built by the fixed pattern in `libAlbum()`.
 - **Store changes at the player.** Favourites, playlists and every other change the player supports are stored there, so they persist across sessions and are visible in other player clients. localStorage only for conveniences (see "Code conventions").
 - **Expose API errors.** Show failed player requests to the user (network error, HTTP status other than 200, `<e>` answer) with the endpoint URL and the error answer. Exceptions: expected failures – `/audioPreset` on players without listening modes, status polling (aborted or retried), missing covers, statistic lists that are not available.
 - **English is the main language.** UI and project documents (README, CHANGELOG, `docs/`, test READMEs, Bruno and code comments) are in English.
@@ -94,7 +94,7 @@ Do not build these; when asked, point to the alternative.
 
 ## Decisions
 
-- **No genre in the album popup:** would be useful, but needs a large crawl because no endpoint gives the genre of an album.
+- **No genre in the album popup:** would be useful, but no endpoint gives the genre of an album; it would need the album lists of all genres (`genre=…&section=all`, 1 request per genre and source: 37 requests, 245 KB, about 2 s for the owner's library and USB drive).
 - **No player controls in the album popup:** play / queue are on the cover in the album grid (hover); keeps the popup simple.
 - **No track duration in the player bar:** shown in the queue panel; keeps the player bar uncluttered.
 - **No mute / unmute button:** use pause instead; keeps the player bar uncluttered.
@@ -107,7 +107,7 @@ Do not build these; when asked, point to the alternative.
 - **No "Recently played" chip:** the only source found for this list is `/ui/RecentlyPlayed` (see the rule above; checked 2026-11-22 with BluOS 4.18.18), the "Recent" album sort means recently added (same as New); no own history in localStorage either, it would miss what other clients play.
 - **No default IP address** in the app.
 - **No song title search area:** the search's songs list has no link to the album of a song (no browse key, no "Go to album" in the song context menu); the album would need a self-built URL, which fails for samplers (the song carries the track artist, not the album artist).
-- **No album artist search:** the player's search does not match the album artist (see pitfalls). Finding album artists would need the whole artists list of the library (one request per section, about 25) and a match in the app, plus 2 requests per artist found; not wanted. The Artist search area finds track artists only; a compilation is found by the artist of one of its tracks, not by its album artist (e.g. "Various").
+- **No album artist search:** the player's search does not match the album artist (see pitfalls). Finding album artists would need the whole artists list of the library (1 request per source with `section=all`, 20 KB) and a match in the app, plus 2 requests per artist found; not wanted. The Artist search area finds track artists only; a compilation is found by the artist of one of its tracks, not by its album artist (e.g. "Various").
 - **No song favourites:** no heart per track in the album popup and no "Favourite songs" chip, although the API supports both (`/AddFavourite?fn=`, `autoplayURL` with `category=FAVOURITES`); BluAlbum keeps to album favourites.
 - **No playlist search:** the player offers none (see `/Playlists` in `docs/bluos-api.md`); a name filter in the app would be possible, but is not wanted.
 - **The Playlists view keeps the player's order:** no "Date added" sort (`/Playlists?sort=recent`) and no warning when the queue is saved under an existing playlist name.

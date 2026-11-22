@@ -1,0 +1,67 @@
+meta {
+  name: E43 All albums and quality in one request
+  type: http
+  seq: 125
+}
+
+get {
+  url: http://{{host}}:11000/library/v1/Albums
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Quality chips and years of the decade chips: section=all without length answers every A-Z section in one
+  // answer. It must hold the same albums (order, attributes, favourites) as the requests per section, and as
+  // many as the index counts (no cut-off in a large library). Library and USB. Read only.
+  const svc = bru.getVar("libSvc");
+  if (!svc) { bru.runner.skipRequest(); return; }
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const axios = require("axios");
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(+n)).replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  const list = (s, ep) => "/library/v1/" + ep + "?service=" + encodeURIComponent(s);
+  const index = async (s, ep, q) => [...(await get(list(s, ep) + q + "&section=all&length=1")).matchAll(/<section name="([^"]*)"([^>]*)>/g)].map((m) => ({ name: dec(m[1]), n: +((m[2].match(/\slength="(\d+)"/) || [])[1] || 0) })).filter((x) => x.n);
+  const albums = (x) => (x.match(/<album\b[\s\S]*?<\/album>/g) || []).map((a) => a.replace(/\s+/g, " "));
+  const out = [];
+  for (const s of [svc, bru.getVar("usbSvc")].filter(Boolean)) {
+    for (const f of ["", "&quality=hr", "&quality=cd", "&quality=mqa"]) {
+      const idx = await index(s, "Albums", f), per = [];
+      for (const x of idx) per.push(...albums(await get(list(s, "Albums") + f + "&limit=500&section=" + encodeURIComponent(x.name))));
+      const all = albums(await get(list(s, "Albums") + f + "&section=all"));
+      out.push({ what: (s === svc ? "library" : "USB") + (f || " all"), albums: all.length, counted: idx.reduce((n, x) => n + x.n, 0), same: JSON.stringify(all) === JSON.stringify(per) });
+    }
+  }
+  bru.setVar("e43", JSON.stringify(out));
+  req.setUrl(H + list(svc, "Albums") + "&quality=hr&section=all");
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("explore-43-albums-quality.xml");
+  console.log(bru.getVar("e43"));
+}
+
+tests {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  const r = JSON.parse(bru.getVar("e43"));
+  test("the library has albums", () => expect(r[0].albums).to.be.above(0));
+  test("as many albums as the index counts", () => r.forEach((x) => expect(x.albums, x.what).to.equal(x.counted)));
+  test("same albums as the requests per section", () => r.forEach((x) => expect(x.same, x.what).to.equal(true)));
+}

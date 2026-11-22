@@ -3,6 +3,7 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Quality, decade and genre chips load their albums faster.
 - Decade chips appear faster.
 - Artist links: an album artist with commas (e.g. "Harold Budd, Brian Eno") shows one link per artist, which searches that artist in the search area Artist only.
 - Playlists: a "Random playlist" tile plays or queues a random saved playlist.

@@ -1,0 +1,86 @@
+meta {
+  name: E44 Genre albums in one request
+  type: http
+  seq: 126
+}
+
+get {
+  url: http://{{host}}:11000/library/v1/Albums
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Genre chips: genre= (as in the genre's browse key) + section=all answers the albums of the genre in one answer.
+  // The app builds cover, play, queue and menu URLs of these albums by the pattern of libAlbum(): they must equal
+  // the URLs of /Browse. Checked with the first genre and the first with an encoded character, library and USB. Read only.
+  const svc = bru.getVar("libSvc");
+  if (!svc) { bru.runner.skipRequest(); return; }
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const axios = require("axios");
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(+n)).replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  const list = (s, ep) => "/library/v1/" + ep + "?service=" + encodeURIComponent(s);
+  const index = async (s, ep, q) => [...(await get(list(s, ep) + q + "&section=all&length=1")).matchAll(/<section name="([^"]*)"([^>]*)>/g)].map((m) => ({ name: dec(m[1]), n: +((m[2].match(/\slength="(\d+)"/) || [])[1] || 0) })).filter((x) => x.n);
+  const formEnc = (v) => encodeURIComponent(v).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g, "+");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const items = (x, type) => (x.match(/<item\b[^>]*>/g) || []).filter((t) => attr(t, "type") === type);
+  const browse = (key) => get("/Browse?withContextMenuItems=1&key=" + encodeURIComponent(key));
+  const out = [];
+  let shown = "";
+  for (const s of [svc, bru.getVar("usbSvc")].filter(Boolean)) {
+    const genres = items(await browse(s + ":GG/Genres"), "genre").map((t) => attr(t, "browseKey"));
+    for (const key of new Set([genres[0], genres.find((k) => /[?&]genre=[^&]*%/.test(k))].filter(Boolean))) {
+      const par = key.match(/[?&](genre=[^&]*)/)[1], old = [];
+      const menu = (await browse(key)).match(/<item\b[^>]*>/g) || [];
+      const link = menu.find((t) => /bySection:Album/.test(attr(t, "browseKey")));
+      for (const sec of items(await browse(attr(link, "browseKey")), "section").filter((t) => attr(t, "text2") !== "0")) {
+        for (let k = attr(sec, "browseKey"); k; ) {
+          const x = await browse(k);
+          const adds = (x.match(/<item\b[^>]*type="addAll-last"[^>]*>/g) || []).map((t) => attr(t, "actionURL"));
+          items(x, "album").forEach((t, i) => old.push([attr(t, "text"), attr(t, "text2"), attr(t, "image"), attr(t, "browseKey"), attr(t, "contextMenuKey"), attr(t, "playURL"), adds[i]].join(" | ")));
+          k = attr((x.match(/<[^>]*\snextKey="[^"]*"[^>]*>/) || [""])[0], "nextKey");
+        }
+      }
+      const now = [...(await get(list(s, "Albums") + "&" + par + "&section=all")).matchAll(/<album\b([^>]*)>\s*<title>([^<]*)<\/title>\s*<art>([^<]*)<\/art>/g)].map((m) => {
+        const t = dec(m[2]), a = dec(m[3]), q = "album=" + formEnc(t) + "&artist=" + formEnc(a), fav = /isFavourite="1"/.test(m[1]);
+        return [t, a, "/Artwork?service=" + s + "&" + q, s + ":MG/LocalMusic-Album?" + q, s + ":CM/LocalMusic-Album?" + q + (fav ? "&isFavourite=1" : ""), "/Add?playnow=1&service=" + s + "&" + q, "/Add?" + q + "&playnow=-1&service=" + s + "&where=last"].join(" | ");
+      });
+      const i = old.findIndex((v, n) => v !== now[n]);
+      out.push({ what: (s === svc ? "library " : "USB ") + par, albums: now.length, browse: old.length, differs: i < 0 ? "" : old[i] + " <> " + now[i] });
+      shown = shown || par;
+    }
+  }
+  if (!shown) { bru.runner.skipRequest(); return; }
+  bru.setVar("e44", JSON.stringify(out));
+  req.setUrl(H + list(svc, "Albums") + "&" + shown + "&section=all");
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("explore-44-genre-albums.xml");
+  console.log(bru.getVar("e44"));
+}
+
+tests {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  const r = JSON.parse(bru.getVar("e44"));
+  test("as many albums as /Browse", () => r.forEach((x) => expect(x.albums, x.what).to.equal(x.browse)));
+  test("same order, favourite state and URLs as /Browse", () => r.forEach((x) => expect(x.differs, x.what).to.equal("")));
+}

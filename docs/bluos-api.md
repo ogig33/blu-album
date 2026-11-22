@@ -955,7 +955,7 @@ Some answers group the items in `<category text="…" nextKey="…">`; errors co
   | `LocalMusic:Playlist/…imported=1` | imported playlists (empty here) | 0.2 KB |
   | `BluOS:MG/BluOS-Playlist?playlist=…` (`browseKey` of a saved playlist) | `type="tracks"` with the playlist's `playURL` (`/Load?service=BluOS&name=…`) · 10 `item` elements per page (`type="track"`) with `playURL` (`/Add?playnow=1&file=…`), `autoplayURL` (`/Add?service=BluOS&listindex=<n>&…&playlist=…`), `text` (title), `text2` ("track artist • album"), `duration`, `image` (`/Artwork?service=BluOS&songid=` – empty id); no `browseKey`, no context menus, also not with `withContextMenuItems=1`; `nextKey` `BluOS:Song/%2FSongs%3Fplaylist=…&offset=10` (the [`/Songs`](#get-songs) pages); on later pages `listindex` starts again at 0 and the `autoplayURL` carries `offset` (see [`/Add`](#get-add)); the same answer with a German `Accept-Language` (verified 2026-11-21, 3 playlists with 14–61 tracks) | about 1 KB per track |
 - What the search lists match (verified 2026-11-20 on the local library): every list wraps the `/library/v1` endpoint of its type with `expr=<q>` (e.g. `LocalMusic:Album/%2Flibrary%2Fv1%2FAlbums%3Fexpr=love&service=LocalMusic`). A term matches at the start of a word, not inside a word (`Muscat` finds, `uscat` does not); case and accents are ignored (`buble` finds `Bublé`, `bande a part` finds `Bande à part`); a term of several words is matched as one string, punctuation included (`Superman: Dawn` finds "Batman v Superman: Dawn of Justice", `Superman Dawn` does not; `Deluxe)` finds "Believe (Deluxe)"). The albums list matches the album title and the track artists of the album's songs (a sampler of "Various" is found by the artist of one of its tracks), **not** the album artist, **not** song titles and **not** composers. Song titles are found only in the songs list, composers only in the composers list; the songs list does not match the track artist. The albums of a composer that was found come from its browse menu (link "Albums", see the keys above).
-- **The search does not find albums by their album artist** (verified 2026-11-21, BluOS 4.18.18): of the 178 albums with the album artist "Various" the search `various` finds 2, of the 126 albums of "Putumayo Presents" the search `putumayo` finds 2 – one by its title ("A Taste of Putumayo …"), one by a track artist ("Putumayo Presents , Diogal"); the same in `/library/v1/Albums?expr=` and `/library/v1/Search`. The search's artists list holds track artists only (`Putumayo Presents , Diogal`, not `Putumayo Presents`). An album is found by its album artist only when a track artist or the title contains the name. The album artists are in the sectioned artists list of the library menu (`…bySection:Artist/…`, `/library/v1/Artists?section=`): it lists album artists, not artists that only appear on tracks (e.g. `Various` and `Putumayo Presents`, not `Putumayo Presents , Diogal`); their albums come from the artist's browse menu (link "Albums"). Finding an album artist by a term therefore needs the whole artists list (one request per section) and a match on the client.
+- **The search does not find albums by their album artist** (verified 2026-11-21, BluOS 4.18.18): of the 178 albums with the album artist "Various" the search `various` finds 2, of the 126 albums of "Putumayo Presents" the search `putumayo` finds 2 – one by its title ("A Taste of Putumayo …"), one by a track artist ("Putumayo Presents , Diogal"); the same in `/library/v1/Albums?expr=` and `/library/v1/Search`. The search's artists list holds track artists only (`Putumayo Presents , Diogal`, not `Putumayo Presents`). An album is found by its album artist only when a track artist or the title contains the name. The album artists are in the sectioned artists list of the library menu (`…bySection:Artist/…`, `/library/v1/Artists?section=`): it lists album artists, not artists that only appear on tracks (e.g. `Various` and `Putumayo Presents`, not `Putumayo Presents , Diogal`); their albums come from the artist's browse menu (link "Albums"). Finding an album artist by a term therefore needs the whole artists list (1 request with `section=all`, see [`/library/v1/Artists`](#get-libraryv1artists)) and a match on the client.
 - Errors come as `<error>` root element with one `<message>` and zero or more `<detail>` text nodes.
 - Keys (`browseKey`, `nextKey`, `parentKey`, `contextMenuKey`, `searchKey`) are opaque: pass them unchanged, URL-encoded, as `key=`.
 
@@ -1167,7 +1167,7 @@ General:
 - `sort=` (according to `/Services`: `alpha`, `recent`, `year`, `decade`, `artist`, `artistDate`) gives an empty answer for albums without `section`; `sort=decade` works with the section index (`section=all&length=1`, see [`/library/v1/Albums`](#get-libraryv1albums)).
 - **No compilation filter** (verified 2026-11-19, BluOS 4.18.18): `compilation=1`, `compilations=1`, `category=COMPILATIONS`, `type=compilation`, `albumartist=…` are ignored by `/library/v1/Albums` (without `section` an empty answer, with `section` all albums of the section). The `compilation` tag is only in `/library/v1/Songs` of one album (`album` + `artist`), not in the song lists by `section`. `/Services` and the library menu offer no compilation list either. Samplers are found only through their album artist (e.g. `artist=Various`), a convention of the library.
 - Paging: `<nextlink>` with the full URL of the next page.
-- **No genre per album** in any answer.
+- **No genre per album** in any answer; the genre of each album follows only from the album lists of all genres (`genre=…&section=all`, 1 request per genre).
 
 ### Aliases on port 11000
 
@@ -1195,12 +1195,12 @@ GET /library/v1/Albums?service=<svc>&section=<letter|all>&length=1&recent=1&cate
 | Parameter | Meaning |
 |---|---|
 | `service` | `LocalMusic` or the USB id |
-| `section` | alphabetic section, e.g. `A` – all albums of the section; `all` with `length=1` = index of the sections |
+| `section` | alphabetic section, e.g. `A` – all albums of the section; `all` = every section in one answer (also with `quality` or `genre`), with `length=1` only their index |
 | `length` | `1` with `section=all`: only the sections with their album counts, no albums |
 | `recent` | `1` = newest albums (50 per page + `nextlink`) |
 | `category` | `FAVOURITES` = favourite albums, one request |
-| `quality` | `hr` (HD), `cd`, `mqa` – only together with `section` |
-| `genre` | albums of a genre – only together with `section`; without it the answer is empty, also with `limit=500` or `offset=0` (verified 2026-11-15). All albums of a genre: [`/ui/browseGrouped`](#get-uibrowsegrouped) |
+| `quality` | `hr` (HD), `cd`, `mqa` – only together with `section` (a letter or `all`) |
+| `genre` | albums of a genre – only together with `section`; without it the answer is empty, also with `limit=500` or `offset=0` (verified 2026-11-15). All albums of a genre: `section=all` |
 | `artist` | all albums of the artist, one request |
 | `album` | with `artist`: one album including `cover` |
 | `composer` | albums with songs of the composer |
@@ -1209,7 +1209,7 @@ GET /library/v1/Albums?service=<svc>&section=<letter|all>&length=1&recent=1&cate
 
 **Response format**
 
-`section` (also with `quality` or `genre`):
+`section` (also with `quality` or `genre`; with `section=all` one `<section>` per letter):
 
 ```xml
 <albums limit="500" quality="cd" section="A" id="327701" service="LocalMusic">
@@ -1285,6 +1285,8 @@ GET /library/v1/Albums?service=<svc>&section=<letter|all>&length=1&recent=1&cate
 - Sample: `section=A` = 143 albums, 16.5 KB.
 - **Year** (verified, BluOS 4.18.18, 2026-11-19): `section`, `artist` and `album` + `artist` give `date="<year>"` (four digits) on every album with a year tag; an album without a year tag has no `date` attribute (its songs have no `<date>` either). `recent=1` and `category=FAVOURITES` give no year. One year per album: a sampler with discs of 2002 and 2001 answered `date="2002"`. The whole library (27 sections, 1956 albums) is 227 KB; library and USB answer alike. Albums sorted or grouped by decade with an index per decade: [`/ui/browseGrouped`](#get-uibrowsegrouped) with `sort=decade`; the index alone: `section=all&length=1&sort=decade`.
 - **Section index** (verified, BluOS 4.18.18, 2026-11-22): `section=all&length=1` answers the non-empty sections with `length` = number of albums and no albums (1.3 KB for 27 sections). With `sort=decade` the section names are decades (`1970`, 567 B for 9 decades) and the counts equal the `date` years of the letter sections; albums without a year tag are in no decade (USB: 19 of 20 albums). Library and USB answer alike. `section=all` and `length` are not in `/Services`.
+- **All sections in one answer** (verified, BluOS 4.18.18, 2026-11-22, library with 1957 and USB drive with 20 albums): `section=all` without `length` answers the same albums as the requests per section (order, `tracks`, `date`, `isFavourite`), also with `quality` or `genre` (the value as in the `browseKey` of the genre, e.g. `R%26B`); the number of albums equals the sum of the index. All 1957 albums: 223 KB, 0.14–0.45 s. No paging: `limit`, `count`, `start` and `offset` are ignored. Larger libraries are not tested. Wrapped in a [`/Browse`](#get-browse) key only the first section is answered.
+- **Albums with `mqaBrowse` are in no quality list** (player bug, verified, BluOS 4.18.18, 2026-11-22): albums whose songs all have `<quality>mqaBrowse</quality>` (seen: FLAC, 24 bit / 48 kHz) are missing from `quality=hr`, `cd`, `mqa` and `mqaBrowse`, also combined, while `/library/v1/Songs` finds their songs with `quality=mqa` and `quality=mqaBrowse`. The value alone does not prove that a file holds MQA: how the player decides it is not known.
 
 ### `GET /library/v1/Artists`
 
@@ -1295,7 +1297,7 @@ GET /library/v1/Artists?service=<svc>&section=<letter>&category=FAVOURITES&genre
 | Parameter | Meaning |
 |---|---|
 | `service` | `LocalMusic` or the USB id |
-| `section` | artists of the section |
+| `section` | artists of the section; `all` = all album artists in one answer (verified 2026-11-22: 623 artists, 20.5 KB) |
 | `category` | `FAVOURITES` = favourite artists |
 | `genre` | artists of a genre – together with `section` |
 | `artist` | only the name of this artist |
@@ -1333,7 +1335,7 @@ GET /library/v1/Composers?service=<svc>&section=<letter>&genre=<genre>
 | Parameter | Meaning |
 |---|---|
 | `service` | `LocalMusic` or the USB id |
-| `section` | composers of the section |
+| `section` | composers of the section; `all` works only with `length=1` (index), without it the answer is empty |
 | `genre` | with `section`: composers of the genre |
 
 **Response format**
@@ -1489,7 +1491,7 @@ GET /library/v1/Songs?service=<svc>&album=<album>&artist=<artist>&composer=<comp
 | `album` | with `artist`: all songs of the album with technical data |
 | `artist` | alone: all songs of the artist, one request |
 | `composer` | songs of the composer |
-| `section` | songs of the section, paged |
+| `section` | songs of the section, paged (`limit=1` can answer no song, only a `nextlink`); `all` works only with `length=1` (index), without it the answer is empty |
 | `genre` | with `section`: songs of the genre, 50 per page |
 | `category` | `FAVOURITES` = favourite songs (`<song isFavourite="1">`; marked with [`/AddFavourite?fn=`](#get-addfavourite)) |
 | `limit` | page size; works here (e.g. `section=A&limit=5`) |
@@ -1543,6 +1545,7 @@ Paged lists (`section`, `genre`, `all`) have `<nextlink>` and lack the technical
 - Empty with only `service`.
 - The lists (`section`, `genre`) lack the technical attributes and `songID`, `track`, `date`, `time`.
 - `quality` of MP3 files is the bitrate; recognise them by `atype`.
+- `quality` can be `mqaBrowse` (found with `quality=mqa`); such albums are missing from the quality lists of [`/library/v1/Albums`](#get-libraryv1albums).
 - Tags per song only when the file has them (verified): `composer` (composer of the track), `discno` (disc number, e.g. on multi-disc albums; the songs come sorted by `discno`, then `track`, in the order of the album track list of `/Browse`), `albumartist` and `compilation` (`1` on samplers, e.g. album artist "Various"). `art` is always the track artist, the album artist without `albumartist` is the `art` of the album in `/library/v1/Albums`.
 
 ### `GET /Songs`

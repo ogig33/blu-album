@@ -147,6 +147,7 @@ async function buildTD(get) {
   D.USB = svcOf((D.SRC.find((s) => /USBIcon/.test(s.image)) || { browseKey: "" }).browseKey);
   D.MENU = {};
   D.GENRES = {};
+  D.GENRE_KEYS = {};
   D.SECS = {};
   for (const s of D.SRC) {
     const svc = svcOf(s.browseKey),
@@ -154,7 +155,9 @@ async function buildTD(get) {
       its = itemsOf(menu);
     D.MENU[svc] = menu;
     const gi = its.find((i) => /GG\/Genres/.test(i.browseKey || "") || i.text === "Genres");
-    D.GENRES[svc] = gi ? itemsOf(await browse(gi.browseKey), ofType("genre")).map((g) => g.text) : [];
+    const genres = gi ? itemsOf(await browse(gi.browseKey), ofType("genre")) : [];
+    D.GENRES[svc] = genres.map((g) => g.text);
+    D.GENRE_KEYS[svc] = genres.map((g) => g.browseKey);
     const ai = its.find((i) => /bySection:Album/.test(i.browseKey || ""));
     D.SECS[svc] = ai ? itemsOf(await browse(ai.browseKey), ofType("section")) : [];
   }
@@ -178,6 +181,22 @@ async function buildTD(get) {
       if (svc === D.LIB && !D.ALL && a.length) D.ALL = a;
     }
   D.ALL = D.ALL || [];
+  // TD-GEN-ALB: albums of TD-GEN-ONE through /Browse (genre menu, sections, albums): what the genre chip must show
+  D.GEN_ALB = [];
+  const genKey = (D.GENRE_KEYS[D.LIB] || [])[D.GEN_LIB.indexOf(D.GEN_ONE)];
+  if (genKey) {
+    const link = itemsOf(await browse(genKey)).find((i) => /bySection:Album/.test(i.browseKey || ""));
+    const secs = link ? itemsOf(await browse(link.browseKey), ofType("section")) : [];
+    for (const sec of secs.filter((x) => x.text2 !== "0")) D.GEN_ALB.push(...(await albumsOf(sec.browseKey)));
+  }
+  // TD-QCD: number of albums in CD quality, counted through the lists per section
+  D.QCD_COUNT = 0;
+  for (const svc of D.SVC)
+    for (const sec of D.SECS[svc].filter((x) => x.text2 !== "0")) {
+      const name = encodeURIComponent(sec.text);
+      const x = (await get(`/library/v1/Albums?service=${encodeURIComponent(svc)}&quality=cd&section=${name}`)) || "";
+      D.QCD_COUNT += (x.match(/<album[ >]/g) || []).length;
+    }
   // TD-DEC: decades of the decade index (/library/v1/Albums section=all&length=1&sort=decade per source with album
   // sections, union sorted like the app); TD-YEARS: albums with a year of every filled section of every source
   // (/library/v1/Albums without a filter) as {t, y}
@@ -1121,25 +1140,26 @@ test(
   R,
 );
 
+// Sources with album lists (one request each for a quality, genre or decade list)
+const albumSvcs = () => TD.SVC.filter((s) => TD.SECS[s].length);
+
 test(
-  "CHP-05 CHP-07 quality CD: one request per filled section, cached, sections shared with All",
+  "CHP-05 CHP-07 quality CD: one request per source, cached",
   async (t) => {
     await t.chip("CD");
     await t.waitMsg(/CD quality|No CD/);
     const reqs = t.player.state.requests.filter((r) => /quality=cd/.test(r));
-    eq(reqs.length, TD.FILLED_LIB.length + TD.FILLED_USB.length, "one request per filled section of every source");
-    ok(
-      reqs.every((r) => /limit=500/.test(r)),
-      "limit=500",
-    );
     eq(
-      reqs
-        .filter((r) => TD.USB && new RegExp("service=" + TD.USB).test(r))
-        .map((r) => new URL("http://x" + r).searchParams.get("section"))
-        .sort(),
-      TD.FILLED_USB.map((s) => s.text).sort(),
-      "USB sections",
+      reqs.map((r) => new URL("http://x" + r).searchParams.get("service")).sort(),
+      albumSvcs().sort(),
+      "one request per source",
     );
+    ok(
+      reqs.every((r) => /[?&]section=all$/.test(r)),
+      "every section in one answer",
+    );
+    eq(t.reqs(/bySection:Album/), [], "album sections not needed");
+    eq(await t.page.evaluate(() => shown.length), TD.QCD_COUNT, "as many albums as the lists per section");
     ok((await t.tiles()).length > 0, "albums shown");
     ok(/in CD quality/.test(await t.msg()), "status line");
     await t.all();
@@ -1150,7 +1170,7 @@ test(
       reqs.length,
       "second click served from cache",
     );
-    eq(t.reqs(/bySection:Album/).length, TD.SRC.length, "album sections asked once per source (shared by CD and All)");
+    eq(t.reqs(/bySection:Album/).length, TD.SRC.length, "album sections asked once per source (by All)");
   },
   R,
 );
@@ -1202,13 +1222,20 @@ test(
 );
 
 test(
-  "CHP-09 CHP-10 CHP-11 genre: albums of a genre, only its sources, cached",
+  "CHP-09 CHP-10 CHP-11 genre: one request, the albums and URLs of /Browse, only its sources, cached",
   async (t) => {
     await t.chip(TD.GEN_ONE);
     await t.waitMsg(/^\d+ albums?$/);
     ok((await t.tiles()).length > 0, "albums shown");
-    ok(t.reqs(new RegExp(`key=${TD.LIB}:MG/Genres\\?genre=`)).length > 0, "genre menu of the library");
-    if (TD.USB) eq(t.reqs(new RegExp(`key=${TD.USB}:MG/Genres\\?genre=`)).length, 0, "no request to the other source");
+    const reqs = t.player.state.requests.filter((r) => /[?&]genre=/.test(r));
+    const par = TD.GENRE_KEYS[TD.LIB][TD.GEN_LIB.indexOf(TD.GEN_ONE)].match(/[?&](genre=[^&]*)/)[1];
+    eq(reqs, [`/library/v1/Albums?service=${TD.LIB}&${par}&section=all`], "one request, to the library only");
+    const byKey = (x, y) => (x[0] < y[0] ? -1 : 1);
+    eq(
+      (await t.page.evaluate(() => shown.map((a) => [a.key, a.t, a.a, a.cm, a.play, a.img]))).sort(byKey),
+      TD.GEN_ALB.map((i) => [i.browseKey, i.text, i.text2, i.contextMenuKey, i.playURL, i.image]).sort(byKey),
+      "albums, favourite state and URLs as in /Browse",
+    );
     // covers (/Artwork) are read again for the new tiles, the album lists are not
     const lists = () => t.reqs(/^\/(Browse|library)/).length;
     await t.all();
@@ -1264,7 +1291,7 @@ const decLabel = (k) => (TD.DEC.filter((x) => x.slice(2) === k.slice(2)).length 
 const decadeReqs = (t) => t.reqs(/^\/library\/v1\/Albums\?.*section=all&length=1&sort=decade$/);
 // Section requests without a filter (the years of the decade chips)
 const yearReqs = (t) =>
-  t.reqs(/^\/library\/v1\/Albums\?/).filter((r) => /[?&]section=/.test(r) && !/[?&](quality|sort)=/.test(r));
+  t.reqs(/^\/library\/v1\/Albums\?/).filter((r) => /[?&]section=/.test(r) && !/[?&](quality|sort|genre)=/.test(r));
 
 test(
   "CHP-15 SET-02 quality, decade and genre chips are off by default: special chips and Playlists, no decade request",
@@ -1327,7 +1354,7 @@ test(
 );
 
 test(
-  "CHP-17 decade: albums of the decade from every filled section, cached",
+  "CHP-17 decade: albums of the decade from one request per source, cached",
   async (t) => {
     await t.page.waitForSelector("#az .dc");
     const of = (k) => TD.YEARS.filter((a) => a.y.slice(0, 3) + "0" === k);
@@ -1335,14 +1362,10 @@ test(
       last = TD.DEC[TD.DEC.length - 1];
     await t.chip(decLabel(first));
     await t.waitMsg(/^\d+ albums? from the \d{4}s$/);
-    eq(
-      yearReqs(t).length,
-      TD.FILLED_LIB.length + TD.FILLED_USB.length,
-      "one request per filled section of every source",
-    );
+    eq(yearReqs(t).length, albumSvcs().length, "one request per source");
     ok(
-      yearReqs(t).every((r) => /limit=500/.test(r)),
-      "limit=500",
+      yearReqs(t).every((r) => /[?&]section=all$/.test(r)),
+      "every section in one answer",
     );
     eq(await t.msg(), nAlb(of(first).length) + ` from the ${first}s`, "status line");
     eq(
@@ -4557,7 +4580,7 @@ test(
   "REG-02 connect: only the requests the first view needs (no genre crawl, stats, versions, one-off status)",
   async (t) => {
     await t.settle(1200);
-    eq(t.reqs(/MG\/Genres\?genre=/).length, 0, "no genre crawl");
+    eq(t.reqs(/[?&]genre=/).length, 0, "no genre crawl");
     eq(t.reqs(/^\/(GitVersion|Version)$/), [], "no version requests");
     eq(t.reqs(/bySection:(Album|Artist|Song|Composer)/), [], "no statistics requests");
     eq(t.reqs(/^\/Status$|^\/Volume$/), [], "no one-off /Status or /Volume");

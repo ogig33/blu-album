@@ -2497,7 +2497,7 @@ async function decadeChips() {
 }
 
 /* ---------- Albums from /Browse ---------- */
-// Album lists, genres and the album-to-genre map from the player's browse menus.
+// Album lists from the player's browse menus.
 
 // Converts an XML album <item> into a plain object.
 // t: title, a: artist, n: track count, img: cover URL, key: browse key of the tracks,
@@ -2533,7 +2533,7 @@ async function fetchItems(key, type, first) {
 // Loads all albums of a list (see fetchItems).
 const fetchAlbums = async (key, first) => (await fetchItems(key, "album", first)).map(toAlbum);
 // A-Z sections of a source's album list (<item type="section" text="A" text2="<album count>">),
-// requested once per source selection and shared by All, the quality chips and the statistics.
+// requested once per source selection and shared by All and the statistics.
 function albumSections(x) {
   if (!x.albumsKey) return Promise.resolve([]);
   if (!x.secs) {
@@ -2544,24 +2544,9 @@ function albumSections(x) {
 }
 // Sections of a source that contain albums.
 const filledSections = async (x) => (await albumSections(x)).filter((i) => attr(i, "text2") !== "0");
-// Loads all albums of one genre: genre menu -> A-Z sections (with album counts) -> the albums of
-// every section that is not empty.
-async function genreAlbums(g) {
-  const ab = items(await browse(attr(g, "browseKey"))).find((i) => /bySection:Album/.test(attr(i, "browseKey")));
-  if (!ab) return [];
-  const secs = items(await browse(attr(ab, "browseKey"))).filter((i) => attr(i, "type") === "section" && attr(i, "text2") !== "0");
-  const albums = [];
-  for (const x of secs) albums.push(...await fetchAlbums(attr(x, "browseKey")));
-  return albums;
-}
-// All albums of a genre name across the enabled sources.
-const genreAlbumsAll = async (name) => joinSources(await Promise.all(srcs.map((x) => {
-  const g = x.genres.find((y) => attr(y, "text") === name);
-  return g ? genreAlbums(g) : [];
-})));
 
 /* ---------- Albums from /library/v1/Albums ---------- */
-// New, favourites, quality and year lists from the library endpoint.
+// New, favourites, quality, genre and year lists from the library endpoint.
 
 // /library/v1/Albums returns only album + artist (+ isFavourite). Everything else the app needs
 // (cover, play URL, track list, context menu) follows fixed patterns of the player's Browse results.
@@ -2599,25 +2584,21 @@ async function libAlbums(svc, filter, max) {
   }
   return out.slice(0, max);
 }
-// Filters like quality only work per A-Z section: every section of the source that contains albums
-// (albumSections, names "#", "A" ... as the player reports them) is requested, 6 at a time, and the
-// results are joined in A-Z order. Empty sections cannot contain filtered albums and are skipped.
+// Filters like quality and genre need a section: section=all answers every A-Z section of the source at once
+// (1 request, A-Z, no paging, Bruno E43 / E44).
 // filter "" = every album of the source, with its year (decade chips).
 async function libSectionAlbums(x, filter) {
-  const names = (await filledSections(x)).map((i) => attr(i, "text"));
-  const parts = new Array(names.length);
-  let next = 0;
-  const worker = async () => {
-    while (next < names.length) {
-      const i = next++;
-      const path = "/library/v1/Albums?service=" + encodeURIComponent(x.svc) + (filter ? "&" + filter : "") + "&limit=500&section=" + encodeURIComponent(names[i]);
-      const d = await api(path);
-      parts[i] = [...d.querySelectorAll("section > album")].map((el) => libAlbum(el, x.svc));
-    }
-  };
-  await Promise.all(Array.from({ length: 6 }, worker));
-  return parts.flat();
+  if (!x.albumsKey) return [];
+  const d = await api("/library/v1/Albums?service=" + encodeURIComponent(x.svc) + (filter ? "&" + filter : "") + "&section=all");
+  return [...d.querySelectorAll("section > album")].map((el) => libAlbum(el, x.svc));
 }
+// All albums of a genre name across the enabled sources. The genre= value is the player's, from the browse key
+// of the genre (e.g. genre=R%26B). Without one the source is left out: an empty filter would list every album.
+const genreAlbumsAll = async (name) => joinSources(await Promise.all(srcs.map((x) => {
+  const g = x.genres.find((y) => attr(y, "text") === name);
+  const filter = g && attr(g, "browseKey").match(/[?&](genre=[^&]+)/);
+  return filter ? libSectionAlbums(x, filter[1]) : [];
+})));
 
 /* ---------- Views ---------- */
 // What the chips show: genre, All, New, Favourites, quality, decade, artist.
@@ -2691,7 +2672,7 @@ async function loadLibView(key, btn, filter, max, label, done, empty, sectioned)
   const mine = ctx();
   msg("Loading " + label + " \u2026");
   try {
-    // Sectioned results are kept for the session (27 requests); New / Favourites are always fresh.
+    // Sectioned results are kept for the session; New / Favourites are always fresh.
     // Every enabled source is asked; New keeps each source's newest-first order (sources one after another),
     // the other lists are joined A-Z.
     const per = (x) => sectioned ? libSectionAlbums(x, filter) : libAlbums(x.svc, filter, max);
@@ -2711,7 +2692,7 @@ const loadNew = (btn) => loadLibView("__new", btn, "recent=1", 200, "new albums"
 const loadFavourites = (btn) => loadLibView("__fav", btn, "category=FAVOURITES", 5000, "favourites", "in favourites", "No favourite albums yet.");
 const loadQuality = (btn, q, name) => loadLibView("__q:" + q, btn, "quality=" + q, 0, name + " albums", "in " + name + " quality", "No " + name + " albums.", true);
 // Decade chip (dec = "1980"): the albums of the decade. The years come with the sectioned
-// /library/v1/Albums lists without a filter (Bruno E34), read once per source selection into
+// /library/v1/Albums list without a filter (Bruno E34, E43), read once per source selection into
 // cache.__years (a promise, shared by every decade) and filtered here.
 async function loadDecade(dec, btn) {
   const key = "__d:" + dec, mine = ctx();
@@ -3968,7 +3949,7 @@ async function countItems(key) {
 }
 // Fills the library statistics (albums, artists, songs, composers summed over the enabled sources;
 // genres = number of different genre names); values appear as they arrive. Albums are counted from
-// the album sections that All and the quality chips use as well (albumSections).
+// the album sections that All uses as well (albumSections).
 async function loadStats() {
   const mine = ctx();
   const genres = new Set(srcs.flatMap((x) => x.genres.map((g) => attr(g, "text")))).size;

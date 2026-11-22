@@ -18,14 +18,14 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 |---|---|---|---|---|---|
 | CON | 4.1 Connection & start | Start page, IP form, connect, errors, time limit, compact connection line, changing the player | 14 | 14 | 10 |
 | SRC | 4.2 Music sources | Source detection, one switch per source, stored per player | 6 | 6 | 3 |
-| CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results | 14 | 14 | 10 |
-| GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons, status line | 10 | 10 | 8 |
+| CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results | 17 | 17 | 13 |
+| GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons, status line | 11 | 11 | 8 |
 | FAV | 4.5 Favourites | Heart on the cover, toggling via the player, no local favourites | 6 | 6 | 5 |
 | ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache, one link per artist of several | 5 | 5 | 4 |
-| POP | 4.7 Album popup | Details, technical data, track list, playing a track, closing | 15 | 15 | 10 |
+| POP | 4.7 Album popup | Details, technical data, track list, playing a track, closing | 18 | 18 | 10 |
 | SRH | 4.8 Search | Player search, albums of found composers, groups by album title / artist / composer, search areas, search button, typing rules, empty field, errors | 12 | 12 | 4 |
 | FTR | 4.9 Player footer | Now playing, quality tag, transport, progress, volume, listening mode, long polling | 18 | 18 | 10 |
-| FUL | 4.10 Full screen | Full-screen now playing view, background from the cover, full-size cover | 7 | 7 | 5 |
+| FUL | 4.10 Full screen | Full-screen now playing view, background from the cover, full-size cover | 8 | 8 | 6 |
 | QUE | 4.11 Queue panel | Pinning, list, remove, reorder (drag and drop, keyboard), shuffle, repeat, save as playlist, clear | 18 | 18 | 16 |
 | PLS | 4.12 Playlists | Playlists chip, playlists as tiles, random playlist, playing / queueing / deleting a playlist, playlist popup | 12 | 12 | 10 |
 | SET | 4.13 Settings panel | Panel, chip switches, cover size, design, library settings | 9 | 9 | 9 |
@@ -34,7 +34,7 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 5 | 4 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 4 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **172** | **172** | **123** |
+| | | **Total** | **180** | **180** | **127** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -99,13 +99,14 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | TD-TOP | Top menu (01) | Source links (library / USB icon), the saved playlists link; without USB the mock removes the USB item (`usb: false`) |
 | TD-SRC | TD-TOP | Sources = link items with `LibraryIcon` / `USBIcon`; name = `text`, key = `browseKey` |
 | TD-GEN | Genre lists of every source (04 + mock) | Genre names of every source; chip row = sorted union; TD-GEN-ONE = a genre of the library only |
+| TD-GEN-ALB | Genre menu, sections and album lists of TD-GEN-ONE through `/Browse` (04, 05, 06, 07) | Albums of TD-GEN-ONE with key, title, artist, context menu key, play and cover URL |
 | TD-SEC | Album sections of every source (06) | A–Z sections with album counts (`text2`); "filled" = `text2` ≠ 0; USB: the mock keeps only some sections |
 | TD-ALL | Albums of the filled sections (07) | Albums of the first filled library section; ALL_COUNT = albums of every filled section of every source (the mock answers albums only for one section) |
 | TD-TRK | Track list of TD-ALB-LIB (08) | Tracks with `text` ("N. Title") and `duration`, in the order of TD-SONGS |
 | TD-CM | Context menu of an album (09) | Favourite state follows `isFavourite=1` in the key |
 | TD-NEW | `/library/v1/Albums?recent=1` per source (11, 14) | Recently added albums, newest first, at most 200 per source |
 | TD-FAV | `/library/v1/Albums?category=FAVOURITES` (12) | Favourite albums of the library; USB has none |
-| TD-QCD | Quality lists (13, 15) | Albums in CD quality per section (only counted through the requests) |
+| TD-QCD | Quality lists (13, 15) | Number of albums in CD quality, counted through the lists per section of every source |
 | TD-DEC | Decade index per source (mock: counted from TD-YEARS) | Decades of `/library/v1/Albums` with `section=all&length=1&sort=decade` (section names like `1980`), union of the sources, sorted; chip label "80s" (full decade when two share the short form) |
 | TD-YEARS | `/library/v1/Albums` per filled section without a filter (13; mock: section A of the library, `USB_YEARS` in USB section S) | Albums with a year (`date`) of every source as {title, year} |
 | TD-PL | Saved playlists (16) | Saved playlists with name, cover (`image`), browse key and play URL (`/Load…`) |
@@ -166,11 +167,11 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | CHP-02 | Default view Favourites | Connect | Favourites chip pressed; tiles = albums of TD-FAV (count and titles); request `/library/v1/Albums?…category=FAVOURITES` per source | read | Auto |
 | CHP-03 | No favourites | Fixture 12 without albums | Status line "No favourite albums yet." | – | Auto |
 | CHP-04 | New | Click **New** | Tiles = TD-NEW library albums (newest first) followed by the USB albums; status "N albums recently added, newest first"; at most 200 per source | read | Auto |
-| CHP-05 | Quality CD | Click **CD** | One request per filled section of TD-SEC per source (`quality=cd&limit=500&section=…`), at most 6 in parallel; tiles = TD-QCD joined A–Z; status "… in CD quality" | read | Auto |
+| CHP-05 | Quality CD | Click **CD** | One request per source with album sections (`quality=cd&section=all`), no album section request; number of tiles = TD-QCD; status "… in CD quality" | read | Auto |
 | CHP-06 | Quality HD / MQA | Click **HD**, then **MQA** | Filter `quality=hr` / `quality=mqa`; empty result: "No HD albums." / "No MQA albums." | – | Auto |
-| CHP-07 | Quality result is cached | CD, All, CD again | Second CD click sends no quality request; sections asked once per source and shared with All | read | Auto |
+| CHP-07 | Quality result is cached | CD, All, CD again | Second CD click sends no quality request; album sections asked once per source (by All) | read | Auto |
 | CHP-08 | All | Click **All** | Albums of every filled section of every source, 3 sections in parallel, progress "Loading all albums … n/N"; with two sources sorted A–Z; status "N albums" | read | Auto |
-| CHP-09 | Genre | Click a genre of TD-GEN | Genre menu → sections → albums of the filled sections, all sources joined; status "N albums" | read | Auto |
+| CHP-09 | Genre | Click a genre of TD-GEN-ONE | One request `/library/v1/Albums?service=<svc>&genre=…&section=all` with the `genre=` of the genre's browse key; albums, favourite state, play and cover URLs = TD-GEN-ALB; status "N albums" | read | Auto |
 | CHP-10 | Genre only on one source | Click a genre that exists only on the library | Albums of that source only; no request for the other source | read | Auto |
 | CHP-11 | Views are cached in the session | Genre, All, genre again | Second genre click sends no request | read | Auto |
 | CHP-12 | Outdated result is dropped | Click All, click New before All has finished | Grid and status line show New; the late All result does not replace it; All loading stops | – | Auto |
@@ -178,7 +179,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | CHP-14 | Loading error | Mock answers HTTP 500 for the view | Status line "Loading failed: Player responded with 500" in red; popup "Loading the albums did not succeed" with request, HTTP 500 and the answer | – | Auto |
 | CHP-15 | Default chip switches | Fresh profile (app defaults), connect, open the settings | Quality, Decades, Genres off (no switch for Playlists); visible chips: All, Favourites, New, Playlists; no decade index request | read | Auto |
 | CHP-16 | Decade chips switched on | Switch "Decade chips" on | One request per source with album sections (`/library/v1/Albums?service=<svc>&section=all&length=1&sort=decade`), no `/ui` request; chips of TD-DEC behind a separator after the quality chips, tooltip "Albums from the 1980s"; no album request yet; switched off → hidden; stored, built again after reload + connect | read | Auto |
-| CHP-17 | Decade | Decade chips on, click the first decade of TD-DEC, then the last | One request per filled section of TD-SEC per source (`limit=500&section=…`, no filter), at most 6 in parallel; tiles = TD-YEARS of that decade; status "N albums from the 1980s"; second decade sends no request | read | Auto |
+| CHP-17 | Decade | Decade chips on, click the first decade of TD-DEC, then the last | One request per source with album sections (`section=all`, no filter); tiles = TD-YEARS of that decade; status "N albums from the 1980s"; second decade sends no request | read | Auto |
 
 ### 4.4 Album grid (GRD)
 
@@ -395,7 +396,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | ID | Test case | Input | Expected output | Real player | Status |
 |---|---|---|---|---|---|
 | REG-01 | No playback on page load | Connect, wait | No `/Add`, `/Play` or `/Load` command | read | Auto |
-| REG-02 | Request budget of the first view | Connect, wait | No genre crawl, no statistics, no version requests, no one-off `/Status` / `/Volume`; long polling and `/Settings` run | read | Auto |
+| REG-02 | Request budget of the first view | Connect, wait | No genre album lists, no statistics, no version requests, no one-off `/Status` / `/Volume`; long polling and `/Settings` run | read | Auto |
 | REG-03 | Full session without JavaScript errors | Click All, New, CD and a genre of TD-GEN | No page error | read | Auto |
 
 ## 5. Options considered for the real player (ENV-4)

@@ -221,23 +221,40 @@ function createPlayer(opts = {}) {
     if (q.get("start")) return "<albums></albums>";
     if (q.get("recent") === "1") return svc === USB ? fx("14") : fx("11");
     if (q.get("category") === "FAVOURITES") return svc === USB ? '<albums category="FAVOURITES"></albums>' : fx("12");
+    if (q.get("genre")) return q.get("section") === "all" ? genreSection(svc) : "<albums></albums>";
     if (q.get("quality")) {
       if (svc === USB) return fx("15");
-      return q.get("section") === "A" ? fx("13") : "<albums><sections></sections></albums>";
+      return ["A", "all"].includes(q.get("section")) ? fx("13") : "<albums><sections></sections></albums>";
     }
     if (q.get("section") === "all" && q.get("length") === "1" && q.get("sort") === "decade") return decadeIndex(svc);
     if (q.get("section")) return yearSection(svc, q.get("section"));
     return "<albums></albums>";
   };
+  // Albums of a genre (genre= with section=all, Bruno E44): the same albums as the genre's /Browse lists of the
+  // mock, i.e. fixture 07 for the library and none for the USB drive.
+  const genreSection = (svc) => {
+    if (svc === USB) return "<albums><sections></sections></albums>";
+    const albums = [...fx("07").matchAll(/<item [^>]*type="album">/g)].map(([it]) => {
+      const val = (n) => (it.match(new RegExp(` ${n}="([^"]*)"`)) || [])[1] || "";
+      const fav = val("isFavourite") ? ' isFavourite="1"' : "";
+      return `<album tracks="${val("tracks")}"${fav}><title>${val("text")}</title><art>${val("text2")}</art></album>`;
+    });
+    const list = `<section name="#">${albums.join("")}</section>`;
+    return `<albums section="all" service="${svc}"><sections>${list}</sections></albums>`;
+  };
   // A section without a filter: like the real player (Bruno E34) every album with a year tag has date="<year>".
   // Library: the albums of fixture 13 in section A; USB: USB_YEARS in section S; all other sections are empty.
+  // section=all answers every section at once (Bruno E43).
   const yearSection = (svc, sec) => {
-    if (svc !== USB)
-      return sec === "A" ? fx("13").replace(/ quality="cd"/, "") : "<albums><sections></sections></albums>";
+    if (svc !== USB) {
+      const filled = sec === "A" || sec === "all";
+      return filled ? fx("13").replace(/ quality="cd"/, "") : "<albums><sections></sections></albums>";
+    }
     const albums = USB_YEARS.map(
       (x) => `<album tracks="12" date="${x.y}"><title>${x.t}</title><art>${x.a}</art></album>`,
     );
-    return `<albums limit="500" section="${sec}" service="${USB}"><sections>${sec === "S" ? `<section name="S">${albums.join("")}</section>` : ""}</sections></albums>`;
+    const list = sec === "S" || sec === "all" ? `<section name="S">${albums.join("")}</section>` : "";
+    return `<albums limit="500" section="${sec}" service="${USB}"><sections>${list}</sections></albums>`;
   };
   // Decade index of a source (section=all&length=1&sort=decade, Bruno E41 / E42): no albums, one section per
   // decade counted from the years of yearSection(); albums without a year are left out.
