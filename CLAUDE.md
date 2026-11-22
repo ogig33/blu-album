@@ -39,7 +39,7 @@ Do not build these; when asked, point to the alternative.
 
 ## Development principles
 
-- **Single-page application (SPA).** Views switch without a page reload; the state lives in the State module (see https://en.wikipedia.org/wiki/Single-page_application).
+- **Single-page application (SPA).** Views switch without a page reload; the state lives in the State module.
 - **Thin server architecture.** The player acts as the server and only provides the API; all app logic runs in the browser.
 - **One file.** All app components (HTML, CSS, JavaScript, SVG icons) are embedded in one HTML file.
 - **No dependencies.** Do not add libraries or packages to BluAlbum (supply chain and vulnerability risk).
@@ -55,7 +55,7 @@ Do not build these; when asked, point to the alternative.
 
 - **English is the main language.** UI and project documents (README, CHANGELOG, `docs/`, test READMEs, Bruno and code comments) are in English.
 - **No hard wraps in Markdown.** Each paragraph and list item is one line; line breaks only between blocks.
-- **Keep wording short** - precise, wording, avoid lengthy explanations, restrict examples to absolute minimum
+- **Keep wording short:** precise, no lengthy explanations, examples only where needed.
 - **Keep documentation up-to-date** - any change with impact on docs must be reflected there 
   - BluOS API reference `docs/bluos-api.md`.
   - BluAlbum API usage `docs/blu-album-api-usage.md`.
@@ -76,7 +76,7 @@ Do not build these; when asked, point to the alternative.
   - Fixtures with personal data stay in `tests/api/fixtures/` (git-ignored); copy them with `tests/tools/sanitize-fixtures.js`.
   - Find new endpoints with `node tests/tools/crawl-endpoints.js <player IP>` (read-only, compares with `docs/bluos-api.md`); verify each finding in Bruno before documenting it.
 - Test methodology:
-  - test plan must generally keep a max. number of 150 core test cases
+  - The test plan has at most 150 core test cases; `tests/ui/run.js` stops when this limit or the local limit of 50 is exceeded.
   - UI tests: local tests performs only a subset of 50 core tests with core browsers (Safari, Chrome), run within 5 mins
   - UI remote tests: github runs the full test case scope with all browsers (Safari, Chrome, Edge and Firefox) and OSes (macos, Linux, Windows)
   - UI tests must not assume a window size (use `VIEWPORT`).
@@ -131,7 +131,7 @@ Do not build these; when asked, point to the alternative.
 
 - Safari collapses a flex child with an indefinite height to 0 (happened with the popup track list) – avoid flex sizing for scrolling lists, use a max-height.
 - Safari may keep an old version of the local file: reload without cache (⌥⌘R) before chasing a "bug".
-- The player's search does not find albums by their album artist, only by title and track artists (Bruno E40, `docs/bluos-api.md`): albums of "Various" or "Putumayo Presents" whose tracks carry other artists are not found. An earlier version of `docs/bluos-api.md` said otherwise; test search behaviour with albums whose album artist is on none of their tracks.
+- The player's search does not find albums by their album artist, only by title and track artists (Bruno E40, `docs/bluos-api.md`): albums of "Various" or "Putumayo Presents" whose tracks carry other artists are not found. Test search behaviour with albums whose album artist is on none of their tracks.
 - MQA comes in FLAC: format, bit depth and sample rate do not rule it out. An empty MQA chip is the BluOS bug (see Decisions), not an app bug.
 - `section=all` fails silently: `category`, `recent` and `composer` are ignored (all albums), its index (`length=1`) counts 0 with `artist` / `expr`, Songs and Composers list nothing, in a browse key only the first section answers (`docs/bluos-api.md`).
 - The `close` event of `<dialog>` arrives late: the next album may be open already, check `dlg.open` in the handler.
