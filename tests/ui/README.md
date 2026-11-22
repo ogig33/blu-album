@@ -26,9 +26,12 @@ node run.js --browser safari        # one browser: chrome, safari, edge or firef
 node run.js --only QUE-             # only tests whose name contains "QUE-" (the queue block of the test plan)
 UI_SLOW=2 npm test                  # doubles the fixed waits (slow machines, CI)
 node run.js --viewport 1440x900@2   # window size and device pixel ratio (default 1200x800)
+node run.js --jobs 1                # one test at a time (default: 4 per browser, 1 on CI)
 node run.js --shots                 # also screenshots of the main views to test-results/views/
 node run.js --list                  # every test with its mark: read / write (also real player) or mock
 ```
+
+`npm test` takes about 2.5 minutes: 4 tests run at a time per browser, each with its own browser context and mock player. Tests with late answers use `state.hold()` of the mock instead of long fixed waits.
 
 A failed test saves a screenshot of the page to `test-results/` (ignored by git). Tests must not assume a window size: use `VIEWPORT` for coordinates.
 
@@ -40,7 +43,7 @@ node run.js --player 192.168.1.50 --browser chrome           # read-only: change
 node run.js --player 192.168.1.50 --browser chrome --write   # also tests that change data on the player
 ```
 
-The only requirement: on macOS the terminal needs the "Local Network" permission (*System Settings → Privacy & Security → Local Network*). The player can be in any state. Tests that need something the player lacks (a USB drive, a library title playing or paused, 3 tracks in the queue, a saved playlist) are skipped and the reason is shown. Write tests are those that send a request changing data on the player: player controls (play, pause, skip, seek, volume), queue, playlists, favourites, shuffle / repeat. With `--write` the queue is saved as playlist `__blualbum_ui_test__` first. When no library title is playing or paused, or fewer than 3 tracks are queued, the first album with 3 or more tracks is played and saved as `__blualbum_ui_test_start__`. After every write test the queue the tests start from is loaded again (with position, pause state, shuffle, repeat and volume); at the end the original queue is restored and both playlists are deleted. An input such as HDMI cannot be restored: switch back to it yourself. Error cases, delays and a second player stay mock only.
+The only requirement: on macOS the terminal needs the "Local Network" permission (*System Settings → Privacy & Security → Local Network*). The player can be in any state. Tests that need something the player lacks (a USB drive, a library title playing or paused, 3 tracks in the queue, a saved playlist) are skipped and the reason is shown. Write tests are those that send a request changing data on the player: player controls (play, pause, skip, seek, volume), queue, playlists, favourites, shuffle / repeat. With `--write` the queue is saved as playlist `__blualbum_ui_test__` first. When no library title is playing or paused, or fewer than 3 tracks are queued, the first album with 3 or more tracks is played and saved as `__blualbum_ui_test_start__`. After every write test the queue the tests start from is loaded again (with position, pause state, shuffle, repeat and volume); at the end the original queue is restored and both playlists are deleted. An input such as HDMI cannot be restored: switch back to it yourself. Error cases, delays and a second player stay mock only. With `--player` the tests always run one at a time.
 
 ## GitHub Actions
 `.github/workflows/ui-tests.yml` runs the tests on GitHub's runners, one job per system, browser and window size (1280x800 small laptop, 1440x900@2 Retina laptop, 1920x1080 desktop):

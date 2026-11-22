@@ -89,6 +89,27 @@ function createPlayer(opts = {}) {
     if (o) o.hits = (o.hits || 0) + 1;
     return o;
   };
+  // Holds back the answer to the next matching request: asked() waits for the request, release() sends the answer
+  // and waits until it is sent. For late answers without fixed delays.
+  state.hold = (match, status) => {
+    const held = {};
+    const asked = new Promise((z) => (held.arrived = z));
+    const sent = new Promise((z) => (held.sent = z));
+    held.released = new Promise((z) => (held.release = z));
+    state.overrides.push({ match, status, times: 1, held });
+    const within = (promise, what) => {
+      let timer;
+      const late = new Promise((_, no) => (timer = setTimeout(() => no(new Error(`${what}: ${match}`)), 10000)));
+      return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+    };
+    return {
+      asked: () => within(asked, "no request"),
+      release: () => {
+        held.release();
+        return within(sent, "answer not sent");
+      },
+    };
+  };
   const QUEUE_CHANGES = /^\/(Add|Delete\?id=|Shuffle|Clear|Move)/;
   const browse = (key, lang) => {
     if (!key) {
@@ -290,10 +311,11 @@ function createPlayer(opts = {}) {
     if (QUEUE_CHANGES.test(pq)) state.pid++;
     const o = override(pq);
     if (o && (o.status || o.body !== undefined))
-      return { status: o.status || 200, type: o.type || "text/xml", body: o.body || "", delay: o.delay };
+      return { status: o.status || 200, type: o.type || "text/xml", body: o.body || "", delay: o.delay, held: o.held };
     let a = mockAnswer(p, q, lang);
     if (o && o.edit && typeof a === "string") a = o.edit(a);
-    if (o && o.delay) a = { ...(typeof a === "string" ? { type: "text/xml", body: a } : a), delay: o.delay };
+    if (o && (o.delay || o.held))
+      a = { ...(typeof a === "string" ? { type: "text/xml", body: a } : a), delay: o.delay, held: o.held };
     return a;
   };
   const mockAnswer = (p, q, lang) => {
@@ -389,6 +411,10 @@ function createPlayer(opts = {}) {
     const a = answer(r.request().url(), r.request().headers()["accept-language"] || "");
     const res = typeof a === "string" ? { type: "text/xml", body: a } : a;
     if (res.delay) await new Promise((z) => setTimeout(z, res.delay));
+    if (res.held) {
+      res.held.arrived();
+      await res.held.released;
+    }
     // /Status long polling: answer the follow-up requests (with etag) slowly, like a real player
     if (/\/Status\?.*etag=/.test(r.request().url())) await new Promise((z) => setTimeout(z, 1500));
     await r
@@ -399,6 +425,7 @@ function createPlayer(opts = {}) {
         body: res.body,
       })
       .catch(() => {});
+    if (res.held) res.held.sent();
   };
   // Answer of the mock as text (same as the app would get with Accept-Language: en); not recorded
   const get = async (pth) => {

@@ -2,7 +2,7 @@
 // Runs the app in headless browsers against a mock player that answers with recorded fixtures, or
 // against a real player (--player).
 // Usage: node run.js [path/to/blualbum.html] [--only <text>] [--browser chrome|safari|edge|firefox]
-//                    [--viewport WIDTHxHEIGHT[@SCALE]] [--shots] [--player <ip> [--write]] [--list]
+//                    [--viewport WIDTHxHEIGHT[@SCALE]] [--shots] [--jobs <n>] [--player <ip> [--write]] [--list]
 // Without --browser Chrome and Safari run one after another (the local default; GitHub Actions
 // runs every browser with --browser). --viewport sets the window size and the
 // device pixel ratio (default 1200x800, e.g. 1440x900@2 for a Retina laptop). --shots also saves
@@ -10,10 +10,13 @@
 // --player <ip> runs the tests marked real: "read" against that player (nothing is changed on it);
 // --write adds the tests marked real: "write" (they play, change the queue and favourites; the queue,
 // playback position, shuffle, repeat and volume are saved first and restored after every such test).
+// --jobs <n>: tests at the same time per browser (default: 4, at most the CPU count; 1 on CI runners).
+// With --player always 1: the tests share that player.
 // --list prints every test with its mark (read / write / mock).
 // Environment: UI_SLOW=<factor> stretches the fixed waits (settle) for slow machines such as CI runners.
 // Every test name starts with the IDs of the test plan (docs/blu-album-test-plan.md) it covers, e.g. --only QUE-
 // runs the queue block.
+const os = require("os");
 const path = require("path");
 const { pathToFileURL } = require("url");
 const { chromium, webkit, firefox } = require("playwright");
@@ -48,6 +51,13 @@ if (process.argv.includes("--player") && !/^[\w.-]+$/.test(REAL)) {
   console.error("--player needs the IP address of the player, e.g. --player 192.168.1.50");
   process.exit(2);
 }
+// Tests at the same time: each has its own browser context and mock player. The real player is shared.
+const JOBS_ARG = arg("--jobs") || (process.env.CI ? "1" : String(Math.min(4, os.cpus().length || 1)));
+if (!/^[1-9]\d?$/.test(JOBS_ARG)) {
+  console.error(`Invalid --jobs: ${JOBS_ARG} (use a number from 1 to 99)`);
+  process.exit(2);
+}
+const JOBS = REAL ? 1 : +JOBS_ARG;
 // Browsers: Chrome and Edge are the installed apps (Playwright channels), Safari is Playwright's
 // WebKit build (the engine of Safari; real Safari cannot be automated by Playwright), Firefox is
 // Playwright's Firefox build.
@@ -1287,23 +1297,24 @@ test("CHP-14 ERR-07 loading error: status line and popup with request, status an
 });
 
 test("CHP-18 outdated genre failure is dropped: another chip, another source selection", async (t) => {
-  const failLate = () => t.player.state.overrides.push({ match: /[?&]genre=/, status: 500, delay: 2000, times: 1 });
-  failLate();
+  let late = t.player.state.hold(/[?&]genre=/, 500);
   await t.chip(TD.GEN_ONE);
-  await t.settle(100);
+  await late.asked();
   await t.chip("New");
   await t.waitMsg(/recently added/);
-  await t.settle(2500);
+  await late.release();
+  await t.settle(300);
   ok(/recently added/.test(await t.msg()), "status line of New");
   eq(await t.page.$("#apidlg[open]"), null, "no error popup over New");
   // the same genre again after the sources were opened again: the first request is outdated
-  failLate();
+  late = t.player.state.hold(/[?&]genre=/, 500);
   await t.chip(TD.GEN_ONE);
-  await t.settle(100);
+  await late.asked();
   await t.page.evaluate(() => openSources());
   await t.chip(TD.GEN_ONE);
   await t.waitMsg(/^\d+ albums?$/);
-  await t.settle(2500);
+  await late.release();
+  await t.settle(300);
   ok(/^\d+ albums?$/.test(await t.msg()), "status line of the genre");
   eq(await t.page.$("#apidlg[open]"), null, "no error popup over the new selection");
 });
@@ -1311,12 +1322,13 @@ test("CHP-18 outdated genre failure is dropped: another chip, another source sel
 test("CHP-19 outdated failure is dropped: All, favourite state of an artist; a current failure stays", async (t) => {
   const artist = await t.page.evaluate(() => shown[0].a);
   const leave = async (match, start) => {
-    t.player.state.overrides.push({ match, status: 500, delay: 2000, times: 1 });
+    const late = t.player.state.hold(match, 500);
     await start();
-    await t.settle(100);
+    await late.asked();
     await t.chip("New");
     await t.waitMsg(/recently added/);
-    await t.settle(2500);
+    await late.release();
+    await t.settle(300);
     ok(/recently added/.test(await t.msg()), "status line of New: " + match);
     eq(await t.page.$("#apidlg[open]"), null, "no error popup over New: " + match);
   };
@@ -1333,19 +1345,21 @@ test("CHP-19 outdated failure is dropped: All, favourite state of an artist; a c
 });
 
 test("CHP-20 another source selection: late answer and failure of the previous one are dropped", async (t) => {
-  t.player.state.overrides.push({ match: /category=FAVOURITES/, status: 500, delay: 2000, times: 1 });
+  let late = t.player.state.hold(/category=FAVOURITES/, 500);
   await t.chip("Favourites");
-  await t.settle(100);
+  await late.asked();
   await t.page.evaluate(() => openSources());
   await t.waitMsg(/in favourites/);
-  await t.settle(2500);
+  await late.release();
+  await t.settle(300);
   ok(/in favourites/.test(await t.msg()), "status line of the new selection");
   eq(await t.page.$("#apidlg[open]"), null, "no error popup over the new selection");
-  t.player.state.overrides.push({ match: /quality=cd/, delay: 2000, times: 1 });
+  late = t.player.state.hold(/quality=cd/);
   await t.chip("CD");
-  await t.settle(100);
+  await late.asked();
   await t.page.evaluate(() => openSources());
-  await t.settle(2500);
+  await late.release();
+  await t.settle(300);
   ok(!(await t.page.evaluate(() => "__q:cd" in cache)), "old list not cached for the new selection");
 });
 
@@ -2145,14 +2159,15 @@ test("POP-19 outdated failure of the album popup is dropped: track list, songs",
   // not openAlbumBy(): it waits until the requests of the album are done
   const open = (key) => t.page.evaluate((k) => void openAlbum(shown.find((x) => x.key === k)), key);
   for (const match of [/MG\/LocalMusic-Album/, /^\/library\/v1\/Songs/]) {
-    t.player.state.overrides.push({ match, status: 500, delay: 2000, times: 1 });
+    const late = t.player.state.hold(match, 500);
     await open(a);
-    await t.settle(100);
+    await late.asked();
     await t.page.click("#close");
     await open(b);
     await t.page.waitForSelector("#tracks li button");
     const n = await t.page.$$eval("#tracks li", (x) => x.length);
-    await t.settle(2500);
+    await late.release();
+    await t.settle(300);
     eq(await t.page.$("#apidlg[open]"), null, "no error popup over the other album");
     eq(await t.page.$$eval("#tracks li", (x) => x.length), n, "tracks of the other album stay");
     await t.page.click("#close");
@@ -2169,11 +2184,14 @@ test("POP-20 closed popup: late failure is dropped, an album opened at once stil
     [/^\/library\/v1\/Songs/, album],
     [/BluOS-Playlist/, playlist],
   ]) {
-    t.player.state.overrides.push({ match, status: 500, delay: 2000, times: 1 });
+    const late = t.player.state.hold(match, 500);
     await open();
-    await t.settle(100);
+    await late.asked();
     await t.page.click("#close");
-    await t.settle(2500);
+    await t.page.waitForFunction(() => !document.querySelector("#dlg").open);
+    await t.settle(50); // the close event follows
+    await late.release();
+    await t.settle(300);
     eq(await t.page.$("#apidlg[open]"), null, "no error popup after closing: " + match);
   }
   // the close event arrives after the next album was opened: it must not cancel that album
@@ -2647,15 +2665,16 @@ test("SRH-13 a view that finishes during a search waits until the search is clea
   ];
   await t.openSearch();
   for (const v of views) {
-    t.player.state.overrides.push({ match: v.match, status: v.status, delay: 2000, times: 1 });
+    const late = t.player.state.hold(v.match, v.status);
     await v.start();
-    await t.settle(100);
+    await late.asked();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
     await t.waitMsg(/ for /);
     const screen = async () => [await t.msg(), await t.page.$$eval("#grid .item", (x) => x.length)];
     const results = await screen();
-    await t.settle(2500);
+    await late.release();
+    await t.settle(300);
     eq(await screen(), results, "search results stay: " + v.match);
     eq(await t.page.$("#apidlg[open]"), null, "no popup over the search results: " + v.match);
     await t.page.fill("#q", "");
@@ -4852,7 +4871,7 @@ const NEEDS = {
 };
 async function runIn(key, list, real) {
   const { label } = BROWSERS[key];
-  console.log(`\n${label} · ${VP_ARG}`);
+  console.log(`\n${label} · ${VP_ARG}` + (JOBS > 1 ? ` · ${JOBS} tests at a time` : ""));
   let browser;
   try {
     browser = await BROWSERS[key].launch();
@@ -4863,12 +4882,12 @@ async function runIn(key, list, real) {
   let pass = 0,
     fail = 0,
     skip = 0;
-  for (const tc of list) {
+  const runTest = async (tc) => {
     const missing = REAL && (tc.opts.needs || []).map((n) => NEEDS[n]).find((n) => !n.ok());
     if (missing) {
       skip++;
       console.log(`  - ${tc.name} (skipped: ${missing.why})`);
-      continue;
+      return;
     }
     const t0 = Date.now();
     let t;
@@ -4897,7 +4916,12 @@ async function runIn(key, list, real) {
         await restoreState(real.get, real.saved);
       }
     }
-  }
+  };
+  const queue = [...list];
+  const worker = async () => {
+    while (queue.length) await runTest(queue.shift());
+  };
+  await Promise.all(Array.from({ length: JOBS }, worker));
   await browser.close();
   return { label, pass, fail, skip };
 }
@@ -4937,7 +4961,8 @@ if (process.argv.includes("--list")) {
     real = { get: src.get, orig, saved };
     TD = await buildTD(src.get);
   }
-  const results = [];
+  const results = [],
+    began = Date.now();
   try {
     for (const key of PICK) results.push(await runIn(key, list, real));
   } finally {
@@ -4950,5 +4975,7 @@ if (process.argv.includes("--list")) {
   console.log("");
   for (const r of results)
     console.log(`${r.label} · ${VP_ARG}: ${r.pass} passed, ${r.fail} failed` + (r.skip ? `, ${r.skip} skipped` : ""));
+  const took = Math.round((Date.now() - began) / 1000);
+  console.log(`Run time: ${Math.floor(took / 60)}:${String(took % 60).padStart(2, "0")} min`);
   process.exit(results.some((r) => r.fail) ? 1 : 0);
 })();
