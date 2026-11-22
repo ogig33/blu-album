@@ -1164,7 +1164,7 @@ All endpoints of this section answer on port 11000 like every other request. The
 General:
 - The root of every answer carries `id` (library: a fixed number, USB: `1`) and `service`, plus all filters passed as attributes.
 - `limit` and `start` are **ignored** with `section=`: a section always comes complete.
-- `sort=` (according to `/Services`: `alpha`, `recent`, `year`, `decade`, `artist`, `artistDate`) gives an empty answer for albums.
+- `sort=` (according to `/Services`: `alpha`, `recent`, `year`, `decade`, `artist`, `artistDate`) gives an empty answer for albums without `section`; `sort=decade` works with the section index (`section=all&length=1`, see [`/library/v1/Albums`](#get-libraryv1albums)).
 - **No compilation filter** (verified 2026-11-19, BluOS 4.18.18): `compilation=1`, `compilations=1`, `category=COMPILATIONS`, `type=compilation`, `albumartist=…` are ignored by `/library/v1/Albums` (without `section` an empty answer, with `section` all albums of the section). The `compilation` tag is only in `/library/v1/Songs` of one album (`album` + `artist`), not in the song lists by `section`. `/Services` and the library menu offer no compilation list either. Samplers are found only through their album artist (e.g. `artist=Various`), a convention of the library.
 - Paging: `<nextlink>` with the full URL of the next page.
 - **No genre per album** in any answer.
@@ -1189,13 +1189,14 @@ HTTP **302** to the same request under `/library/v1` on port 11004, e.g. `/Album
 ### `GET /library/v1/Albums`
 
 ```
-GET /library/v1/Albums?service=<svc>&section=<letter>&recent=1&category=FAVOURITES&quality=<hr|cd|mqa>&genre=<genre>&artist=<artist>&album=<album>&composer=<composer>&limit=<n>&start=<n>&sort=<sort>
+GET /library/v1/Albums?service=<svc>&section=<letter|all>&length=1&recent=1&category=FAVOURITES&quality=<hr|cd|mqa>&genre=<genre>&artist=<artist>&album=<album>&composer=<composer>&limit=<n>&start=<n>&sort=<sort>
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `service` | `LocalMusic` or the USB id |
-| `section` | alphabetic section, e.g. `A` – all albums of the section |
+| `section` | alphabetic section, e.g. `A` – all albums of the section; `all` with `length=1` = index of the sections |
+| `length` | `1` with `section=all`: only the sections with their album counts, no albums |
 | `recent` | `1` = newest albums (50 per page + `nextlink`) |
 | `category` | `FAVOURITES` = favourite albums, one request |
 | `quality` | `hr` (HD), `cd`, `mqa` – only together with `section` |
@@ -1204,7 +1205,7 @@ GET /library/v1/Albums?service=<svc>&section=<letter>&recent=1&category=FAVOURIT
 | `album` | with `artist`: one album including `cover` |
 | `composer` | albums with songs of the composer |
 | `limit`, `start` | ignored with `section` |
-| `sort` | gives an empty answer |
+| `sort` | gives an empty answer without `section`; `decade` with `section=all&length=1` = one section per decade |
 
 **Response format**
 
@@ -1220,6 +1221,18 @@ GET /library/v1/Albums?service=<svc>&section=<letter>&recent=1&category=FAVOURIT
       </album>
       <!-- one <album> per album of the section; isFavourite="1" on favourites -->
     </section>
+  </sections>
+</albums>
+```
+
+`section=all&length=1&sort=decade` (index, no albums; without `sort` one `section` per letter):
+
+```xml
+<albums length="1" section="all" sort="decade" id="37" service="LocalMusic">
+  <sections>
+    <section name="1940" length="2"></section>
+    <section name="1950" length="7"></section>
+    <!-- one <section> per decade that has albums -->
   </sections>
 </albums>
 ```
@@ -1270,7 +1283,8 @@ GET /library/v1/Albums?service=<svc>&section=<letter>&recent=1&category=FAVOURIT
 - Without a filter (or only `service`) the answer is empty.
 - Depending on the form the title is `title`, `alb` or the text of `album`.
 - Sample: `section=A` = 143 albums, 16.5 KB.
-- **Year** (verified, BluOS 4.18.18, 2026-11-19): `section`, `artist` and `album` + `artist` give `date="<year>"` (four digits) on every album with a year tag; an album without a year tag has no `date` attribute (its songs have no `<date>` either). `recent=1` and `category=FAVOURITES` give no year. One year per album: a sampler with discs of 2002 and 2001 answered `date="2002"`. The whole library (27 sections, 1956 albums) is 227 KB; library and USB answer alike. Albums sorted or grouped by decade with an index per decade: [`/ui/browseGrouped`](#get-uibrowsegrouped) with `sort=decade`.
+- **Year** (verified, BluOS 4.18.18, 2026-11-19): `section`, `artist` and `album` + `artist` give `date="<year>"` (four digits) on every album with a year tag; an album without a year tag has no `date` attribute (its songs have no `<date>` either). `recent=1` and `category=FAVOURITES` give no year. One year per album: a sampler with discs of 2002 and 2001 answered `date="2002"`. The whole library (27 sections, 1956 albums) is 227 KB; library and USB answer alike. Albums sorted or grouped by decade with an index per decade: [`/ui/browseGrouped`](#get-uibrowsegrouped) with `sort=decade`; the index alone: `section=all&length=1&sort=decade`.
+- **Section index** (verified, BluOS 4.18.18, 2026-11-22): `section=all&length=1` answers the non-empty sections with `length` = number of albums and no albums (1.3 KB for 27 sections). With `sort=decade` the section names are decades (`1970`, 567 B for 9 decades) and the counts equal the `date` years of the letter sections; albums without a year tag are in no decade (USB: 19 of 20 albums). Library and USB answer alike. `section=all` and `length` are not in `/Services`.
 
 ### `GET /library/v1/Artists`
 

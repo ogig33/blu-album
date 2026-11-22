@@ -2463,8 +2463,8 @@ async function openSources() {
 // Chip label of a decade: "1980" -> "80s"; the full decade when two decades share the short form (1920s, 2020s).
 const decLabel = (k, all) => (all.filter((x) => x.slice(2) === k.slice(2)).length > 1 ? k : k.slice(2)) + "s";
 // Decade chips (setting, off by default), behind a separator after the quality chips: the decades of the
-// player's album list sorted by decade (/ui/browseGrouped with sort=decade inside url, Bruno E35: one index
-// entry per decade, albums without a year left out), 1 request per source; decades of all sources combined.
+// player's decade index (/library/v1/Albums with section=all&length=1&sort=decade, Bruno E41 / E42: one section
+// per decade, albums without a year left out), 1 request per source; decades of all sources combined.
 async function decadeChips() {
   if ($("#dsw").getAttribute("aria-checked") !== "true" || dcCtx === ctx()) return;
   const on = srcs.filter((x) => x.albumsKey);
@@ -2472,9 +2472,8 @@ async function decadeChips() {
   const mine = dcCtx = ctx();
   try {
     const lists = await Promise.all(on.map(async (x) => {
-      const s = encodeURIComponent(x.svc);
-      const d = await api("/ui/browseGrouped?browseIndex=1&menuGroupId=" + s + "&service=" + s + "&title=Albums&type=Album&url=" + encodeURIComponent("/library/v1/Albums?service=" + x.svc + "&sort=decade"));
-      return [...d.querySelectorAll("index > item")].map((i) => attr(i, "key")).filter((k) => /^\d{4}$/.test(k));
+      const d = await api("/library/v1/Albums?service=" + encodeURIComponent(x.svc) + "&section=all&length=1&sort=decade");
+      return [...d.querySelectorAll("sections > section")].map((s) => attr(s, "name")).filter((k) => /^\d{4}$/.test(k));
     }));
     const gap = $("#az .gap");
     if (mine !== ctx() || !gap) return;

@@ -178,7 +178,7 @@ async function buildTD(get) {
       if (svc === D.LIB && !D.ALL && a.length) D.ALL = a;
     }
   D.ALL = D.ALL || [];
-  // TD-DEC: decades of the album lists sorted by decade (index of /ui/browseGrouped per source with album
+  // TD-DEC: decades of the decade index (/library/v1/Albums section=all&length=1&sort=decade per source with album
   // sections, union sorted like the app); TD-YEARS: albums with a year of every filled section of every source
   // (/library/v1/Albums without a filter) as {t, y}
   D.DEC = [];
@@ -186,11 +186,8 @@ async function buildTD(get) {
   for (const svc of D.SVC) {
     if (!D.SECS[svc].length) continue;
     const ix =
-      (await get(
-        `/ui/browseGrouped?browseIndex=1&menuGroupId=${svc}&service=${svc}&title=Albums&type=Album&url=` +
-          encodeURIComponent(`/library/v1/Albums?service=${svc}&sort=decade`),
-      )) || "";
-    D.DEC.push(...[...ix.matchAll(/<item key="(\d{4})" offset=/g)].map((m) => m[1]));
+      (await get(`/library/v1/Albums?service=${encodeURIComponent(svc)}&section=all&length=1&sort=decade`)) || "";
+    D.DEC.push(...[...ix.matchAll(/<section name="(\d{4})" length=/g)].map((m) => m[1]));
     for (const sec of D.SECS[svc].filter((x) => x.text2 !== "0")) {
       const x =
         (await get(
@@ -1264,10 +1261,10 @@ test("CHP-14 ERR-07 loading error: status line and popup with request, status an
 
 // Chip label of a decade like the app: "1980" -> "80s", the full decade when two decades share the short form
 const decLabel = (k) => (TD.DEC.filter((x) => x.slice(2) === k.slice(2)).length > 1 ? k : k.slice(2)) + "s";
-const decadeReqs = (t) => t.reqs(/^\/ui\/browseGrouped\?.*sort=decade/);
+const decadeReqs = (t) => t.reqs(/^\/library\/v1\/Albums\?.*section=all&length=1&sort=decade$/);
 // Section requests without a filter (the years of the decade chips)
 const yearReqs = (t) =>
-  t.reqs(/^\/library\/v1\/Albums\?/).filter((r) => /[?&]section=/.test(r) && !/[?&]quality=/.test(r));
+  t.reqs(/^\/library\/v1\/Albums\?/).filter((r) => /[?&]section=/.test(r) && !/[?&](quality|sort)=/.test(r));
 
 test(
   "CHP-15 SET-02 quality, decade and genre chips are off by default: special chips and Playlists, no decade request",
@@ -1300,6 +1297,7 @@ test(
     await t.page.click("#dsw");
     await t.page.waitForSelector("#az .dc");
     eq(decadeReqs(t).length, TD.SVC.filter((s) => TD.SECS[s].length).length, "one decade index request per source");
+    eq(t.reqs(/^\/ui\//), [], "no /ui request (endpoints of the BluOS Controller app)");
     const c = await t.$$text("#az button");
     const lead = await t.page.evaluate(() => QUALITIES.map((q) => q[1]));
     const at = c.indexOf(lead[lead.length - 1]) + 1;

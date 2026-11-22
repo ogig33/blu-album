@@ -225,6 +225,7 @@ function createPlayer(opts = {}) {
       if (svc === USB) return fx("15");
       return q.get("section") === "A" ? fx("13") : "<albums><sections></sections></albums>";
     }
+    if (q.get("section") === "all" && q.get("length") === "1" && q.get("sort") === "decade") return decadeIndex(svc);
     if (q.get("section")) return yearSection(svc, q.get("section"));
     return "<albums></albums>";
   };
@@ -238,26 +239,17 @@ function createPlayer(opts = {}) {
     );
     return `<albums limit="500" section="${sec}" service="${USB}"><sections>${sec === "S" ? `<section name="S">${albums.join("")}</section>` : ""}</sections></albums>`;
   };
-  // Album list of a source sorted by decade (/ui/browseGrouped, url with sort=decade, Bruno E35): only the index is
-  // answered, one entry per decade counted from the years of yearSection(); albums without a year are left out.
-  const decadeIndex = (q) => {
-    const inner = new URL("http://x" + (q.get("url") || "")).searchParams,
-      svc = inner.get("service");
-    if (inner.get("sort") !== "decade") return "<screen></screen>";
+  // Decade index of a source (section=all&length=1&sort=decade, Bruno E41 / E42): no albums, one section per
+  // decade counted from the years of yearSection(); albums without a year are left out.
+  const decadeIndex = (svc) => {
     const counts = {};
     for (const m of yearSection(svc, svc === USB ? "S" : "A").matchAll(/<album [^>]*date="(\d{4})"/g)) {
       const k = m[1].slice(0, 3) + "0";
       counts[k] = (counts[k] || 0) + 1;
     }
-    let off = 0;
-    const idx = Object.keys(counts)
-      .sort()
-      .map((k) => {
-        const it = `<item key="${k}" offset="${off}" length="${counts[k]}"></item>`;
-        off += counts[k];
-        return it;
-      });
-    return `<screen screenTitle="Albums" service="${svc}"><list offset="0" total="${off}"><index revision="1">${idx.join("")}</index></list></screen>`;
+    const decades = Object.keys(counts).sort();
+    const secs = decades.map((k) => `<section name="${k}" length="${counts[k]}"></section>`).join("");
+    return `<albums length="1" section="all" sort="decade" service="${svc}"><sections>${secs}</sections></albums>`;
   };
   // Generated queue (state.queueSize songs), the part start..end as the player pages it
   const genQueue = (q) => {
@@ -293,7 +285,6 @@ function createPlayer(opts = {}) {
       return { type: "image/png", body: PNG };
     if (p === "/Browse") return browse(q.get("key"), lang);
     if (p === "/library/v1/Albums") return library(q);
-    if (p === "/ui/browseGrouped") return decadeIndex(q);
     if (p === "/library/v1/Songs") {
       let x = q.get("service") === USB ? fx("26") : discSongs(fx("25"));
       for (const [t, ar] of Object.entries(state.songArtists))

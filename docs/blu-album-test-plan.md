@@ -106,7 +106,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | TD-NEW | `/library/v1/Albums?recent=1` per source (11, 14) | Recently added albums, newest first, at most 200 per source |
 | TD-FAV | `/library/v1/Albums?category=FAVOURITES` (12) | Favourite albums of the library; USB has none |
 | TD-QCD | Quality lists (13, 15) | Albums in CD quality per section (only counted through the requests) |
-| TD-DEC | Decade index per source (mock: counted from TD-YEARS) | Decades of `/ui/browseGrouped` with `sort=decade` (keys like `1980`), union of the sources, sorted; chip label "80s" (full decade when two share the short form) |
+| TD-DEC | Decade index per source (mock: counted from TD-YEARS) | Decades of `/library/v1/Albums` with `section=all&length=1&sort=decade` (section names like `1980`), union of the sources, sorted; chip label "80s" (full decade when two share the short form) |
 | TD-YEARS | `/library/v1/Albums` per filled section without a filter (13; mock: section A of the library, `USB_YEARS` in USB section S) | Albums with a year (`date`) of every source as {title, year} |
 | TD-PL | Saved playlists (16) | Saved playlists with name, cover (`image`), browse key and play URL (`/Load…`) |
 | TD-PL-TRK | Track list of the first playlist of TD-PL (28; the mock adds a second page) | Tracks of every page (`nextKey`) with `text`, `text2` ("artist • album"), `duration`, `autoplayURL` (or `playURL` on later pages) |
@@ -176,8 +176,8 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | CHP-12 | Outdated result is dropped | Click All, click New before All has finished | Grid and status line show New; the late All result does not replace it; All loading stops | – | Auto |
 | CHP-13 | Selecting a chip clears the search | Search, then click a chip | Search field empty, chip pressed, its view shown | read | Auto |
 | CHP-14 | Loading error | Mock answers HTTP 500 for the view | Status line "Loading failed: Player responded with 500" in red; popup "Loading the albums did not succeed" with request, HTTP 500 and the answer | – | Auto |
-| CHP-15 | Default chip switches | Fresh profile (app defaults), connect, open the settings | Quality, Decades, Genres off (no switch for Playlists); visible chips: All, Favourites, New, Playlists; no `/ui/browseGrouped` request | read | Auto |
-| CHP-16 | Decade chips switched on | Switch "Decade chips" on | One request per source with album sections (`/ui/browseGrouped…url=…sort=decade`); chips of TD-DEC behind a separator after the quality chips, tooltip "Albums from the 1980s"; no album request yet; switched off → hidden; stored, built again after reload + connect | read | Auto |
+| CHP-15 | Default chip switches | Fresh profile (app defaults), connect, open the settings | Quality, Decades, Genres off (no switch for Playlists); visible chips: All, Favourites, New, Playlists; no decade index request | read | Auto |
+| CHP-16 | Decade chips switched on | Switch "Decade chips" on | One request per source with album sections (`/library/v1/Albums?service=<svc>&section=all&length=1&sort=decade`), no `/ui` request; chips of TD-DEC behind a separator after the quality chips, tooltip "Albums from the 1980s"; no album request yet; switched off → hidden; stored, built again after reload + connect | read | Auto |
 | CHP-17 | Decade | Decade chips on, click the first decade of TD-DEC, then the last | One request per filled section of TD-SEC per source (`limit=500&section=…`, no filter), at most 6 in parallel; tiles = TD-YEARS of that decade; status "N albums from the 1980s"; second decade sends no request | read | Auto |
 
 ### 4.4 Album grid (GRD)
