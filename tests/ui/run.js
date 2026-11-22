@@ -2195,9 +2195,12 @@ test("POP-20 closed popup: late failure is dropped, an album opened at once stil
     const late = t.player.state.hold(match, 500);
     await open();
     await late.asked();
+    await t.page.evaluate(() => {
+      window.__closed = false;
+      document.querySelector("#dlg").addEventListener("close", () => (window.__closed = true), { once: true });
+    });
     await t.page.click("#close");
-    await t.page.waitForFunction(() => !document.querySelector("#dlg").open);
-    await t.settle(50); // the close event follows
+    await t.page.waitForFunction(() => window.__closed); // not a fixed wait: the event can come late
     await late.release();
     await t.settle(300);
     eq(await t.page.$("#apidlg[open]"), null, "no error popup after closing: " + match);
