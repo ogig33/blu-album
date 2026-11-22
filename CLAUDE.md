@@ -104,6 +104,7 @@ Do not build these; when asked, point to the alternative.
 - **The heart re-reads the album context menu** after toggling a favourite (1 request) – without it the next click would use a self-built URL.
 - **No player status text** (e.g. paused, streaming): niche, not essential. The play / pause button still reflects the state.
 - **Do not use /ui endpoints:** these endpoints are specific to BluOS Controller app and too risky for other clients
+- **No "Recently played" chip:** the only source found for this list is `/ui/RecentlyPlayed` (see the rule above; checked 2026-11-22 with BluOS 4.18.18), the "Recent" album sort means recently added (same as New); no own history in localStorage either, it would miss what other clients play.
 - **No default IP address** in the app.
 - **No song title search area:** the search's songs list has no link to the album of a song (no browse key, no "Go to album" in the song context menu); the album would need a self-built URL, which fails for samplers (the song carries the track artist, not the album artist).
 - **No album artist search:** the player's search does not match the album artist (see pitfalls). Finding album artists would need the whole artists list of the library (one request per section, about 25) and a match in the app, plus 2 requests per artist found; not wanted. The Artist search area finds track artists only; a compilation is found by the artist of one of its tracks, not by its album artist (e.g. "Various").
