@@ -10,15 +10,15 @@
 - Focus on music albums: album art is the visual navigation; show covers in the highest quality possible.
 - Expects a tagged music library with cover art.
 - Owner: Ingmar Gebert. MIT licence. Repository: `blu-album`.
-- Independent project, not affiliated with Lenbrook / Bluesound (notice only in the README – keep it; not in the file header or the about popup).
+- Independent project, not affiliated with Lenbrook / Bluesound (no need to mention in README, file header or the about popup).
 - Owner's test setup: Bluesound Powernode, BluOS 4.18.18, API v0.5.43, library on a network share plus a USB drive. Main browser: Safari on macOS; Chrome as second browser.
 
 ## Not in scope
 
 Do not build these; when asked, point to the alternative.
 
-- Streaming services – the native apps' "Connect" option supports them well.
-- Radio, input switching, presets – not following the album concept.
+- Streaming services – the native apps' "Connect" option provide better user interface options
+- Radio, input switching, presets – different music consumption compared to albums
 - Artist / composer browser – use search instead; browsing is not appealing without pictures.
 - Song browser – use search instead; any meaningful library has too many songs to browse.
 - Folder browser – BluAlbum expects a tagged library.
@@ -43,31 +43,42 @@ Do not build these; when asked, point to the alternative.
 - **Thin server architecture.** The player acts as the server and only provides the API; all app logic runs in the browser.
 - **One file.** All app components (HTML, CSS, JavaScript, SVG icons) are embedded in one HTML file.
 - **No dependencies.** Do not add libraries or packages to BluAlbum (supply chain and vulnerability risk).
-- **Modular code structure.** Structure the code so that features reuse shared functions as much as possible.
+- **Lean and Modular code structure.** Structure the code so that features reuse shared functions as much as possible.
 - **One implementation per feature.** No second implementation as a fallback. Only the variant verified against the real player (Bruno) is implemented.
 - **Avoid hard-coding.** Derive as much of the app logic as possible from API answers, e.g. source names, play / action URLs, quality. Accepted exceptions are the configuration constants (see "Code conventions").
 - **Avoid self-built API URLs.** Play / queue / favourite URLs come from `/Browse`; the only exception are the `/library/v1` lists (New, Favourites, quality, decades, genres), built by the fixed pattern in `libAlbum()`.
 - **Store changes at the player.** Favourites, playlists and every other change the player supports are stored there, so they persist across sessions and are visible in other player clients. localStorage only for conveniences (see "Code conventions").
 - **Expose API errors.** Show failed player requests to the user (network error, HTTP status other than 200, `<e>` answer) with the endpoint URL and the error answer. Exceptions: expected failures – `/audioPreset` on players without listening modes, status polling (aborted or retried), missing covers, statistic lists that are not available.
+- **Check layout changes in Safari** as well (see "Known pitfalls").
+
+## Documentation
+
 - **English is the main language.** UI and project documents (README, CHANGELOG, `docs/`, test READMEs, Bruno and code comments) are in English.
 - **No hard wraps in Markdown.** Each paragraph and list item is one line; line breaks only between blocks.
-- **Check layout changes in Safari** as well (see "Known pitfalls").
+- **Keep wording short** - precise, wording, avoid lengthy explanations, restrict examples to absolute minimum
+- **Keep documentation up-to-date** - any change with impact on docs must be reflected there 
+  - BluOS API reference `docs/bluos-api.md`.
+  - BluAlbum API usage `docs/blu-album-api-usage.md`.
+  - BluAlbum music library end user guidance `docs/blu-album-library-guidance.md`
+  - BluAlbum test case in `docs/blu-album-test-plan.md`.
 
 ## Tests and workflow
 
 - Workflow for a change:
-  - Verify unknown API behaviour in Bruno (`tests/api`) and add it to `docs/bluos-api.md` if not yet documented.
+  - analyze change using materials in "where to look" section
+  - Verify unknown API behaviour in Bruno (`tests/api`)
   - Adapt or add the UI test (and `tests/ui/mock-player.js`).
   - Change the code → all UI tests green (`npm test` in `tests/ui`).
-  - Add or update the test case in `docs/blu-album-test-plan.md`.
   - CHANGELOG line (only for changes of the app).
 - After a firmware update:
   - Run the whole Bruno collection, environment "Home" (details in `tests/api/README.md`).
   - Fixtures with personal data stay in `tests/api/fixtures/` (git-ignored); copy them with `tests/tools/sanitize-fixtures.js`.
   - Find new endpoints with `node tests/tools/crawl-endpoints.js <player IP>` (read-only, compares with `docs/bluos-api.md`); verify each finding in Bruno before documenting it.
-- UI tests must not assume a window size (use `VIEWPORT`).
-- UI test browsers: locally only Chrome and Safari (WebKit), the default of `npm test`; GitHub Actions runs Safari, Chrome, Edge and Firefox (Edge and Firefox are not installed on the owner's Mac).
-- Lint (ESLint) and format (Prettier, test scripts only; `blualbum.html` keeps its compact style) run **only on GitHub**; the owner does not run them locally.
+- Test methodology:
+  - UI tests must not assume a window size (use `VIEWPORT`).
+  - UI test browsers: locally only Chrome and Safari (WebKit), the default of `npm test`; GitHub Actions runs Safari, Chrome, Edge and Firefox (Edge and Firefox are not installed on the owner's Mac).
+  - Lint (ESLint) and format (Prettier, test scripts only; `blualbum.html` keeps its compact style) run **only on GitHub**; the owner does not run them locally.
+
 
 ## Git and publishing
 
