@@ -2139,11 +2139,12 @@ let pollId = 0, pollCtl = null;
 // Queue panel: open (pinned), playlist id (pid), current song index, request counter,
 // qDragEnd: time (ms) a drag in the queue ended (the click that follows a drag is ignored).
 let qOpen = false, qPid = "", qSong = "", qSeq = 0, qDragEnd = 0;
-// Album popup: only the newest opened album may fill the popup. popCache: album key -> [track list
+// Album popup: only the newest opened album may fill the popup, none after it was closed. popCache: album key -> [track list
 // (/Browse), songs (/library/v1/Songs)] of albums opened in this session.
 let dlgSeq = 0, popCache = {};
 // Search: only the newest search may update the grid; timer for search-as-you-type.
-let searchSeq = 0, searchTimer = 0;
+// searching: search results are shown; viewHeld: what the view would have shown meanwhile (see viewOut()).
+let searchSeq = 0, searchTimer = 0, searching = false, viewHeld = null;
 // Room name of the player (settings panel, browser tab title).
 let playerName = "";
 // Listening mode (footer tag): syncStat of /Status it was read for, request counter.
@@ -2178,6 +2179,13 @@ function resetLibrary() {
   activeBtn = null;
   activeKey = "";
   shown = [];
+  endSearch();
+}
+// Drops a running search and what the view held back during it.
+function endSearch() {
+  searchSeq++;
+  searching = false;
+  viewHeld = null;
 }
 // Identifies the current player + source selection; compare before writing async results.
 const ctx = () => base + "|" + epoch;
@@ -2604,28 +2612,40 @@ const genreAlbumsAll = async (name) => joinSources(await Promise.all(srcs.map((x
 // What the chips show: genre, All, New, Favourites, quality, decade, artist.
 
 // Marks `btn` as the selected chip and makes `key` the active view.
-// Bumping searchSeq cancels a search that is still running.
 function selectView(key, btn) {
   document.querySelectorAll("#az button").forEach((b) => b.setAttribute("aria-pressed", b === btn));
   activeKey = key;
   activeBtn = btn;
   $("#q").value = "";
-  searchSeq++;
+  endSearch();
 }
+// Everything a view shows after a request goes through viewOut(): dropped when the view or the source selection
+// changed (key, mine = ctx() at its start), held back while search results are shown (search() shows it on clearing).
+function viewOut(key, mine, show) {
+  if (key !== activeKey || mine !== ctx()) return;
+  if (searching) viewHeld = show;
+  else show();
+}
+// The result of a view: its albums and the status line.
+function showView(list, text) {
+  shown = list;
+  render(shown);
+  msg(text);
+}
+// A view that could not be loaded.
+const viewFailed = (key, mine, e) => viewOut(key, mine, () => loadFailed("Loading failed: ", "Loading the albums did not succeed", e));
 // Shows the albums of one genre.
 async function loadGenre(name, btn) {
+  const mine = ctx();
   selectView(name, btn);
   try {
     if (!cache[name]) {
       msg("Loading albums \u2026");
       cache[name] = await genreAlbumsAll(name);
     }
-    if (name !== activeKey) return;
-    shown = cache[name];
-    render(shown);
-    msg(nAlb(shown.length));
+    viewOut(name, mine, () => showView(cache[name], nAlb(cache[name].length)));
   } catch (e) {
-    loadFailed("Loading failed: ", "Loading the albums did not succeed", e);
+    viewFailed(name, mine, e);
   }
 }
 // Loads every album of the source into cache.__all (3 sections in parallel).
@@ -2637,31 +2657,34 @@ async function ensureAll(tag, label) {
   // Sections of all sources (each source's albums come A-Z, the sources are joined and re-sorted)
   const lists = await Promise.all(srcs.filter((x) => x.albumsKey).map(filledSections));
   const secs = lists.flat(), parts = [], q = secs.map((x, i) => i);
-  let n = 0;
+  let n = 0, failed = false;
   const worker = async () => {
     while (q.length && mine === ctx() && activeKey === tag) {
       const i = q.shift();
       parts[i] = await fetchAlbums(attr(secs[i], "browseKey"));
       n++;
-      if (activeKey === tag) msg(label + " \u2026 " + n + "/" + secs.length);
+      const text = label + " \u2026 " + n + "/" + secs.length;
+      if (!failed) viewOut(tag, mine, () => msg(text));
     }
   };
-  await Promise.all([worker(), worker(), worker()]);
+  await Promise.all([worker(), worker(), worker()]).catch((e) => {
+    failed = true;
+    q.length = 0; // no further sections, no progress over the error
+    throw e;
+  });
   if (mine !== ctx() || activeKey !== tag) return false;
   cache.__all = srcs.length > 1 ? [].concat(...parts).sort((x, y) => x.t.localeCompare(y.t)) : [].concat(...parts);
   return true;
 }
 // "All" chip.
 async function loadAllAlbums(btn) {
+  const mine = ctx();
   selectView("__all", btn);
   try {
     if (!await ensureAll("__all", "Loading all albums")) return;
-    if (activeKey !== "__all") return;
-    shown = cache.__all;
-    render(shown);
-    msg(nAlb(shown.length));
+    viewOut("__all", mine, () => showView(cache.__all, nAlb(cache.__all.length)));
   } catch (e) {
-    loadFailed("Loading failed: ", "Loading the albums did not succeed", e);
+    viewFailed("__all", mine, e);
   }
 }
 // Shared loader for the "New", "Favourites" and quality chips. sectioned = use libSectionAlbums.
@@ -2677,13 +2700,11 @@ async function loadLibView(key, btn, filter, max, label, done, empty, sectioned)
     // the other lists are joined A-Z.
     const per = (x) => sectioned ? libSectionAlbums(x, filter) : libAlbums(x.svc, filter, max);
     const lists = sectioned && cache[key] ? null : await Promise.all(srcs.map(per));
+    if (mine !== ctx()) return; // not into the cache of another source selection
     const list = sectioned ? cache[key] || (cache[key] = joinSources(lists)) : key === "__new" ? lists.flat() : joinSources(lists);
-    if (activeKey !== key || mine !== ctx()) return;
-    shown = list;
-    render(shown);
-    msg(shown.length ? nAlb(shown.length) + " " + done : empty);
+    viewOut(key, mine, () => showView(list, list.length ? nAlb(list.length) + " " + done : empty));
   } catch (e) {
-    if (activeKey === key) loadFailed("Loading failed: ", "Loading the albums did not succeed", e);
+    viewFailed(key, mine, e);
   }
 }
 // "New" chip: the 200 most recently added albums, newest first.
@@ -2707,12 +2728,10 @@ async function loadDecade(dec, btn) {
       c.__years.catch(() => delete c.__years);
     }
     const all = await cache.__years;
-    if (activeKey !== key || mine !== ctx()) return;
-    shown = all.filter((a) => a.y.slice(0, 3) + "0" === dec);
-    render(shown);
-    msg(shown.length ? nAlb(shown.length) + " from the " + dec + "s" : "No albums from the " + dec + "s.");
+    const list = all.filter((a) => a.y.slice(0, 3) + "0" === dec);
+    viewOut(key, mine, () => showView(list, list.length ? nAlb(list.length) + " from the " + dec + "s" : "No albums from the " + dec + "s."));
   } catch (e) {
-    if (activeKey === key && mine === ctx()) loadFailed("Loading failed: ", "Loading the albums did not succeed", e);
+    viewFailed(key, mine, e);
   }
 }
 // Albums of an artist on one source: the artist's browse menu (key <svc>:MG/LocalMusic-Artist?artist=…)
@@ -2720,7 +2739,7 @@ async function loadDecade(dec, btn) {
 // This list does not mark favourites (Bruno E17), so for the library the player's favourites are read
 // in parallel (1 request) and the context menu of each favourite is read with &isFavourite=1, which
 // gives the player's URL for removing it (1 request per favourite of the artist).
-async function artistAlbums(x, name) {
+async function artistAlbums(x, name, report) {
   const favP = x.svc === SVC_LIBRARY ? libAlbums(x.svc, "category=FAVOURITES", 5000).catch(() => []) : null;
   const menu = items(await browse(x.svc + ":MG/LocalMusic-Artist?artist=" + formEnc(name)));
   const link = menu.find((i) => attr(i, "type") === "link" && /:Album\//.test(attr(i, "browseKey")));
@@ -2730,7 +2749,7 @@ async function artistAlbums(x, name) {
   await Promise.all(albums.filter((a) => a.cm && favs.has(a.t + "\n" + a.a) && !/[?&]isFavourite=1/.test(a.cm)).map(async (a) => {
     const cm = a.cm;
     a.cm += "&isFavourite=1";
-    if (!await refreshFav(a)) a.cm = cm;
+    if (!await refreshFav(a, report)) a.cm = cm;
   }));
   return albums;
 }
@@ -2740,19 +2759,21 @@ async function showArtist(name) {
   const key = "artist:" + name, mine = ctx();
   selectView(key, null);
   scrollTo(0, 0);
+  let favFailed = null; // an unreadable favourite state is reported with the view
   try {
     if (!cache[key]) {
       msg("Loading albums by " + name + " …");
-      const list = joinSources(await Promise.all(srcs.map((x) => artistAlbums(x, name))));
+      const report = (...args) => favFailed = args;
+      const list = joinSources(await Promise.all(srcs.map((x) => artistAlbums(x, name, report))));
       if (mine !== ctx()) return;
       cache[key] = list;
     }
-    if (activeKey !== key) return;
-    shown = cache[key];
-    render(shown);
-    msg(nAlb(shown.length) + " by " + name);
+    viewOut(key, mine, () => {
+      showView(cache[key], nAlb(cache[key].length) + " by " + name);
+      if (favFailed) apiFail(...favFailed);
+    });
   } catch (e) {
-    if (activeKey === key) loadFailed("Loading failed: ", "Loading the albums did not succeed", e);
+    viewFailed(key, mine, e);
   }
 }
 // The artists of an album artist: a comma separates several artists (e.g. "Harold Budd, Brian Eno").
@@ -3053,8 +3074,8 @@ const repaintCoverHeart = (a) => {
   const b = coverHearts.get(a);
   if (b) paintHeart(b, a);
 };
-// Fetches the album's context menu again (current state + URL for the opposite action).
-async function refreshFav(a) {
+// Fetches the album's context menu again (current state + URL for the opposite action); report: shows a failure.
+async function refreshFav(a, report = apiFail) {
   if (!a.cm) return false;
   try {
     const m = {};
@@ -3068,7 +3089,7 @@ async function refreshFav(a) {
     repaintCoverHeart(a);
     return true;
   } catch (e) {
-    apiFail("Reading the favourite state did not succeed", e);
+    report("Reading the favourite state did not succeed", e);
     return false;
   }
 }
@@ -3132,7 +3153,7 @@ async function openAlbum(a) {
     const [bd, sd] = popCache[a.key] || await Promise.all([
       browse(a.key, "", false),
       api("/library/v1/Songs?service=" + svc + "&" + q).catch((e) => {
-        apiFail("Loading the album details did not succeed", e);
+        if (seq === dlgSeq) apiFail("Loading the album details did not succeed", e);
         return null;
       })
     ]);
@@ -3166,6 +3187,7 @@ async function openAlbum(a) {
       ol.append(trackItem(parts[k][1] || "", parts[k][2], ar !== a.a ? ar : "", +attr(i, "duration"), attr(i, "autoplayURL") || attr(i, "playURL")));
     });
   } catch (e) {
+    if (seq !== dlgSeq) return;
     ol.innerHTML = "";
     apiFail("Loading the tracks did not succeed", e);
   }
@@ -3283,7 +3305,7 @@ async function loadPlaylists() {
     playlists = list;
     renderLib();
     renderPlChip();
-    if (changed && activeKey === "__pl") showPlaylists();
+    if (changed && activeKey === "__pl" && !searching) showPlaylists(); // clearing a search shows them as well
   } catch (e) {
     if (seq === plSeq) apiFail("Loading the playlists did not succeed", e);
   }
@@ -3850,10 +3872,13 @@ async function search() {
   const v = $("#q").value.trim(), seq = ++searchSeq;
   const btns = document.querySelectorAll("#az button");
   if (!v) {
+    const held = viewHeld;
+    endSearch();
     btns.forEach((b) => b.setAttribute("aria-pressed", b === activeBtn));
     if (activeKey === "__pl") return showPlaylists();
     render(shown);
     msg(shown.length ? nAlb(shown.length) : "Select a genre.");
+    if (held) held();
     return;
   }
   if (v.length < SEARCH_MIN) {
@@ -3870,6 +3895,7 @@ async function search() {
     msg("Connect first \u2013 or the player offers no search.", true);
     return;
   }
+  searching = true;
   btns.forEach((b) => b.setAttribute("aria-pressed", "false"));
   msg("Searching \u2026");
   try {
@@ -4234,6 +4260,10 @@ $("#ip").onkeydown = (e) => {
   if (e.key === "Enter") connect();
 };
 $("#close").onclick = () => $("#dlg").close();
+// A closed popup drops what is still loading. The event comes late: not when the next album is open already.
+$("#dlg").addEventListener("close", () => {
+  if (!$("#dlg").open) dlgSeq++;
+});
 $("#dlg").onclick = (e) => {
   if (e.target === $("#dlg")) $("#dlg").close();
 };

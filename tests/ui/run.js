@@ -1286,6 +1286,69 @@ test("CHP-14 ERR-07 loading error: status line and popup with request, status an
   eq(p.b, "Test failure", "answer");
 });
 
+test("CHP-18 outdated genre failure is dropped: another chip, another source selection", async (t) => {
+  const failLate = () => t.player.state.overrides.push({ match: /[?&]genre=/, status: 500, delay: 2000, times: 1 });
+  failLate();
+  await t.chip(TD.GEN_ONE);
+  await t.settle(100);
+  await t.chip("New");
+  await t.waitMsg(/recently added/);
+  await t.settle(2500);
+  ok(/recently added/.test(await t.msg()), "status line of New");
+  eq(await t.page.$("#apidlg[open]"), null, "no error popup over New");
+  // the same genre again after the sources were opened again: the first request is outdated
+  failLate();
+  await t.chip(TD.GEN_ONE);
+  await t.settle(100);
+  await t.page.evaluate(() => openSources());
+  await t.chip(TD.GEN_ONE);
+  await t.waitMsg(/^\d+ albums?$/);
+  await t.settle(2500);
+  ok(/^\d+ albums?$/.test(await t.msg()), "status line of the genre");
+  eq(await t.page.$("#apidlg[open]"), null, "no error popup over the new selection");
+});
+
+test("CHP-19 outdated failure is dropped: All, favourite state of an artist; a current failure stays", async (t) => {
+  const artist = await t.page.evaluate(() => shown[0].a);
+  const leave = async (match, start) => {
+    t.player.state.overrides.push({ match, status: 500, delay: 2000, times: 1 });
+    await start();
+    await t.settle(100);
+    await t.chip("New");
+    await t.waitMsg(/recently added/);
+    await t.settle(2500);
+    ok(/recently added/.test(await t.msg()), "status line of New: " + match);
+    eq(await t.page.$("#apidlg[open]"), null, "no error popup over New: " + match);
+  };
+  await leave(/bySection:Album/, () => t.chip("All"));
+  await leave(/:S:Album\//, () => t.chip("All"));
+  await leave(/CM\/LocalMusic-Album/, () => t.page.evaluate((a) => void showArtist(a), artist));
+  // All still selected: the requests that still run must not write their progress over the error
+  t.player.state.overrides.push({ match: /:S:Album\//, status: 500, delay: 100, times: 1 });
+  t.player.state.overrides.push({ match: /:S:Album\//, delay: 300 });
+  await t.chip("All");
+  await t.page.waitForSelector("#apidlg[open]");
+  await t.settle(1500);
+  eq(await t.msg(), "Loading failed: Player responded with 500", "error of All stays");
+});
+
+test("CHP-20 another source selection: late answer and failure of the previous one are dropped", async (t) => {
+  t.player.state.overrides.push({ match: /category=FAVOURITES/, status: 500, delay: 2000, times: 1 });
+  await t.chip("Favourites");
+  await t.settle(100);
+  await t.page.evaluate(() => openSources());
+  await t.waitMsg(/in favourites/);
+  await t.settle(2500);
+  ok(/in favourites/.test(await t.msg()), "status line of the new selection");
+  eq(await t.page.$("#apidlg[open]"), null, "no error popup over the new selection");
+  t.player.state.overrides.push({ match: /quality=cd/, delay: 2000, times: 1 });
+  await t.chip("CD");
+  await t.settle(100);
+  await t.page.evaluate(() => openSources());
+  await t.settle(2500);
+  ok(!(await t.page.evaluate(() => "__q:cd" in cache)), "old list not cached for the new selection");
+});
+
 // Chip label of a decade like the app: "1980" -> "80s", the full decade when two decades share the short form
 const decLabel = (k) => (TD.DEC.filter((x) => x.slice(2) === k.slice(2)).length > 1 ? k : k.slice(2)) + "s";
 const decadeReqs = (t) => t.reqs(/^\/library\/v1\/Albums\?.*section=all&length=1&sort=decade$/);
@@ -2076,6 +2139,52 @@ test("POP-13 track list or songs fail", async (t) => {
   eq(await t.page.textContent("#dtech"), "", "no technical data");
 });
 
+test("POP-19 outdated failure of the album popup is dropped: track list, songs", async (t) => {
+  await t.all();
+  const [a, b] = TD.ALL.map((x) => x.browseKey);
+  // not openAlbumBy(): it waits until the requests of the album are done
+  const open = (key) => t.page.evaluate((k) => void openAlbum(shown.find((x) => x.key === k)), key);
+  for (const match of [/MG\/LocalMusic-Album/, /^\/library\/v1\/Songs/]) {
+    t.player.state.overrides.push({ match, status: 500, delay: 2000, times: 1 });
+    await open(a);
+    await t.settle(100);
+    await t.page.click("#close");
+    await open(b);
+    await t.page.waitForSelector("#tracks li button");
+    const n = await t.page.$$eval("#tracks li", (x) => x.length);
+    await t.settle(2500);
+    eq(await t.page.$("#apidlg[open]"), null, "no error popup over the other album");
+    eq(await t.page.$$eval("#tracks li", (x) => x.length), n, "tracks of the other album stay");
+    await t.page.click("#close");
+  }
+});
+
+test("POP-20 closed popup: late failure is dropped, an album opened at once still loads", async (t) => {
+  await t.all();
+  const [a, b] = TD.ALL.map((x) => x.browseKey);
+  const album = () => t.page.evaluate((k) => void openAlbum(shown.find((x) => x.key === k)), a);
+  const playlist = () => t.page.evaluate(() => void openAlbum(playlists[0]));
+  for (const [match, open] of [
+    [/MG\/LocalMusic-Album/, album],
+    [/^\/library\/v1\/Songs/, album],
+    [/BluOS-Playlist/, playlist],
+  ]) {
+    t.player.state.overrides.push({ match, status: 500, delay: 2000, times: 1 });
+    await open();
+    await t.settle(100);
+    await t.page.click("#close");
+    await t.settle(2500);
+    eq(await t.page.$("#apidlg[open]"), null, "no error popup after closing: " + match);
+  }
+  // the close event arrives after the next album was opened: it must not cancel that album
+  await album();
+  await t.page.evaluate((k) => {
+    document.querySelector("#dlg").close();
+    openAlbum(shown.find((x) => x.key === k));
+  }, b);
+  await t.page.waitForSelector("#tracks li button");
+});
+
 test("POP-14 open popup keeps the page behind it still", async (t) => {
   await t.all();
   // the page must be able to scroll, whatever the window size
@@ -2517,6 +2626,44 @@ test(
   },
   R,
 );
+
+test("SRH-13 a view that finishes during a search waits until the search is cleared", async (t) => {
+  const artist = await t.page.evaluate(() => shown[0].a);
+  const byArtist = () => t.page.evaluate((a) => void showArtist(a), artist);
+  const changedPlaylists = () =>
+    t.page.evaluate(() => {
+      playlists = playlists.slice(1);
+      document.querySelector("#az .plc").click();
+    });
+  const failed = "Loading failed: Player responded with 500";
+  const views = [
+    { match: /CM\/LocalMusic-Album/, start: byArtist, msg: / by /, status: 500, popup: "Reading the favourite state" },
+    { match: /[?&]genre=/, start: () => t.chip(TD.GEN_ONE), msg: /^\d+ albums?$/ },
+    { match: /quality=cd/, start: () => t.chip("CD"), msg: /in CD quality/ },
+    { match: /:S:Album\//, start: () => t.chip("All"), msg: /^\d+ albums?$/ },
+    { match: /recent=1/, start: () => t.chip("New"), msg: /recently added/ },
+    { match: /quality=hr/, start: () => t.chip("HD"), msg: failed, status: 500, popup: "Loading the albums" },
+    { match: /key=BluOS:$/, start: changedPlaylists, msg: /^\d+ playlists?$/ },
+  ];
+  await t.openSearch();
+  for (const v of views) {
+    t.player.state.overrides.push({ match: v.match, status: v.status, delay: 2000, times: 1 });
+    await v.start();
+    await t.settle(100);
+    await t.page.fill("#q", TD.TERM);
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(/ for /);
+    const screen = async () => [await t.msg(), await t.page.$$eval("#grid .item", (x) => x.length)];
+    const results = await screen();
+    await t.settle(2500);
+    eq(await screen(), results, "search results stay: " + v.match);
+    eq(await t.page.$("#apidlg[open]"), null, "no popup over the search results: " + v.match);
+    await t.page.fill("#q", "");
+    await t.waitMsg(v.msg);
+    if (v.popup) await t.apiPopup(v.popup + " did not succeed");
+    else ok((await t.page.$$eval("#grid .item", (x) => x.length)) > 1, "view after clearing: " + v.match);
+  }
+});
 
 // ---------- 4.9 Player footer (FTR) ----------
 test(

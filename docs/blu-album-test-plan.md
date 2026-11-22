@@ -18,12 +18,12 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 |---|---|---|---|---|---|
 | CON | 4.1 Connection & start | Start page, IP form, connect, errors, time limit, compact connection line, changing the player | 14 | 14 | 10 |
 | SRC | 4.2 Music sources | Source detection, one switch per source, stored per player | 6 | 6 | 3 |
-| CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results | 17 | 17 | 13 |
+| CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results | 20 | 20 | 13 |
 | GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons, status line | 11 | 11 | 8 |
 | FAV | 4.5 Favourites | Heart on the cover, toggling via the player, no local favourites | 6 | 6 | 5 |
 | ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache, one link per artist of several | 5 | 5 | 4 |
-| POP | 4.7 Album popup | Details, technical data, track list, playing a track, closing | 18 | 18 | 10 |
-| SRH | 4.8 Search | Player search, albums of found composers, groups by album title / artist / composer, search areas, search button, typing rules, empty field, errors | 12 | 12 | 4 |
+| POP | 4.7 Album popup | Details, technical data, track list, playing a track, closing | 20 | 20 | 10 |
+| SRH | 4.8 Search | Player search, albums of found composers, groups by album title / artist / composer, search areas, search button, typing rules, empty field, errors | 13 | 13 | 4 |
 | FTR | 4.9 Player footer | Now playing, quality tag, transport, progress, volume, listening mode, long polling | 18 | 18 | 10 |
 | FUL | 4.10 Full screen | Full-screen now playing view, background from the cover, full-size cover | 8 | 8 | 6 |
 | QUE | 4.11 Queue panel | Pinning, list, remove, reorder (drag and drop, keyboard), shuffle, repeat, save as playlist, clear | 18 | 18 | 16 |
@@ -34,7 +34,7 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 5 | 4 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 4 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **180** | **180** | **127** |
+| | | **Total** | **186** | **186** | **127** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -180,6 +180,9 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | CHP-15 | Default chip switches | Fresh profile (app defaults), connect, open the settings | Quality, Decades, Genres off (no switch for Playlists); visible chips: All, Favourites, New, Playlists; no decade index request | read | Auto |
 | CHP-16 | Decade chips switched on | Switch "Decade chips" on | One request per source with album sections (`/library/v1/Albums?service=<svc>&section=all&length=1&sort=decade`), no `/ui` request; chips of TD-DEC behind a separator after the quality chips, tooltip "Albums from the 1980s"; no album request yet; switched off → hidden; stored, built again after reload + connect | read | Auto |
 | CHP-17 | Decade | Decade chips on, click the first decade of TD-DEC, then the last | One request per source with album sections (`section=all`, no filter); tiles = TD-YEARS of that decade; status "N albums from the 1980s"; second decade sends no request | read | Auto |
+| CHP-18 | Outdated genre failure | Delayed HTTP 500 for a genre; meanwhile click New, or open the sources again and click the genre again | Current view and status line stay; no error popup | – | Auto |
+| CHP-19 | Outdated failure of All or an artist | Delayed HTTP 500 for All (sections, albums) or the favourite state of an artist; meanwhile click New. All failing while selected | New stays, no error popup. Selected All: the error stays in the status line | – | Auto |
+| CHP-20 | Outdated source selection | Delayed failure of Favourites or delayed answer of CD; meanwhile open the sources again | No error over the new selection; old list not in its cache | – | Auto |
 
 ### 4.4 Album grid (GRD)
 
@@ -240,6 +243,8 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | POP-14 | Page behind stays still | Page scrollable; popup open; mouse wheel over the backdrop and over the track list (also past its end) | Only the popup content scrolls; the page keeps its scroll position; after closing the page scrolls again | – | Auto |
 | POP-15 | Full-size cover | Open the popup of TD-ALB-LIB | Cover asked with `&width=3000&height=3000&followRedirects=1` (`COVER_FULL`); grid covers without a size | read | Auto |
 | POP-13 | Track list fails | Mock answers HTTP 500 for the album's `/Browse` | Empty list, popup "Loading the tracks did not succeed" with the `/Browse` request; songs missing (`/library/v1/Songs` fails) → popup "Loading the album details did not succeed", no year / technical data, tracks still shown | – | Auto |
+| POP-19 | Outdated popup failure | Delayed HTTP 500 for the track list or songs of album A; meanwhile open album B | Tracks of B stay; no error popup | – | Auto |
+| POP-20 | Closed popup | Delayed HTTP 500 for album tracks, songs or playlist tracks; close the popup. Close and open another album at once | No error popup; the album opened at once still loads | – | Auto |
 
 ### 4.8 Search (SRH)
 
@@ -257,6 +262,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | SRH-10 | Result grouped by album title, artist and composer | Albums list with the term at a word start in the title, with an accented letter in the title, inside a word of the title, and in the artist only; one composer album, one composer album that is also in the albums list | Groups in this order, each A–Z by title, empty groups left out: album title (term at the start of a word, case and accents ignored), artist (the rest of the albums list), composer (the composers' albums not in the albums list); status line = line of the first group ("N albums for “<term>” in the album title"), a line in the same style before every further group ("… by the artist", "… by the composer"), each with a fine line below; no random tile | – | Auto |
 | SRH-11 | Search areas | Chips Album / Artist / Composer in the search field; search “fugue” (data of SRH-10); switch Artist on, then Album off, then Artist off, then Composer on; reload; a chip with an empty field | Only Album on by default: title group only, no composer request; a chip change searches again at once: Artist on → title and artist groups, still no composer request; Album off → artist group only (status line “… by the artist”); every chip off → hint “Select at least one search area.”, no search; only Composer → composer group with every album of the composers (status line “… by the composer”), no albums list read; chip states stored across a reload; a chip with an empty field starts no search | – | Auto |
 | SRH-12 | Search button | Start; click the search button; search; Esc in the field; click the button, search, click the button again; show the field, search, click the clear button (×) of the field (Safari, Chrome) | Search field hidden at the start, search button (left of the queue button) collapsed; the button shows field and search areas, focus in the field; Esc hides the field, focus back on the button; hiding clears the term and restores the selected view (chip pressed, no request); the field is empty when shown again; the button hides it as well; the clear button is a filled circle in the dim text colour, well visible in both designs (check by eye), empties the field and restores the view, the field stays shown | read | Auto |
+| SRH-13 | View finishes during a search | Delayed answer or failure of artist, genre, CD, All, New, HD, Playlists; meanwhile search, then clear | Results stay; clearing shows the view or its error (with popup) | – | Auto |
 
 ### 4.9 Player footer (FTR)
 
