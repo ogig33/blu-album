@@ -66,17 +66,20 @@ Do not build these; when asked, point to the alternative.
 
 - Workflow for a change:
   - analyze change using materials in "where to look" section
-  - Verify unknown API behaviour in Bruno (`tests/api`)
+  - Verify unknown API behaviour if needed in Bruno (`tests/api`)
   - Adapt or add the UI test (and `tests/ui/mock-player.js`).
-  - Change the code → all UI tests green (`npm test` in `tests/ui`).
+  - Change the code → local core tests green (`npm test` in `tests/ui`).
   - CHANGELOG line (only for changes of the app).
+  - Before a push: all UI tests green (`npm run test:all` in `tests/ui`).
 - After a firmware update:
   - Run the whole Bruno collection, environment "Home" (details in `tests/api/README.md`).
   - Fixtures with personal data stay in `tests/api/fixtures/` (git-ignored); copy them with `tests/tools/sanitize-fixtures.js`.
   - Find new endpoints with `node tests/tools/crawl-endpoints.js <player IP>` (read-only, compares with `docs/bluos-api.md`); verify each finding in Bruno before documenting it.
 - Test methodology:
+  - test plan must generally keep a max. number of 150 core test cases
+  - UI tests: local tests performs only a subset of 50 core tests with core browsers (Safari, Chrome), run within 5 mins
+  - UI remote tests: github runs the full test case scope with all browsers (Safari, Chrome, Edge and Firefox) and OSes (macos, Linux, Windows)
   - UI tests must not assume a window size (use `VIEWPORT`).
-  - UI test browsers: locally only Chrome and Safari (WebKit), the default of `npm test`; GitHub Actions runs Safari, Chrome, Edge and Firefox (Edge and Firefox are not installed on the owner's Mac).
   - Lint (ESLint) and format (Prettier, test scripts only; `blualbum.html` keeps its compact style) run **only on GitHub**; the owner does not run them locally.
 
 

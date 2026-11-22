@@ -1,5 +1,5 @@
 # UI tests of BluAlbum (tests/ui) on macOS, Windows and Linux in every supported browser,
-# each at three window sizes; screenshots of the main views are kept as artifacts.
+# each at three window sizes, all tests (--all); screenshots of the main views are kept as artifacts.
 # The tests run against the mock player with the sanitized fixtures: no player, no network.
 name: UI tests
 
@@ -52,7 +52,7 @@ jobs:
       # WebKit and Firefox come from Playwright.
       - if: matrix.target.install
         run: npx playwright install --with-deps ${{ matrix.target.install }}
-      - run: node run.js --browser ${{ matrix.target.browser }} --viewport ${{ matrix.viewport }} --shots
+      - run: node run.js --all --browser ${{ matrix.target.browser }} --viewport ${{ matrix.viewport }} --shots
       # Screenshots of the main views (views/) and of failed tests, for a visual check
       - if: always()
         uses: actions/upload-artifact@v7

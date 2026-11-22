@@ -2,7 +2,10 @@
 // Runs the app in headless browsers against a mock player that answers with recorded fixtures, or
 // against a real player (--player).
 // Usage: node run.js [path/to/blualbum.html] [--only <text>] [--browser chrome|safari|edge|firefox]
-//                    [--viewport WIDTHxHEIGHT[@SCALE]] [--shots] [--jobs <n>] [--player <ip> [--write]] [--list]
+//                    [--all] [--viewport WIDTHxHEIGHT[@SCALE]] [--shots] [--jobs <n>] [--player <ip> [--write]]
+//                    [--list]
+// Scope: by default the local core tests (column "Core" = local in docs/blu-album-test-plan.md, at most 50).
+// --all runs every test (GitHub Actions); --only and --player choose from every test.
 // Without --browser Chrome and Safari run one after another (the local default; GitHub Actions
 // runs every browser with --browser). --viewport sets the window size and the
 // device pixel ratio (default 1200x800, e.g. 1440x900@2 for a Retina laptop). --shots also saves
@@ -12,7 +15,7 @@
 // playback position, shuffle, repeat and volume are saved first and restored after every such test).
 // --jobs <n>: tests at the same time per browser (default: 4, at most the CPU count; 1 on CI runners).
 // With --player always 1: the tests share that player.
-// --list prints every test with its mark (read / write / mock).
+// --list prints every test with its marks (read / write / mock, local).
 // Environment: UI_SLOW=<factor> stretches the fixed waits (settle) for slow machines such as CI runners.
 // Every test name starts with the IDs of the test plan (docs/blu-album-test-plan.md) it covers, e.g. --only QUE-
 // runs the queue block.
@@ -36,6 +39,11 @@ const SLOW = Number(process.env.UI_SLOW) || 1;
 const RESULTS = path.join(__dirname, "test-results"); // screenshots of failed tests (ignored by git)
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : "");
 const ONLY = arg("--only");
+const ALL = process.argv.includes("--all");
+// Test plan: its column "Core" selects the local tests
+const PLAN = path.join(__dirname, "..", "..", "docs", "blu-album-test-plan.md");
+const CORE_MAX = 150,
+  LOCAL_MAX = 50;
 const VP_ARG = arg("--viewport") || "1200x800";
 const VP_MATCH = /^(\d+)x(\d+)(?:@(\d+(?:\.\d+)?))?$/.exec(VP_ARG);
 if (!VP_MATCH) {
@@ -4934,13 +4942,40 @@ async function runIn(key, list, real) {
   return { label, pass, fail, skip };
 }
 
-// --list: names of the tests and whether they run against the real player
+// The local core tests: tests whose name starts with a case the test plan marks "local". Exits when the plan
+// breaks a limit, or when a test or a local mark has no counterpart.
+function localTests() {
+  const rows = fs.readFileSync(PLAN, "utf8").matchAll(/^\| ([A-Z]{3}-\d+) \|.*\| (local|yes|–) \|\r?$/gm);
+  const marks = new Map([...rows].map((m) => [m[1], m[2]]));
+  const first = (x) => x.name.split(" ")[0];
+  const cases = tests.filter((x) => /^[A-Z]{3}-\d+$/.test(first(x))); // not the screenshots of --shots
+  const local = cases.filter((x) => marks.get(first(x)) === "local");
+  const core = [...marks.values()].filter((v) => v !== "–").length;
+  const problems = [];
+  if (core > CORE_MAX) problems.push(`${core} core cases, at most ${CORE_MAX}`);
+  if (local.length > LOCAL_MAX) problems.push(`${local.length} local tests, at most ${LOCAL_MAX}`);
+  for (const x of cases) if (!marks.has(first(x))) problems.push(`no Core mark for ${first(x)}`);
+  for (const [id, v] of marks)
+    if (v === "local" && !local.some((x) => first(x) === id)) problems.push(`no test starts with ${id}, marked local`);
+  if (problems.length) {
+    console.error("Test plan (column Core): " + problems.join("; "));
+    process.exit(2);
+  }
+  return new Set(local);
+}
+
+// --list: names of the tests, whether they run against the real player and whether they are local core tests
 if (process.argv.includes("--list")) {
-  for (const x of tests) console.log(`${(x.opts.real || "mock").padEnd(5)}  ${x.name}`);
+  const local = localTests();
+  for (const x of tests)
+    console.log(`${(x.opts.real || "mock").padEnd(5)}  ${(local.has(x) ? "local" : "").padEnd(5)}  ${x.name}`);
   process.exit(0);
 }
 
 (async () => {
+  // Without --all, --only and --player: the local core tests (and the screenshots of --shots)
+  const local = ALL || ONLY || REAL ? null : localTests();
+  if (local) console.log(`${local.size} local core tests of ${tests.length} tests (all: --all)`);
   const src = REAL ? createRecorder(BASE) : createPlayer();
   if (REAL) {
     console.log(`Real player ${IP}: ${WRITE ? "read and write tests" : "read-only tests"}; reading the test data …`);
@@ -4952,7 +4987,10 @@ if (process.argv.includes("--list")) {
     }
   }
   const list = tests.filter(
-    (x) => (!ONLY || x.name.includes(ONLY)) && (!REAL || x.opts.real === "read" || (WRITE && x.opts.real === "write")),
+    (x) =>
+      (!local || local.has(x) || x.name.startsWith("ENV ")) &&
+      (!ONLY || x.name.includes(ONLY)) &&
+      (!REAL || x.opts.real === "read" || (WRITE && x.opts.real === "write")),
   );
   if (REAL)
     console.log(

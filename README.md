@@ -49,7 +49,7 @@ step and no dependencies. The script is split into modules, listed at its top.
 Tests:
 - [`tests/api`](tests/api) – [Bruno](https://www.usebruno.com/) collection with contract tests
   for every player request the app uses (read-only and write tests) and exploration requests.
-- [`tests/ui`](tests/ui) – Playwright tests of the user interface in Chrome, Safari (WebKit), Edge and Firefox against a mock player that answers with recorded (and sanitized) player responses. No player needed. GitHub Actions runs them on macOS, Windows and Linux at three window sizes.
+- [`tests/ui`](tests/ui) – Playwright tests of the user interface in Chrome, Safari (WebKit), Edge and Firefox against a mock player that answers with recorded (and sanitized) player responses. No player needed. Locally `npm test` runs 50 core tests; GitHub Actions runs all of them on macOS, Windows and Linux at three window sizes.
 - [`tests/tools/sanitize-fixtures.js`](tests/tools/sanitize-fixtures.js) – copies recorded
   answers to the UI tests and removes personal details.
 - [`tests/tools/crawl-endpoints.js`](tests/tools/crawl-endpoints.js) – walks the player's answers read-only (`node tests/tools/crawl-endpoints.js <player IP>`) and lists endpoints, parameters and answer fields that `docs/bluos-api.md` does not describe yet; the full result goes to `tests/api/fixtures/crawl-endpoints.json`.

@@ -13,7 +13,7 @@ Every function of the app is a test case in the test plan `docs/blu-album-test-p
   with personal details removed
 
 ## Run
-Locally the tests run in Chrome and Safari; GitHub Actions runs all four browsers (see below). Requires Node.js 18+ and Google Chrome installed. Safari is tested with
+Locally 50 core tests run in Chrome and Safari; GitHub Actions runs every test in all four browsers (see below). Requires Node.js 18+ and Google Chrome installed. Safari is tested with
 Playwright's WebKit build (the engine of Safari), because Playwright cannot automate the
 Safari app itself. Edge (installed app) and Firefox (Playwright's build) run locally only with `--browser`.
 
@@ -21,17 +21,18 @@ Safari app itself. Edge (installed app) and Firefox (Playwright's build) run loc
 cd tests/ui
 npm install
 npx playwright install webkit
-npm test                            # tests ../../blualbum.html in Chrome and Safari (WebKit)
+npm test                            # 50 core tests of ../../blualbum.html in Chrome and Safari (WebKit)
+npm run test:all                    # every test, required before a push (same as node run.js --all)
 node run.js --browser safari        # one browser: chrome, safari, edge or firefox (comma list allowed)
-node run.js --only QUE-             # only tests whose name contains "QUE-" (the queue block of the test plan)
+node run.js --only QUE-             # of every test: those whose name contains "QUE-" (the queue block of the test plan)
 UI_SLOW=2 npm test                  # doubles the fixed waits (slow machines, CI)
 node run.js --viewport 1440x900@2   # window size and device pixel ratio (default 1200x800)
 node run.js --jobs 1                # one test at a time (default: 4 per browser, 1 on CI)
 node run.js --shots                 # also screenshots of the main views to test-results/views/
-node run.js --list                  # every test with its mark: read / write (also real player) or mock
+node run.js --list                  # every test with its marks: read / write (also real player) or mock, local
 ```
 
-`npm test` takes about 2.5 minutes: 4 tests run at a time per browser, each with its own browser context and mock player. Tests with late answers use `state.hold()` of the mock instead of long fixed waits.
+`npm test` takes about 30 seconds, `npm run test:all` about 2.5 minutes. The column Core of the test plan selects the local tests: those whose name starts with a case marked `local`. 4 tests run at a time per browser, each with its own browser context and mock player. Tests with late answers use `state.hold()` of the mock instead of long fixed waits.
 
 A failed test saves a screenshot of the page to `test-results/` (ignored by git). Tests must not assume a window size: use `VIEWPORT` for coordinates.
 
@@ -54,7 +55,7 @@ The only requirement: on macOS the terminal needs the "Local Network" permission
 | Windows | Edge, Chrome, Firefox |
 | Linux (Ubuntu) | Chrome, Firefox |
 
-Chrome and Edge are the apps preinstalled on the runners, WebKit and Firefox are installed by Playwright. The workflow runs on pushes to `main` and pull requests that change `blualbum.html`, `tests/ui/` or the workflow, every Monday (new browser versions) and on demand (*Actions → UI tests → Run workflow*). Cover sizes and designs: one test sets every cover size (S / M / L) in every design (Day, Night, System with a light and a dark system) and checks the album wall: S < M < L, no horizontal scrolling, background brightness of the design and a title contrast of at least 4.5 (WCAG AA). With `--shots` the album wall is saved in every cover size, popup, queue, settings and full screen in Day and Night.
+Chrome and Edge are the apps preinstalled on the runners, WebKit and Firefox are installed by Playwright. Every job runs all tests (`--all`). The workflow runs on pushes to `main` and pull requests that change `blualbum.html`, `tests/ui/` or the workflow, every Monday (new browser versions) and on demand (*Actions → UI tests → Run workflow*). Cover sizes and designs: one test sets every cover size (S / M / L) in every design (Day, Night, System with a light and a dark system) and checks the album wall: S < M < L, no horizontal scrolling, background brightness of the design and a title contrast of at least 4.5 (WCAG AA). With `--shots` the album wall is saved in every cover size, popup, queue, settings and full screen in Day and Night.
 
 Every job keeps the screenshots of the main views (and of failed tests) as an artifact for 14 days (*Actions → run → Artifacts*), for a visual check per system, browser and size.
 
