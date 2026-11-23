@@ -3,8 +3,8 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
-- Playlists: one "Playlists" chip after New shows the saved playlists as tiles like albums, with play, add to queue, delete and a popup with the track list.
-- Playlists: a "Random playlist" tile plays or queues a random saved playlist.
+- Playlists: one "Playlists" chip after New shows the BluOS playlists as tiles like albums, with play, add to queue, delete and a popup with the track list.
+- Playlists: a "Random playlist" tile plays or queues a random BluOS playlist.
 - Playlists: the Playlists chip is always shown; its switch in the settings is gone.
 - Playlists: the Playlists chip also shows the library playlists (imported playlist files), in a group after the BluOS playlists, with a heart to mark them as favourites.
 - Playlists: tooltip, messages and the save prompt name the playlists "BluOS playlists", as the BluOS Controller does.
