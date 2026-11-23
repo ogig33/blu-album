@@ -29,7 +29,7 @@ Do not build these; when asked, point to the alternative.
 
 ## Where to look
 
-- `docs/bluos-api.md` – BluOS API reference (chapter 9: service lists `/Albums`, `/Playlists`, `/Songs` … dispatched by `service`; chapter 10: library `/library/v1`): every endpoint with parameters, answers, verified state and pitfalls (answer language, `hd` / `hr`, MP3 quality, favourite state, genres, `/Delete` forms, CORS of `/Artwork`, …). **Look up an endpoint here before using or changing a player request.**
+- `docs/bluos-api.md` – BluOS API reference (chapter 9: service lists `/Albums`, `/Playlists`, `/Songs` … and `/Artwork`, dispatched by `service`; chapter 10: library `/library/v1`): every endpoint with parameters, answers, verified state and pitfalls (answer language, `hd` / `hr`, MP3 quality, favourite state, genres, `/Delete` forms, CORS of `/Artwork`, …). **Look up an endpoint here before using or changing a player request.**
 - `docs/blu-album-api-usage.md` – every click of the app with its requests, measurements and endpoint choices. Private, git-ignored: missing in worktrees, cloud sessions and clones.
 - `docs/blu-album-library-guidance.md` – how users should tag their library and set "Optimize Artwork" for the best experience with BluAlbum.
 - `docs/blu-album-test-plan.md` – test plan: every function of the app as test cases per block (inputs, expected outputs, status Auto = UI test automation / Manual), test data dictionary; update it when a function or a UI test changes.

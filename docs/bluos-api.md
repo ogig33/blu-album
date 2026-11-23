@@ -18,11 +18,10 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
 8. [Favourites](#8-favourites)
 9. [Service lists](#9-service-lists)
 10. [Library](#10-library)
-11. [Artwork](#11-artwork)
-12. [Player grouping](#12-player-grouping)
-13. [System](#13-system)
-14. [BluOS Controller UI](#14-bluos-controller-ui)
-15. [MCP server](#15-mcp-server)
+11. [Player grouping](#11-player-grouping)
+12. [System](#12-system)
+13. [BluOS Controller UI](#13-bluos-controller-ui)
+14. [MCP server](#14-mcp-server)
 
 ---
 
@@ -1120,11 +1119,12 @@ Empty answer.
 
 ## 9. Service lists
 
-The short list endpoints answer for every music service on port 11000: the player hands the request to the service named in `service`. They are the list URLs inside the keys of [`/Browse`](#get-browse) (e.g. `/Albums?service=Tidal&category=masters`). For the local library and the USB drive they only redirect to the library server ([chapter 10](#10-library)). Everything in this section is verified.
+The short list endpoints and `/Artwork` answer for every music service on port 11000: the player hands the request to the service named in `service`. The lists are the URLs inside the keys of [`/Browse`](#get-browse) (e.g. `/Albums?service=Tidal&category=masters`), `/Artwork` the `image` of their items. For the local library and the USB drive they only redirect to the library server ([chapter 10](#10-library)). Everything in this section is verified.
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
 | `GET /Albums` | albums of a service | | ✓ |
+| `GET /Artwork` | cover art of albums, tracks, playlists, stations | ✓ | ✓ |
 | `GET /Artists` | artists of a service | | ✓ |
 | `GET /Composers` | composers of a service | | ✓ |
 | `GET /Folders` | folders of a library service | | ✓ |
@@ -1159,6 +1159,35 @@ By `service` (verified 2026-11-23, BluOS 4.18.18, with `section=A`):
 - Streaming services are tested only without an account here (no list answered).
 - Library playlists come from [`/library/v1/Playlists`](#get-libraryv1playlists), not from `/Playlists`.
 - `/Search` does not exist as a short form (HTTP 404 for every service); every service searches through [`/Browse`](#get-browse) with its `searchKey`.
+- `/Artwork` redirects library images with HTTP 301 (not 302) to [`/library/v1/Artwork`](#get-libraryv1artwork); see [`/Artwork`](#get-artwork).
+
+### `GET /Artwork`
+
+```
+GET /Artwork?service=<svc>&album=<album>&artist=<artist>&songid=<id>&albumid=<id>&fn=<file>&playlistimage=<id>&width=<px>&height=<px>&followRedirects=1
+```
+
+| Parameter | Meaning |
+|---|---|
+| `service` | source of the image |
+| `album`, `artist` | album of the local library |
+| `songid`, `albumid` | track / album of a streaming service |
+| `fn` | file of the local library (e.g. image of a BluOS playlist) |
+| `playlistimage` | image of a streaming playlist |
+| `width`, `height` | size of the image in pixels (the BluOS Controller asks e.g. 480 × 480, 75 × 75) |
+| `followRedirects` | `1` = answer with the image itself instead of a redirect |
+
+**Response format**
+
+The image (200, e.g. `image/jpeg`); without `followRedirects=1` a library service answers a **301** to the same request under [`/library/v1/Artwork`](#get-libraryv1artwork) on port 11004 (`http://192.168.1.100:11004/library/v1/Artwork?…`).
+
+**Notes**
+
+- Which identifying parameters appear depends on the service; take the URL from the `image` attribute of an answer and append `followRedirects=1` (official since v1.7, verified).
+- The image answer carries `Access-Control-Allow-Origin: *` (also for `Origin: null`, a page opened as a file), so a web page can read it with `fetch()` (verified). Firefox upgrades `<img src="http://…">` on a `file://` page to https (mixed content), which the player does not offer; `fetch()` is not upgraded.
+- Size of library album covers depends on the library setting "Optimize Artwork" (`resizeall`) at the time the index was built: ON → the player stores at most 600 × 600 px; a larger `width` / `height` returns the same 600 px file (verified 2026-11-17). OFF and the index rebuilt with Diagnostics "Rebuild index" (`/delete_index`; a normal rescan keeps the stored covers, verified 2026-11-19) → the player stores the original image. Without `width` / `height` it still sends at most 600 px (scaled down); with `width` / `height` it scales to that size, up to the original size and never beyond it (e.g. 900 → 900 px, 2000 → the 1000 px original; non-square originals keep their aspect ratio, e.g. 1500 × 1328); `width` or `height` alone also works; `/library/v1/Artwork` and track covers (`fn=`) take the same parameters. A smaller size scales down and re-encodes, often to more bytes than the stored file (480 × 480 was 102 KB against 56 KB for a 600 px original). Larger covers cost bytes: 250–500 KB per cover at 1400–1600 px against 70–170 KB at 600 px. With "Optimize Artwork" OFF, an album whose cover file is larger than 600 KB gets a grey placeholder instead (494 × 494 px, 17.8 KB, the same file for every such album, also with `width` / `height`); the pixel size is not the limit (covers up to 1600 × 1600 px are served). Verified 2026-11-19, BluOS 4.18.18.
+- Other image paths in answers (`/images/…`, `/Sources/images/…`) are static files on the player; they also take `width`, `height` and `style` (e.g. `Bluesound`).
+- Source icons: the top menu of `/Browse` names them in `image`, the menu of a source in `serviceIcon` – Library `/images/LibraryIcon.png`, USB `/images/USBIcon.png`. 96×96 PNG, white on transparent; `style=Default`, `Dark` and `Light` return the same file. They carry `Access-Control-Allow-Origin: *` like `/Artwork`, but no cache headers (verified 2026-11-17, BluOS 4.18.18).
 
 ### `GET /Playlists`
 
@@ -1236,6 +1265,7 @@ The library server of the local music library (`service=LocalMusic`) and the USB
 |---|---|:---:|:---:|
 | `GET /library/v1/Albums` | albums by section, newest, favourites, quality, genre, artist | | ✓ |
 | `GET /library/v1/Artists` | artist names | | ✓ |
+| `GET /library/v1/Artwork` | album cover from the library server | | ✓ |
 | `GET /library/v1/Composers` | composers | | ✓ |
 | `GET /library/v1/Folders` | folder tree | | ✓ |
 | `GET /library/v1/Genres` | all genre names | | ✓ |
@@ -1391,6 +1421,25 @@ With `category=FAVOURITES` the `<art isFavourite="1">` elements follow directly.
 - Empty without a filter.
 - Without a filter but with `offset` the BluOS Controller pages through all artists; the same for `/library/v1/Albums` and `/library/v1/Composers`.
 - The sections list **album artists**, not artists that only appear on tracks (verified 2026-11-21: `Various` and `Putumayo Presents` are listed, the track artist `Putumayo Presents , Diogal` is not); 25 sections, about 23 KB for 620 album artists. The player's search does not match album artists (see [`/Browse`](#get-browse)).
+
+### `GET /library/v1/Artwork`
+
+```
+GET /library/v1/Artwork?service=<svc>&album=<album>&artist=<artist>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `service` | `LocalMusic` or the USB id |
+| `album`, `artist` | the album |
+
+**Response format**
+
+The image itself (200, `image/jpeg`).
+
+**Notes**
+
+- Target of the [`/Artwork`](#get-artwork) redirect (there on port 11004); also answers on port 11000. Only `artist=` → 200 without content.
 
 ### `GET /library/v1/Composers`
 
@@ -1621,63 +1670,7 @@ Paged lists (`section`, `genre`, `all`) have `<nextlink>` and lack the technical
 
 ---
 
-## 11. Artwork
-
-| Endpoint | Function | Official | Verified |
-|---|---|:---:|:---:|
-| `GET /Artwork` | cover art of albums, tracks, playlists, stations | ✓ | ✓ |
-| `GET /library/v1/Artwork` | album cover from the library server | | ✓ |
-
-### `GET /Artwork`
-
-```
-GET /Artwork?service=<svc>&album=<album>&artist=<artist>&songid=<id>&albumid=<id>&fn=<file>&playlistimage=<id>&width=<px>&height=<px>&followRedirects=1
-```
-
-| Parameter | Meaning |
-|---|---|
-| `service` | source of the image |
-| `album`, `artist` | album of the local library |
-| `songid`, `albumid` | track / album of a streaming service |
-| `fn` | file of the local library (e.g. image of a BluOS playlist) |
-| `playlistimage` | image of a streaming playlist |
-| `width`, `height` | size of the image in pixels (the BluOS Controller asks e.g. 480 × 480, 75 × 75) |
-| `followRedirects` | `1` = answer with the image itself instead of a redirect |
-
-**Response format**
-
-The image (200, e.g. `image/jpeg`); without `followRedirects=1` a **301** to `http://192.168.1.100:11004/library/v1/Artwork?…` (library).
-
-**Notes**
-
-- Which identifying parameters appear depends on the service; take the URL from the `image` attribute of an answer and append `followRedirects=1` (official since v1.7, verified).
-- The image answer carries `Access-Control-Allow-Origin: *` (also for `Origin: null`, a page opened as a file), so a web page can read it with `fetch()` (verified). Firefox upgrades `<img src="http://…">` on a `file://` page to https (mixed content), which the player does not offer; `fetch()` is not upgraded.
-- Size of library album covers depends on the library setting "Optimize Artwork" (`resizeall`) at the time the index was built: ON → the player stores at most 600 × 600 px; a larger `width` / `height` returns the same 600 px file (verified 2026-11-17). OFF and the index rebuilt with Diagnostics "Rebuild index" (`/delete_index`; a normal rescan keeps the stored covers, verified 2026-11-19) → the player stores the original image. Without `width` / `height` it still sends at most 600 px (scaled down); with `width` / `height` it scales to that size, up to the original size and never beyond it (e.g. 900 → 900 px, 2000 → the 1000 px original; non-square originals keep their aspect ratio, e.g. 1500 × 1328); `width` or `height` alone also works; `/library/v1/Artwork` and track covers (`fn=`) take the same parameters. A smaller size scales down and re-encodes, often to more bytes than the stored file (480 × 480 was 102 KB against 56 KB for a 600 px original). Larger covers cost bytes: 250–500 KB per cover at 1400–1600 px against 70–170 KB at 600 px. With "Optimize Artwork" OFF, an album whose cover file is larger than 600 KB gets a grey placeholder instead (494 × 494 px, 17.8 KB, the same file for every such album, also with `width` / `height`); the pixel size is not the limit (covers up to 1600 × 1600 px are served). Verified 2026-11-19, BluOS 4.18.18.
-- Other image paths in answers (`/images/…`, `/Sources/images/…`) are static files on the player; they also take `width`, `height` and `style` (e.g. `Bluesound`).
-- Source icons: the top menu of `/Browse` names them in `image`, the menu of a source in `serviceIcon` – Library `/images/LibraryIcon.png`, USB `/images/USBIcon.png`. 96×96 PNG, white on transparent; `style=Default`, `Dark` and `Light` return the same file. They carry `Access-Control-Allow-Origin: *` like `/Artwork`, but no cache headers (verified 2026-11-17, BluOS 4.18.18).
-
-### `GET /library/v1/Artwork`
-
-```
-GET /library/v1/Artwork?service=<svc>&album=<album>&artist=<artist>
-```
-
-| Parameter | Meaning |
-|---|---|
-| `service` | `LocalMusic` or the USB id |
-| `album`, `artist` | the album |
-
-**Response format**
-
-The image itself (200, `image/jpeg`).
-
-**Notes**
-
-- Target of the `/Artwork` redirect (there on port 11004); also answers on port 11000. Only `artist=` → 200 without content.
-
----
-
-## 12. Player grouping
+## 11. Player grouping
 
 The primary player selects the source; secondary players follow. Fixed groups (home theatre, stereo pairs) are set up in the BluOS Controller.
 
@@ -1786,7 +1779,7 @@ The text is the new trim in dB.
 
 ---
 
-## 13. System
+## 12. System
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
@@ -2689,7 +2682,7 @@ An HTML page (the web app "BluOS", the script loads the content).
 
 ---
 
-## 14. BluOS Controller UI
+## 13. BluOS Controller UI
 
 Screens and menus of the BluOS Controller (BluOS 4): the BluOS Controller asks the player for ready-made screen content under `/ui/…`. Every button and list entry carries the request it sends, so these answers show which player requests a screen uses. For other clients the endpoints of the other sections are the stable ones.
 
@@ -3417,7 +3410,7 @@ No known parameters.
 
 ---
 
-## 15. MCP server
+## 14. MCP server
 
 The player runs a [Model Context Protocol](https://modelcontextprotocol.io) server: AI assistants (MCP clients) can read the player state and control playback, queue, presets and the search of streaming services through tools. Transport "Streamable HTTP" (MCP 2025-06-18): JSON-RPC 2.0 messages, JSON answers instead of XML.
 
