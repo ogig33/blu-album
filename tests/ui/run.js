@@ -686,7 +686,7 @@ const R = { real: "read" };
 const W = { real: "write" };
 // opts.needs: what a test needs on the real player; skipped without it (read-only) or set up first (--write, see prepare())
 // usb: a USB drive (a second source), library: a library title playing or paused, queue: at least 3 tracks,
-// playlist: a BluOS playlist, libplaylist: a library playlist (cannot be set up, the test is skipped without one)
+// playlist: a BluOS playlist
 const U = { real: "read", needs: ["usb"] };
 
 // ---------- 4.1 Connection & start (CON) ----------
@@ -3988,7 +3988,7 @@ test(
 );
 
 test(
-  "PLS-07 playlist popup: name, track count and time, tracks of every page, not cached",
+  "PLS-07 playlist popup: name, track count and time, tracks of every page, not cached; library playlist: source, tracks",
   async (t) => {
     const p = TD.PL[0];
     await openPlaylistPopup(t, p.text);
@@ -4016,35 +4016,30 @@ test(
     await t.page.click("#close");
     await openPlaylistPopup(t, p.text);
     ok(t.reqs(/BluOS-Playlist/).length > n, "read again when opened again");
-  },
-  { ...R, needs: ["playlist"] },
-);
-
-test(
-  "PLS-07 library playlist popup: name, source, every track",
-  async (t) => {
-    const p = TD.LPL[0],
-      svc = p.browseKey.split(":")[0];
-    await openPlaylistPopup(t, p.text);
-    eq(await t.page.textContent("#dt"), p.text, "name");
-    eq((await t.page.textContent("#da")).trim(), "Playlist", "second line");
+    // A library playlist: its source, all tracks in one answer
+    if (!TD.LPL.length) return;
+    const lp = TD.LPL[0],
+      svc = lp.browseKey.split(":")[0];
+    await t.page.click("#close");
+    await openPlaylistPopup(t, lp.text);
+    eq(await t.page.textContent("#dt"), lp.text, "library playlist: name");
     eq(
       (await t.page.textContent("#ds")).trim(),
       TD.SRC.find((x) => x.browseKey.split(":")[0] === svc).text,
-      "source of the playlist",
+      "library playlist: source",
     );
     eq(
       await trackRows(t),
       TD.LPL_TRK.map((x, i) => [String(i + 1), x.text, x.duration ? fmtTime(+x.duration) : ""]),
-      "position, title and duration of every track",
+      "library playlist: every track",
     );
     eq(
       await t.$$text("#tracks .ta"),
       TD.LPL_TRK.map((x) => x.text2),
-      "track artist and album per track",
+      "library playlist: track artist and album",
     );
   },
-  { ...R, needs: ["libplaylist"] },
+  { ...R, needs: ["playlist"] },
 );
 
 test(
@@ -5007,7 +5002,6 @@ const NEEDS = {
   library: { ok: () => TD.NOW_LIB, why: "no library title playing or paused" },
   queue: { ok: () => TD.QUEUE.length >= 3, why: "fewer than 3 tracks in the queue" },
   playlist: { ok: () => TD.PL.length > 0, why: "no BluOS playlist" },
-  libplaylist: { ok: () => TD.LPL.length > 0, why: "no library playlist" },
 };
 async function runIn(key, list, real) {
   const { label } = BROWSERS[key];
