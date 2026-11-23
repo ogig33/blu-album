@@ -3978,12 +3978,12 @@ async function search() {
     // Composer group: the albums the shown groups do not contain (album keys differ per source)
     const groups = [
       [byTitle, "in the album title"],
-      [byAlbumArtist, "by the album artist"],
-      [byTrackArtist, "by a track artist"],
-      [newAlbums([...byTitle, ...byAlbumArtist, ...byTrackArtist], res.flatMap((r) => r[1])), "by the composer"]
-    ].filter((g) => g[0].length).map(([l, how]) => [az(l), nAlb(l.length) + " for \u201C" + v + "\u201D " + how]);
+      [byAlbumArtist, "as an album artist"],
+      [byTrackArtist, "as a track artist"],
+      [newAlbums([...byTitle, ...byAlbumArtist, ...byTrackArtist], res.flatMap((r) => r[1])), "as a composer"]
+    ].filter((g) => g[0].length).map(([l, how]) => [az(l), nAlb(l.length) + " with \u201C" + v + "\u201D " + how]);
     render(groups.flatMap(([l, line], i) => i ? [{ line }, ...l] : l), true);
-    msg(groups.length ? groups[0][1] : nAlb(0) + " for \u201C" + v + "\u201D");
+    msg(groups.length ? groups[0][1] : nAlb(0) + " with \u201C" + v + "\u201D");
   } catch (e) {
     if (seq === searchSeq) loadFailed("Search failed: ", "The search did not succeed", e);
   }

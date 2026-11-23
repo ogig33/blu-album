@@ -1311,7 +1311,7 @@ test(
     await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
-    await t.waitMsg(/for/);
+    await t.waitMsg(/ with \u201C/);
     await t.chip("New");
     await t.waitMsg(/recently added/);
     eq(await t.page.inputValue("#q"), "", "search field empty");
@@ -2345,18 +2345,18 @@ const searchLines = async (t) => [
   ...(await t.page.$$eval("#grid .gl", (x) => x.map((e) => e.textContent))),
 ];
 // Number of albums the search result lines count together
-const searchTotal = (lines) => lines.reduce((n, l) => n + +((l.match(/^(\d+) albums? for/) || [])[1] || 0), 0);
+const searchTotal = (lines) => lines.reduce((n, l) => n + +((l.match(/^(\d+) albums? with/) || [])[1] || 0), 0);
 test(
   "SRH-01 search uses the player search, no random tile, no chip",
   async (t) => {
     await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
-    await t.waitMsg(`for \u201C${TD.TERM}\u201D`);
+    await t.waitMsg(`with \u201C${TD.TERM}\u201D`);
     ok((await t.page.textContent("#grid .item:first-child b")) !== "Random album", "no random tile");
     eq(t.reqs(new RegExp("[?&]q=" + TD.TERM + "(&|$)")).length, TD.SRC.length, "search request per source");
     eq(await t.page.$$eval("#az button[aria-pressed=true]", (x) => x.length), 0, "no chip pressed");
-    ok(/^\d+ albums? for/.test(await t.msg()), "status line");
+    ok(/^\d+ albums? with/.test(await t.msg()), "status line");
   },
   R,
 );
@@ -2365,7 +2365,7 @@ test("SRH-02 the albums list of the result is read once per source (no second re
   await t.openSearch();
   await t.page.fill("#q", TD.TERM);
   await t.page.press("#q", "Enter");
-  await t.waitMsg(/for/);
+  await t.waitMsg(/ with \u201C/);
   const searches = t.reqs(/[?&]q=/).length;
   ok(searches >= 1, "search request");
   eq(t.reqs(/Albums(%3F|\?)expr=/).length, searches, "one albums request per search request");
@@ -2385,7 +2385,7 @@ test(
     await t.page.type("#q", word.slice(min - 1), { delay: 60 });
     await t.page.waitForTimeout(delay / 3); // not stretched by UI_SLOW: must stay below SEARCH_DELAY
     eq(searches() - n0, 0, "no search before the pause");
-    await t.waitMsg(/for/);
+    await t.waitMsg(/ with \u201C/);
     const n1 = searches();
     ok(n1 - n0 >= 1, "one search after the pause");
     await t.page.fill("#q", "");
@@ -2407,7 +2407,7 @@ test(
     await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
-    await t.waitMsg(/for/);
+    await t.waitMsg(/ with \u201C/);
     const lists = () => t.reqs(/^\/(Browse|library)/).length;
     const n = lists();
     await t.page.fill("#q", "");
@@ -2425,7 +2425,7 @@ test(
     await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
-    await t.waitMsg(/for/);
+    await t.waitMsg(/ with \u201C/);
     ok(t.reqs(/SRCHSEC1/).length > 0, "filled section read");
     eq(t.reqs(/SRCHSEC2/).length, 0, "empty section skipped");
     // the mock answers the albums of fixture 07 for the filled section of every source
@@ -2456,7 +2456,7 @@ test(
     await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
-    await t.waitMsg(/for/);
+    await t.waitMsg(/ with \u201C/);
     ok((await t.tiles()).includes("Direct Album"), "album of the answer");
     eq(t.reqs(/Albums(%3F|\?)expr=/).length, 0, "no albums link followed");
   },
@@ -2520,7 +2520,7 @@ test(
     await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
-    await t.waitMsg(/for/);
+    await t.waitMsg(/ with \u201C/);
     const first = itemsOf(firstAlbum, ofType("album"))[0].text;
     eq(t.reqs(/COMPPAGE2/).length, 1, "second page of the composers read");
     eq(t.reqs(/LocalMusic-Composer\?composer=Test/).length, 1, "menu of the first composer read");
@@ -2531,7 +2531,7 @@ test(
       TD.SRC.length + 2,
       "album of the title search per source plus the new albums of the composers",
     );
-    ok(lines.includes(`2 albums for \u201C${TD.TERM}\u201D by the composer`), "composer group: " + lines.join(" | "));
+    ok(lines.includes(`2 albums with \u201C${TD.TERM}\u201D as a composer`), "composer group: " + lines.join(" | "));
     const tiles = await t.tiles();
     eq(tiles.filter((x) => x === "Composer Album").length, 1, "album of both composers shown once");
     ok(tiles.includes("Second Composer Album"), "album of the second composer");
@@ -2609,8 +2609,8 @@ test(
     await t.openSearch();
     await t.page.fill("#q", "fugue");
     await t.page.press("#q", "Enter");
-    await t.waitMsg(/for/);
-    eq(await t.msg(), "2 albums for \u201Cfugue\u201D in the album title", "status line = first group");
+    await t.waitMsg(/ with \u201C/);
+    eq(await t.msg(), "2 albums with \u201Cfugue\u201D in the album title", "status line = first group");
     const ruled = (sel) =>
       t.page.$$eval(sel, (x) =>
         x.map(
@@ -2624,12 +2624,12 @@ test(
       [
         "A Fugue for Two",
         "The F\u00FCgue Book",
-        "| 2 albums for \u201Cfugue\u201D by the album artist",
+        "| 2 albums with \u201Cfugue\u201D as an album artist",
         "Baroque Night",
         "Night Moves",
-        "| 1 album for \u201Cfugue\u201D by a track artist",
+        "| 1 album with \u201Cfugue\u201D as a track artist",
         "Refugue",
-        "| 1 album for \u201Cfugue\u201D by the composer",
+        "| 1 album with \u201Cfugue\u201D as a composer",
         "Cello Suites",
       ].join(" / "),
       "groups: title (word start, accents ignored), album artist, track artist (the rest), composer",
@@ -2664,9 +2664,9 @@ test(
     await t.openSearch();
     await t.page.fill("#q", "fugue");
     await t.page.press("#q", "Enter");
-    await t.waitMsg(/for/);
+    await t.waitMsg(/ with \u201C/);
     await gridIs(["A Fugue for Two", "The F\u00FCgue Book"], "only Album: the title group");
-    eq(await t.msg(), "2 albums for \u201Cfugue\u201D in the album title", "status line = title group");
+    eq(await t.msg(), "2 albums with \u201Cfugue\u201D in the album title", "status line = title group");
     ok(albumLists() > 0, "albums list read");
     eq(composers(), 0, "no composer request");
     eq(t.reqs(LIB_ALL).length, 0, "Artist off: no album list of the library");
@@ -2676,10 +2676,10 @@ test(
       [
         "A Fugue for Two",
         "The F\u00FCgue Book",
-        "| 2 albums for \u201Cfugue\u201D by the album artist",
+        "| 2 albums with \u201Cfugue\u201D as an album artist",
         "Baroque Night",
         "Night Moves",
-        "| 1 album for \u201Cfugue\u201D by a track artist",
+        "| 1 album with \u201Cfugue\u201D as a track artist",
         "Refugue",
       ],
       "Artist on: searched again with the album artist and track artist groups",
@@ -2688,10 +2688,10 @@ test(
 
     await area("Album");
     await gridIs(
-      ["Baroque Night", "Night Moves", "| 1 album for \u201Cfugue\u201D by a track artist", "Refugue"],
+      ["Baroque Night", "Night Moves", "| 1 album with \u201Cfugue\u201D as a track artist", "Refugue"],
       "Album off: only the artist groups",
     );
-    eq(await t.msg(), "2 albums for \u201Cfugue\u201D by the album artist", "status line = album artist group");
+    eq(await t.msg(), "2 albums with \u201Cfugue\u201D as an album artist", "status line = album artist group");
     eq(t.reqs(LIB_ALL).length, 1, "album list of the library read once for the session");
 
     const n = searches();
@@ -2702,7 +2702,7 @@ test(
     const a1 = albumLists();
     await area("Composer");
     await gridIs(["A Fugue for Two", "Cello Suites"], "only Composer: the albums of the composers found");
-    eq(await t.msg(), "2 albums for \u201Cfugue\u201D by the composer", "status line = composer group");
+    eq(await t.msg(), "2 albums with \u201Cfugue\u201D as a composer", "status line = composer group");
     eq(albumLists(), a1, "no albums list read");
 
     await t.reload();
@@ -2733,7 +2733,7 @@ test(
     eq(await focus(), "q", "focus in the field");
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
-    await t.waitMsg(/for/);
+    await t.waitMsg(/ with \u201C/);
     let n = lists();
     await t.page.press("#q", "Escape");
     await t.waitMsg(nAlb(TD.FAV.length));
@@ -2745,7 +2745,7 @@ test(
     eq(await t.page.inputValue("#q"), "", "field empty when shown again");
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
-    await t.waitMsg(/for/);
+    await t.waitMsg(/ with \u201C/);
     n = lists();
     await t.page.click("#sbtn");
     await t.waitMsg(nAlb(TD.FAV.length));
@@ -2756,7 +2756,7 @@ test(
       await t.page.click("#sbtn");
       await t.page.fill("#q", TD.TERM);
       await t.page.press("#q", "Enter");
-      await t.waitMsg(/for/);
+      await t.waitMsg(/ with \u201C/);
       // middle of the 18 px cross at the right end of the text area (inside the field's right padding)
       const r = await t.page.$eval("#q", (e) => ({
         ...e.getBoundingClientRect().toJSON(),
@@ -2796,7 +2796,7 @@ test("SRH-13 a view that finishes during a search waits until the search is clea
     await late.asked();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
-    await t.waitMsg(/ for /);
+    await t.waitMsg(/ with \u201C/);
     const screen = async () => [await t.msg(), await t.page.$$eval("#grid .item", (x) => x.length)];
     const results = await screen();
     await late.release();
@@ -4116,7 +4116,7 @@ test(
     await t.openSearch();
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
-    await t.waitMsg(/for/);
+    await t.waitMsg(/ with \u201C/);
     await t.page.fill("#q", "");
     await t.waitMsg(plGroups()[0]);
     eq(await t.page.getAttribute("#az .plc", "aria-pressed"), "true", "chip pressed again");
