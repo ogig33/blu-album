@@ -1291,9 +1291,9 @@ The image (HTTP 200, e.g. `image/jpeg`). Without `followRedirects=1` a library s
 - No cache headers (`Cache-Control`, `Expires`, `ETag`, `Last-Modified`).
 - Library cover size depends on the library setting "Optimize Artwork" (`resizeall`) when the index was built:
   - ON: the player stores at most 600 × 600 px; a larger `width` / `height` returns the same file.
-  - OFF, index rebuilt with [`/delete_index`](#get-post-delete_index) (a normal rescan keeps the stored covers): the original is stored. Without `width` / `height` the answer is at most 600 px; with them it scales up to the original size, never beyond (e.g. 2000 → the 1000 px original; aspect ratio kept). A smaller size re-encodes, often to more bytes than the stored file.
-  - OFF: a cover file larger than 600 KB is replaced by a grey placeholder (494 × 494 px, the same for every such album); the pixel size is not the limit.
-- Other image paths in answers (`/images/…`, `/Sources/images/…`) are static files; they take `width`, `height` and `style` (e.g. `Bluesound`). Source icons: `/images/LibraryIcon.png`, `/images/USBIcon.png` (96 × 96 PNG, white on transparent; `style` `Default`, `Dark`, `Light` give the same file), CORS like `/Artwork`.
+  - OFF, index rebuilt with [`/delete_index`](#get-post-delete_index) (a normal rescan keeps the stored covers): the original is stored. Without `width` / `height` the answer is at most 600 px; with them it scales up to the original size, never beyond (e.g. 2000 → the 1000 px original; aspect ratio kept).
+  - OFF: a cover file larger than 600 KB is replaced by a grey placeholder (the same image for every such album); the pixel size is not the limit.
+- Other image paths in answers (`/images/…`, `/Sources/images/…`) are static files; they take `width`, `height` and `style` (e.g. `Bluesound`). Source icons: `/images/LibraryIcon.png`, `/images/USBIcon.png` (PNG, white on transparent; `style` `Default`, `Dark`, `Light` give the same file), CORS like `/Artwork`.
 
 ### `GET /Playlists`
 
@@ -2119,7 +2119,7 @@ No parameters.
 | `setting` `value` | current listening mode |
 | `setting` `url` | endpoint that changes it ([`/alsa_setting`](#get-post-alsa_setting)) |
 | `value` `name`, `displayName` | a listening mode |
-| `value` `icon`, `iconActive` | icons: 96 × 96 PNG, white at 50 % / 70 % opacity, CORS `*` |
+| `value` `icon`, `iconActive` | icons: PNG, white at 50 % / 70 % opacity, CORS `*` |
 | other attributes | as in [`/Settings`](#get-settings) |
 
 **Notes**
