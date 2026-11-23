@@ -22,7 +22,7 @@ This plan lists every function of the app (`blualbum.html`) as test cases, group
 | CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results | 20 | 20 | 13 | 19 |
 | GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons, status line | 11 | 11 | 8 | 8 |
 | FAV | 4.5 Favourites | Heart on the cover, toggling via the player, no local favourites | 6 | 6 | 5 | 6 |
-| ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache, one link per artist of several | 5 | 5 | 4 | 5 |
+| ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache, artist links (several artists, track artists) | 5 | 5 | 4 | 5 |
 | POP | 4.7 Album popup | Details, technical data, track list, playing a track, closing | 20 | 20 | 10 | 17 |
 | SRH | 4.8 Search | Player search, albums of found composers, groups by album title / artist / composer, search areas, search button, typing rules, empty field, errors | 13 | 13 | 4 | 12 |
 | FTR | 4.9 Player footer | Now playing, quality tag, transport, progress, volume, listening mode, long polling | 18 | 18 | 10 | 12 |
@@ -222,7 +222,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | ART-02 | Favourite state in the artist view | Same as ART-01 | Favourites of the library asked once; context menu read only for TD-FAV-ART (`&isFavourite=1`); those hearts filled, the others empty; remove URL from the player | read | Auto | yes |
 | ART-03 | Artist view from the popup | Open an album popup, click the artist link | Popup closes, artist view as ART-01, page scrolled to the top | read | Auto | yes |
 | ART-04 | Artist view is cached | Artist, another chip, same artist again | No `/Browse` request the second time | read | Auto | yes |
-| ART-05 | Several artists (comma) | App defaults; album artist "Harold Budd ,Brian Eno, Earth"; click "Brian Eno" in the tile, switch Album and Composer on, then click "Harold Budd" in the album popup | Tile and popup: one link per artist (spaces trimmed), separated by ", ", no link for the whole name; a click closes the popup, shows the search field with the artist, switches the search area Artist on and Album and Composer off (stored, also when they were switched on again) and searches every source once, no composer request | – | Auto | yes |
+| ART-05 | Several artists (comma), track artists | App defaults; album artist "Harold Budd ,Brian Eno, Earth"; click "Brian Eno" in the tile, switch Album and Composer on, then click "Harold Budd" in the album popup; mock state `songArtists`: track 2 of TD-ALB-LIB by "Harold Budd, Brian Eno"; click a track artist in the album popup, the playlist popup (TD-PL), the queue and the player bar | Tile and popup: one link per artist (spaces trimmed), separated by ", ", no link for the whole name; a click closes the popup, shows the search field with the artist, switches the search area Artist on and Album and Composer off (stored, also when they were switched on again) and searches every source once, no composer request; track artists (album popup where it differs from the album artist, playlist popup before " • " of `text2`, queue "artist – album", player bar when `title2` = `artist`): one link per artist, every link searches like above, nothing played, no queue move | – | Auto | yes |
 
 ### 4.7 Album popup (POP)
 

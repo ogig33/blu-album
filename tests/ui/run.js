@@ -675,7 +675,7 @@ const trackRow = (x) => [
 ];
 // Track rows of the open popup: [number, title, duration]
 const trackRows = (t) =>
-  t.page.$$eval("#tracks li:not(.disc) button", (b) =>
+  t.page.$$eval("#tracks li.tr", (b) =>
     b.map((x) =>
       [...x.querySelectorAll(":scope > span")]
         .map((s) => s.firstChild?.textContent || "")
@@ -1863,6 +1863,61 @@ test(
   { appDefaults: true },
 );
 
+// ART-05: a track artist (album and playlist track list, queue, player bar) is a link per artist that searches
+test(
+  "ART-05 track artists: links in the track lists, the queue and the player bar, each searches the artist",
+  async (t) => {
+    t.player.state.songArtists = { [TD.SONG_TITLES[1]]: "Harold Budd, Brian Eno" };
+    const links = (sel) => t.page.$$eval(sel, (b) => b.map((x) => x.textContent));
+    // A click on the link `sel`: search for its name with only the Artist area on, nothing played
+    const searches = async (sel, what) => {
+      const name = await t.page.textContent(sel);
+      const plays = t.cmds(/^\/(Play|Add)\b/).length;
+      await t.page.click(sel);
+      await t.waitMsg(`“${name}”`);
+      eq(await t.page.inputValue("#q"), name, what + ": the artist in the search field");
+      eq(
+        await t.page.$$eval("#sin button", (x) => x.map((e) => e.getAttribute("aria-pressed")).join()),
+        "false,true,false",
+        what + ": only the Artist area on",
+      );
+      eq(t.cmds(/^\/(Play|Add)\b/).length, plays, what + ": nothing played");
+      await t.page.press("#q", "Escape");
+    };
+    // Album popup: the track artist with a comma, one link each
+    await t.all();
+    await openLibAlbum(t);
+    eq(await links("#tracks .ta .al"), ["Harold Budd", "Brian Eno"], "album popup: one link per track artist");
+    eq(await t.page.textContent("#tracks .ta"), "Harold Budd, Brian Eno", "album popup: artist line");
+    await searches('#tracks .ta .al:text-is("Brian Eno")', "album popup");
+    ok(!(await t.page.$("#dlg[open]")), "album popup closed");
+    // Playlist popup: "track artist • album", the artist as link
+    if (TD.PL.length) {
+      await openPlaylistPopup(t, TD.PL[0].text);
+      const x = TD.PL_TRK[0];
+      eq(await t.page.textContent("#tracks li.tr .ta"), x.text2, "playlist popup: line as the player sends it");
+      eq(
+        (await links("#tracks li.tr:first-child .ta .al")).join(", "),
+        x.text2.split(" • ")[0].split(",").map((s) => s.trim()).filter(Boolean).join(", "),
+        "playlist popup: the artist before “ • ” as link",
+      );
+      await searches("#tracks li.tr:first-child .ta .al", "playlist popup");
+    }
+    // Queue: "artist – album", the artist as link; no play, no drag
+    await t.openQueue();
+    const qa = (await links("#qlist li:first-child .qt .al")).join(", ");
+    ok(qa, "queue: artist link");
+    ok((await t.page.textContent("#qlist li:first-child .qt span")).startsWith(qa + " – "), "queue: artist – album");
+    await searches("#qlist li:first-child .qt .al", "queue");
+    eq(t.cmds(/^\/Move/), [], "queue: no move");
+    // Player bar: line 2 "artist – album", the artist (title2 = artist) as link
+    eq(await t.page.textContent("#nt2"), [t.st("title2"), t.st("title3")].filter(Boolean).join(" – "), "player bar: line 2");
+    eq((await links("#nt2 .al")).join(", "), t.st("title2"), "player bar: artist link");
+    await searches("#nt2 .al", "player bar");
+  },
+  { appDefaults: true, needs: ["queue"] },
+);
+
 // ---------- 4.7 Album popup (POP) ----------
 test("POP-01 popup opens from cover and title: details, source line, loading text", async (t) => {
   t.player.state.overrides.push({ match: /MG\/LocalMusic-Album/, delay: 800 });
@@ -1910,7 +1965,7 @@ test(
       await t.page.$eval("#dy", (y) => y.parentElement === document.querySelector("#da").parentElement),
       "year on the artist line",
     );
-    const gap = await t.page.$eval("#tracks li button", (b) => {
+    const gap = await t.page.$eval("#tracks li.tr", (b) => {
       const [n, s] = b.querySelectorAll("span");
       return s.getBoundingClientRect().left - n.getBoundingClientRect().right;
     });
@@ -1947,7 +2002,7 @@ test(
     await t.all();
     await openAlbumBy(t, "x.key === a.key", TD.ALB_LIB);
     await t.page.waitForFunction(() => !/Loading/.test(document.querySelector("#tracks").textContent));
-    const rows = await t.page.$$eval("#tracks li button", (b) => b.map((x) => x.getBoundingClientRect().height));
+    const rows = await t.page.$$eval("#tracks li.tr", (b) => b.map((x) => x.getBoundingClientRect().height));
     ok(rows.length > 0 && rows.every((h) => h > 0), `visible track rows: ${JSON.stringify(rows)}`);
     ok(/^(\d+:)?\d+:\d\d$/.test(await t.page.textContent("#dlen")), "total time in the album details");
   },
@@ -2039,7 +2094,7 @@ const listRows = (t) =>
     l.map((x) =>
       x.classList.contains("disc")
         ? x.textContent
-        : [...x.querySelectorAll("button > span")]
+        : [...x.querySelectorAll(":scope > span")]
             .map((s) => s.firstChild?.textContent || "")
             .concat(x.querySelector("i").textContent),
     ),
@@ -2144,7 +2199,7 @@ test(
   async (t) => {
     await t.all();
     await openLibAlbum(t);
-    await t.page.click("#tracks li:first-child button");
+    await t.page.click("#tracks li:first-child .tp", { position: { x: 10, y: 10 } });
     await t.waitToast("Track started");
     ok(t.player.state.commands.includes(decodeURIComponent(TD.TRK[0].autoplayURL || TD.TRK[0].playURL)), "track URL");
   },
@@ -3481,7 +3536,7 @@ test(
   "QUE-06 click on a queue entry plays it",
   async (t) => {
     await t.openQueue();
-    await t.page.click("#qlist li:nth-child(3) .it");
+    await t.page.click("#qlist li:nth-child(3) .it", { position: { x: 10, y: 10 } });
     await t.settle();
     ok(t.player.state.commands.includes("/Play?id=" + TD.QUEUE[2].id), "/Play?id= sent");
   },
@@ -4047,7 +4102,7 @@ test(
   async (t) => {
     await openPlaylistPopup(t, TD.PL[0].text);
     const last = TD.PL_TRK[TD.PL_TRK.length - 1];
-    await t.page.click("#tracks li:last-child button");
+    await t.page.click("#tracks li:last-child .tp", { position: { x: 10, y: 10 } });
     await t.waitToast("Track started");
     ok(t.player.state.commands.includes(decodeURIComponent(last.autoplayURL || last.playURL)), "track URL");
   },
@@ -4770,7 +4825,7 @@ test(
         theme + ": no horizontal scrolling with the queue pinned",
       );
       await openLibAlbum(t);
-      for (const sel of ["#dt", "#tracks li button .tt"]) {
+      for (const sel of ["#dt", "#tracks li.tr .tt"]) {
         const c = await contrastOf(t.page, sel);
         ok(c >= 4.5, `${theme}: ${sel} contrast ${c}`);
       }

@@ -2,6 +2,9 @@
 
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
+## Unreleased
+- Artist links: the track artists in the album and playlist popups, the queue and the player bar are links that search that artist in the search area Artist only.
+
 ## 0.12.0
 - Playlists: one "Playlists" chip after New shows the BluOS playlists as tiles like albums, with play, add to queue, delete and a popup with the track list.
 - Playlists: a "Random playlist" tile plays or queues a random BluOS playlist.
