@@ -4155,36 +4155,34 @@ test(
     await t.page.click("#grid .item:first-child .addq");
     await t.waitToast(/^Added to queue: .+$/);
     const name = (await t.page.textContent("#toast")).replace(/^Added to queue: /, "");
-    ok(
-      plNames().includes(name),
-      "a playlist of the view: " + name,
-    );
+    ok(plNames().includes(name), "a playlist of the view: " + name);
     eq(t.cmds(/^\/Add\?playlist(id)?=.*&where=last$/).length, 1, "add-last of its context menu");
   },
   { ...W, needs: ["playlist"] },
 );
 
-test(
-  "PLS-13 library playlist: the heart adds and removes the favourite via the player",
-  async (t) => {
-    const p = TD.LPL[0],
-      tile = await openTile(t, p.text),
-      heart = tile + " .favc",
-      pressed = (v) => t.page.waitForFunction(([s, x]) => document.querySelector(s).getAttribute("aria-pressed") === x, [heart, v]);
-    await t.page.hover(tile);
-    eq(await t.page.getAttribute(heart, "aria-pressed"), "false", "empty heart");
-    eq(await t.page.getAttribute(heart, "aria-label"), "Add to favourites: " + p.text, "label");
-    await t.page.click(heart);
-    await t.waitToast("Added to favourites");
-    ok(/^\/AddFavourite\?playlistid=.+&service=LocalMusic$/.test(t.cmds(/^\/AddFavourite/)[0] || ""), "AddFavourite of its menu");
-    await pressed("true");
-    eq(t.reqs(/CM\/LocalMusic-Playlist.*isFavourite=1/).length, 1, "context menu read again with isFavourite=1");
-    await t.page.click(heart);
-    await t.waitToast("Removed from favourites");
-    ok(/^\/DeleteFavourite\?playlistid=/.test(t.cmds(/^\/DeleteFavourite/)[0] || ""), "DeleteFavourite of its menu");
-    await pressed("false");
-  },
-);
+test("PLS-13 library playlist: the heart adds and removes the favourite via the player", async (t) => {
+  const p = TD.LPL[0],
+    tile = await openTile(t, p.text),
+    heart = tile + " .favc",
+    pressed = (v) =>
+      t.page.waitForFunction(([s, x]) => document.querySelector(s).getAttribute("aria-pressed") === x, [heart, v]);
+  await t.page.hover(tile);
+  eq(await t.page.getAttribute(heart, "aria-pressed"), "false", "empty heart");
+  eq(await t.page.getAttribute(heart, "aria-label"), "Add to favourites: " + p.text, "label");
+  await t.page.click(heart);
+  await t.waitToast("Added to favourites");
+  ok(
+    /^\/AddFavourite\?playlistid=.+&service=LocalMusic$/.test(t.cmds(/^\/AddFavourite/)[0] || ""),
+    "AddFavourite of its menu",
+  );
+  await pressed("true");
+  eq(t.reqs(/CM\/LocalMusic-Playlist.*isFavourite=1/).length, 1, "context menu read again with isFavourite=1");
+  await t.page.click(heart);
+  await t.waitToast("Removed from favourites");
+  ok(/^\/DeleteFavourite\?playlistid=/.test(t.cmds(/^\/DeleteFavourite/)[0] || ""), "DeleteFavourite of its menu");
+  await pressed("false");
+});
 
 // ---------- 4.13 Settings panel (SET) ----------
 test(
