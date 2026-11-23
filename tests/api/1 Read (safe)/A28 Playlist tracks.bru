@@ -21,8 +21,14 @@ script:pre-request {
     bru.runner.skipRequest();
     return;
   }
-  // Same request as the app (playlist popup): browse key of the first saved playlist, without context menu items
-  req.setUrl("http://" + bru.getEnvVar("host") + ":11000/Browse?key=" + encodeURIComponent(key) + "&withContextMenuItems=0");
+  // Same request as the app (playlist popup): browse key of the first BluOS playlist, without context menu items
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  req.setUrl(H + "/Browse?key=" + encodeURIComponent(key) + "&withContextMenuItems=0");
+  // Whether the playlist has a second page (more than 10 tracks): exactly 10 tracks fill the first page without one
+  const name = decodeURIComponent((key.split("playlist=")[1] || "").replace(/\+/g, " "));
+  const axios = require("axios");
+  const next = String((await axios.get(H + "/Songs?service=BluOS&playlist=" + encodeURIComponent(name) + "&offset=10", { responseType: "text", transformResponse: (x) => x, headers: { "Accept-Language": "en" } })).data || "");
+  bru.setVar("a28More", /<song\b/.test(next) ? "1" : "0");
 }
 
 script:post-response {
@@ -65,9 +71,9 @@ tests {
     t.forEach((x, i) => expect(attr(x, "autoplayURL")).to.match(new RegExp("listindex=" + i + "&.*playlist=")));
   });
 
-  test("more than 10 tracks: nextKey to the next page (/Songs?playlist=…&offset=10)", () => {
+  test("nextKey (/Songs?playlist=…&offset=10) only with more than 10 tracks", () => {
     const top = tags("browse")[0] || "";
-    if (items("track").length < 10) return;
-    expect(attr(top, "nextKey")).to.match(/^BluOS:Song\/%2FSongs%3Fplaylist=.*&offset=10$/);
+    if (bru.getVar("a28More") === "1") expect(attr(top, "nextKey")).to.match(/^BluOS:Song\/%2FSongs%3Fplaylist=.*&offset=10$/);
+    else expect(attr(top, "nextKey")).to.equal("");
   });
 }
