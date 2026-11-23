@@ -255,7 +255,7 @@ async function buildTD(get) {
       ""
     : "";
   D.FAV = await libAlbums(D.LIB, "category=FAVOURITES", 5000);
-  // TD-PL: saved playlists (following nextKey like the app)
+  // TD-PL: BluOS playlists (following nextKey like the app)
   const plItem = itemsOf(top).find(
     (i) => /myplaylists/i.test(i.image || "") || /^(playlists|wiedergabelisten)$/i.test(i.text || ""),
   );
@@ -265,7 +265,7 @@ async function buildTD(get) {
     D.PL.push(...itemsOf(x, ofType("playlist")));
     k = ent((x.match(/<browse [^>]*nextKey="([^"]*)"/) || [])[1] || "");
   }
-  // TD-PL-TRK: tracks of the first saved playlist, every page (like fetchItems of the app)
+  // TD-PL-TRK: tracks of the first BluOS playlist, every page (like fetchItems of the app)
   D.PL_TRK = [];
   for (let k = D.PL.length ? D.PL[0].browseKey : "", seen = new Set(); k && !seen.has(k);) {
     seen.add(k);
@@ -614,7 +614,7 @@ const openLibAlbum = async (t) => {
   await openAlbumBy(t, "x.key === a.key", TD.ALB_LIB);
   await t.page.waitForSelector("#tracks li button");
 };
-// Playlists view (Playlists chip); the tile of a saved playlist in it (selector, waits until it is drawn)
+// Playlists view (Playlists chip); the tile of a BluOS playlist in it (selector, waits until it is drawn)
 const openPlaylists = async (t) => {
   await t.page.click("#az .plc");
   await t.waitMsg(/^\d+ playlists?$/);
@@ -629,13 +629,13 @@ const openTile = async (t, name) => {
   );
   return `#grid .item:nth-child(${i + 1})`;
 };
-// Plays a saved playlist with the play button of its tile
+// Plays a BluOS playlist with the play button of its tile
 const playPlaylist = async (t, name) => {
   const tile = await openTile(t, name);
   await t.page.hover(tile);
   await t.page.click(tile + " .play:not(.addq):not(.favc)");
 };
-// Opens the popup of a saved playlist (cover of its tile) and waits for the tracks
+// Opens the popup of a BluOS playlist (cover of its tile) and waits for the tracks
 const openPlaylistPopup = async (t, name) => {
   await t.page.click((await openTile(t, name)) + " > .cw > .card");
   await t.page.waitForSelector("#tracks li button");
@@ -659,7 +659,7 @@ const R = { real: "read" };
 const W = { real: "write" };
 // opts.needs: what a test needs on the real player; skipped without it (read-only) or set up first (--write, see prepare())
 // usb: a USB drive (a second source), library: a library title playing or paused, queue: at least 3 tracks,
-// playlist: a saved playlist
+// playlist: a BluOS playlist
 const U = { real: "read", needs: ["usb"] };
 
 // ---------- 4.1 Connection & start (CON) ----------
@@ -978,7 +978,7 @@ test(
       "special chips, Playlists after New",
     );
     eq(c.slice(4 + lead.length), TD.GEN, "genres of both sources, A-Z");
-    eq(await t.page.getAttribute("#az .plc", "title"), "Saved playlists", "tooltip");
+    eq(await t.page.getAttribute("#az .plc", "title"), "BluOS playlists", "tooltip");
     ok(!(await t.page.$("#az .plc svg")), "no icon");
   },
   { ...R, needs: ["playlist"] },
@@ -3406,12 +3406,12 @@ test(
 );
 
 test(
-  "QUE-11 save the queue as playlist",
+  "QUE-11 save the queue as BluOS playlist",
   async (t) => {
     await t.openQueue();
     const pl = t.reqs(/key=BluOS:$/).length;
     await t.page.click("#qsave");
-    await t.waitToast(new RegExp(`^Saved playlist \u201C${TEST_LIST}\u201D \\(\\d+ tracks?\\)$`));
+    await t.waitToast(new RegExp(`^Saved BluOS playlist \u201C${TEST_LIST}\u201D \\(\\d+ tracks?\\)$`));
     ok(/^Queue \d{4}-\d\d-\d\d \d\d:\d\d$/.test(t.dialogs.log[0].value), "default name " + t.dialogs.log[0].value);
     eq(t.cmds(new RegExp(`^/Save\\?name=${TEST_LIST}$`)).length, 1, "save sent");
     await t.settle();
@@ -3872,7 +3872,7 @@ test(
 );
 
 test(
-  "PLS-03 player without saved playlists: no chip, no statistic",
+  "PLS-03 player without BluOS playlists: no chip, no statistic",
   async (t) => {
     eq(await t.page.$$("#az .plc"), [], "no Playlists chip");
     await t.page.click("#gear");
@@ -3898,7 +3898,7 @@ test(
 );
 
 test(
-  "PLS-05 saved playlists over several pages",
+  "PLS-05 BluOS playlists over several pages",
   async (t) => {
     await openPlaylists(t);
     eq(
@@ -4911,7 +4911,7 @@ const NEEDS = {
   usb: { ok: () => !!TD.USB, why: "the player has no USB drive" },
   library: { ok: () => TD.NOW_LIB, why: "no library title playing or paused" },
   queue: { ok: () => TD.QUEUE.length >= 3, why: "fewer than 3 tracks in the queue" },
-  playlist: { ok: () => TD.PL.length > 0, why: "no saved playlist" },
+  playlist: { ok: () => TD.PL.length > 0, why: "no BluOS playlist" },
 };
 async function runIn(key, list, real) {
   const { label } = BROWSERS[key];

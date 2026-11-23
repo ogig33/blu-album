@@ -40,7 +40,7 @@ Official documentation: [BluOS Custom Integration API v1.7](https://bluos.io/wp-
 - **Queue and playlists:** four kinds, named so throughout this reference:
   - **Queue**: the list the player plays from; changed with [`/Add`](#get-add), [`/Move`](#get-move), [`/Delete`](#get-delete), [`/Clear`](#get-clear); listed with [`/Playlist`](#get-playlist) (despite its name the queue).
   - **BluOS playlist**: a queue saved with [`/Save`](#get-save) or a list filled with [`/AddToPlaylist`](#get-addtoplaylist); stored in the player (service `BluOS`), not in the library; changed and deleted through the player; listed with [`/Playlists`](#get-playlists), its tracks with [`/Songs`](#get-songs), played with [`/Load`](#get-load).
-  - **Library playlist**: a playlist file (e.g. M3U) on the share or the USB drive, imported by the library index (service `LocalMusic` or the USB id); not changeable through the player; listed with [`/library/v1/Playlists`](#get-libraryv1playlists) (none on the test player).
+  - **Library playlist**: a playlist file (e.g. M3U) on the share or the USB drive, imported by the library index (service `LocalMusic` or the USB id); not changeable through the player; listed with [`/library/v1/Playlists`](#get-libraryv1playlists), its tracks through [`/Browse`](#get-browse); played with [`/Load`](#get-load).
   - **Service playlist**: a playlist of a streaming service (e.g. `Tidal`), stored at the service; found through [`/Browse`](#get-browse), played with [`/Load`](#get-load).
 - **Grouped players:** many requests sent to a secondary player are proxied to the primary (status, playback, queue, browse).
 - **Response examples** are shortened answers of the test player and well-formed XML; `<!-- … -->` and `…` in text or attribute values mark left-out parts. Personal data is replaced by example values (addresses `192.168.1.x`, share `//nas/Music`, names like "Living Room" or "My Playlist"). In request lines `<…>` stands for a value to fill in.
@@ -281,7 +281,7 @@ GET /Add?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&genre=<genre>&
 | `albumid` | album of a streaming service |
 | `genre` | all songs of a genre |
 | `path` | all songs of a folder |
-| `playlist`, `playlistid` | a BluOS playlist (name) or a service playlist (id) |
+| `playlist`, `playlistid` | a BluOS playlist (name), a service playlist (id) or a library playlist (both, with `service=LocalMusic`; seen in its context menu) |
 | `file` | single track (file) |
 | `playnow` | `1` = play now, `-1` = only add |
 | `where` | `next` (after the current track), `nextAlbum` (after the current album), `last` (end of the queue) |
@@ -624,9 +624,9 @@ GET /Load?service=<service>&name=<name>&id=<id>
 
 | Parameter | Meaning |
 |---|---|
-| `service` | `BluOS` for BluOS playlists, or a streaming service |
-| `name` | name of the BluOS playlist |
-| `id` | playlist id of a streaming service (e.g. Tidal) |
+| `service` | `BluOS` for BluOS playlists, `LocalMusic` for library playlists, or a streaming service |
+| `name` | name of the BluOS playlist (also sent for a library playlist) |
+| `id` | playlist id of a library playlist or of a streaming service (e.g. Tidal) |
 
 **Response format**
 
@@ -927,7 +927,7 @@ Some answers group the items in `<category text="…" nextKey="…">`; errors co
   | `LocalMusic:Album/%2Flibrary%2Fv1%2FAlbums%3Fcomposer=…&service=LocalMusic` | `type="albums"` · the albums with songs of the composer, with `browseKey`, `contextMenuKey`, `playURL`, `image` and favourite state (`isFavourite="true"`, `&isFavourite=1`, `favourite-delete`); `tracks` = number of the composer's songs on the album, not of the album (verified 2026-11-20) | about 1.5 KB per album |
   | `LocalMusic:Song/%2Flibrary%2Fv1%2FSongs%3Fexpr=…&service=LocalMusic` (link "Songs" of the search) | `type="tracks"` with `nextKey` · 50 `item` elements (`type="track"`) with `contextMenuKey` (`LocalMusic:CM/LocalMusic-Song?album=…&artist=…&filename=…&title=…`, `artist` = track artist), `playURL` (`/Add?playnow=1&file=…`), `autoplayURL`, `text` (title), `text2` ("track artist • album"), `duration`, `image`; **no `browseKey`**, so no link to the album (verified 2026-11-21) | about 1.5 KB per song |
   | `LocalMusic:CM/LocalMusic-Song?…` (song of the search's songs list) | `type="contextMenu"` · 4 `item` elements with `actionURL`: `favourite-add`, `add-now`, `add-next`, `add-last`; no "Go to album" or other link (verified 2026-11-21) | 1.4 KB |
-  | `LocalMusic:Playlist/…imported=1` | library playlists (empty here) | 0.2 KB |
+  | `LocalMusic:Playlist/…imported=1` | `type="playlists"` · the library playlists with `browseKey`, `contextMenuKey`, `playURL`, `image` (see [`/library/v1/Playlists`](#get-libraryv1playlists)) | 1.1 KB (1 playlist) |
   | `BluOS:MG/BluOS-Playlist?playlist=…` (`browseKey` of a BluOS playlist) | `type="tracks"` with the playlist's `playURL` (`/Load?service=BluOS&name=…`) · 10 `item` elements per page (`type="track"`) with `playURL` (`/Add?playnow=1&file=…`), `autoplayURL` (`/Add?service=BluOS&listindex=<n>&…&playlist=…`), `text` (title), `text2` ("track artist • album"), `duration`, `image` (`/Artwork?service=BluOS&songid=` – empty id); no `browseKey`, no context menus, also not with `withContextMenuItems=1`; `nextKey` `BluOS:Song/%2FSongs%3Fplaylist=…&offset=10` (the [`/Songs`](#get-songs) pages); on later pages `listindex` starts again at 0 and the `autoplayURL` carries `offset` (see [`/Add`](#get-add)); the same answer with a German `Accept-Language` (verified 2026-11-21, 3 playlists with 14–61 tracks) | about 1 KB per track |
 - What the search lists match (verified 2026-11-20 on the local library): every list wraps the `/library/v1` endpoint of its type with `expr=<q>` (e.g. `LocalMusic:Album/%2Flibrary%2Fv1%2FAlbums%3Fexpr=love&service=LocalMusic`). A term matches at the start of a word, not inside a word (`Muscat` finds, `uscat` does not); case and accents are ignored (`buble` finds `Bublé`, `bande a part` finds `Bande à part`); a term of several words is matched as one string, punctuation included (`Superman: Dawn` finds "Batman v Superman: Dawn of Justice", `Superman Dawn` does not; `Deluxe)` finds "Believe (Deluxe)"). The albums list matches the album title and the track artists of the album's songs (a sampler of "Various" is found by the artist of one of its tracks), **not** the album artist, **not** song titles and **not** composers. Song titles are found only in the songs list, composers only in the composers list; the songs list does not match the track artist. The albums of a composer that was found come from its browse menu (link "Albums", see the keys above).
 - **The search does not find albums by their album artist** (verified 2026-11-21, BluOS 4.18.18): of the 178 albums with the album artist "Various" the search `various` finds 2, of the 126 albums of "Putumayo Presents" the search `putumayo` finds 2 – one by its title ("A Taste of Putumayo …"), one by a track artist ("Putumayo Presents , Diogal"); the same in `/library/v1/Albums?expr=` and `/library/v1/Search`. The search's artists list holds track artists only (`Putumayo Presents , Diogal`, not `Putumayo Presents`). An album is found by its album artist only when a track artist or the title contains the name. The album artists are in the sectioned artists list of the library menu (`…bySection:Artist/…`, `/library/v1/Artists?section=`): it lists album artists, not artists that only appear on tracks (e.g. `Various` and `Putumayo Presents`, not `Putumayo Presents , Diogal`); their albums come from the artist's browse menu (link "Albums"). Finding an album artist by a term therefore needs a match on the client: in the whole artists list (1 request with `section=all`, see [`/library/v1/Artists`](#get-libraryv1artists)), then the albums of each artist found, or directly in the `<art>` of every album (1 request with `section=all`, see [`/library/v1/Albums`](#get-libraryv1albums)).
@@ -1034,7 +1034,7 @@ USB drives have no favourites (no favourite actions in their menus). Radio favou
 ### `GET /AddFavourite`
 
 ```
-GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn=<file>&preset_id=<station id>&url=<action url>
+GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn=<file>&playlistid=<id>&preset_id=<station id>&url=<action url>
 ```
 
 | Parameter | Meaning |
@@ -1044,6 +1044,7 @@ GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn=<f
 | `albumid` | album of a streaming service |
 | `artist` alone | an artist of the local library |
 | `fn` | a song of the local library (its file name, as in `fn` of `/Status`) |
+| `playlistid` | a library playlist (seen in its context menu, not tried) |
 | `preset_id` | TuneIn station, e.g. `t548782914` (with `service=TuneIn`) |
 | `url` | Airable station: its favourite action URL `https://….airable.io/radio/action/…` (with `service=Airable`) |
 
@@ -1477,19 +1478,23 @@ GET /library/v1/Playlists?service=<svc>&imported=1&category=FAVOURITES
 |---|---|
 | `service` | `LocalMusic` or the USB id |
 | `imported` | `1` = library playlists (playlist files of the share, e.g. M3U, imported by the index) |
-| `category` | `FAVOURITES` = favourite playlists (which kind is not verified) |
+| `category` | `FAVOURITES` = favourite library playlists (presumably those marked with the `favourite-add` of their context menu; not tried) |
 
 **Response format**
 
 ```xml
-<playlists imported="1" id="983063" service="LocalMusic"></playlists>
+<playlists imported="1" id="39" service="LocalMusic">
+  <name id="756cf45008180e2a029f54c1153f0bf0" image="/Artwork?service=LocalMusic&amp;fn=/var/mnt/nas-Music/…/1-Someday.flac">My Mix</name>
+</playlists>
 ```
-
-Entries not seen yet (no library or favourite playlists on the test player).
 
 **Notes**
 
-- Verified: both variants answer, empty on the test player (no library or favourite playlists). Parameters from the player's description in [`/Services`](#get-services).
+- Verified (2026-11-23, BluOS 4.18.18, 1 library playlist with 20 tracks on the share): with and without `imported=1` the same answer; `category=FAVOURITES` and the USB drive empty. Parameters from the player's description in [`/Services`](#get-services).
+- `id` = id of the playlist (32 hex digits): `playlistid` in the browse keys and in `/Add`, `id` in `/Load`.
+- In [`/Browse`](#get-browse): the link "Playlists" of the library menu (`LocalMusic:Playlist/%2Flibrary%2Fv1%2FPlaylists%3Fimported=1&service=LocalMusic`) answers `type="playlists"` with one `item type="playlist"` per playlist: `browseKey` `LocalMusic:MG/LocalMusic-Playlist?playlist=<name>&playlistid=<id>`, `contextMenuKey` `LocalMusic:CM/LocalMusic-Playlist?…`, `playURL` `/Load?service=LocalMusic&name=<name>&id=<id>`, `image`. The `browseKey` answers `type="tracks"` with `playURL` `/Load?service=LocalMusic&id=<id>` and all tracks in one answer (no `nextKey`), each with `autoplayURL` carrying `playlist` and `playlistid`.
+- Context menu: `add-now` (`/Add?clear=0&playlist=<name>&playlistid=<id>&playnow=1&service=LocalMusic&shuffle=0`), `add-shuffle`, `add-next`, `add-last`, `favourite-add` (`/AddFavourite?playlistid=<id>&service=LocalMusic`); **no `delete`**: a library playlist cannot be changed through the player.
+- Not in the BluOS playlists ([`/Playlists`](#get-playlists), `/Browse?key=BluOS:`); `/library/v1/Songs?playlist=<id>` answers empty, the tracks come only from `/Browse`.
 
 ### `GET /library/v1/Search`
 

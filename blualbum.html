@@ -1873,7 +1873,7 @@ dialog * {
     <span id="qcount"></span>
     <button id="qshuf" aria-label="Shuffle" title="Shuffle" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
     <button id="qrep" aria-label="Repeat: off" title="Repeat: off" aria-pressed="false"></button>
-    <button id="qsave" aria-label="Save queue as playlist" title="Save queue as playlist"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8 4v4h7V4M7.5 20v-6h9v6"/></svg></button>
+    <button id="qsave" aria-label="Save queue as BluOS playlist" title="Save queue as BluOS playlist"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8 4v4h7V4M7.5 20v-6h9v6"/></svg></button>
     <button id="qclear" aria-label="Clear queue" title="Clear queue"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14M3 8.75h14M3 13.5h6M3 18.25h5" stroke-width="2.4"/><path d="M12.5 11.5l8.5 8.5M21 11.5L12.5 20" stroke-width="2.4"/></svg></button>
   </div>
 </aside>
@@ -1940,7 +1940,7 @@ dialog * {
  *   9. Album grid                      Lazy rendering of the album tiles and the random album tile.
  *  10. Favourites                      Favourite state and toggling for the heart on the cover.
  *  11. Popups                          Album popup and the popup for unsuccessful player answers.
- *  12. Playlists                       Saved playlists of the player: the Playlists chip, its tiles (play, add, delete), track lists.
+ *  12. Playlists                       BluOS playlists of the player: the Playlists chip, its tiles (play, add, delete), track lists.
  *  13. Queue panel                     Play queue: list, reordering, pinning, shuffle, repeat, save as playlist, clear.
  *  14. Player footer & full screen     Now playing, progress, transport, volume, listening mode, status polling, full-screen view.
  *  15. Search                          The player's own search.
@@ -2124,7 +2124,7 @@ let base = "", cache = {}, shown = [], activeKey = "", activeBtn = null;
 let sources = [], srcs = [], epoch = 0;
 // Album grid: lazy rendering observer, a token that cancels an older render, observer that loads the covers.
 let lazyObs = null, lazyTok = 0, coverObs = null, cutObs = null;
-// Saved playlists. playlistsKey: browse key ("" if the player has none), plSeq: request counter,
+// BluOS playlists. playlistsKey: browse key ("" if the player has none), plSeq: request counter,
 // plBtn: the Playlists chip (re-added after the genre chips are rebuilt), plCount: number for the stats (null = unknown),
 // playlists: tiles like albums (toAlbum() + pl: true).
 let playlistsKey = "", plSeq = 0, plBtn = null, plCount = null, playlists = [];
@@ -2353,7 +2353,7 @@ async function connect() {
     $("#iphelp").hidden = true;
     showConnected(true);
     sources = topItems.filter((i) => attr(i, "type") === "link" && (/USBIcon|LibraryIcon/.test(attr(i, "image")) || /^(USB|Library|Bibliothek)$/i.test(attr(i, "text")))).map((i) => ({ key: attr(i, "browseKey"), name: attr(i, "text"), icon: attr(i, "image") }));
-    // Saved playlists ("Playlists" / "Wiedergabelisten", icon ci_myplaylists) for the Playlists chip
+    // BluOS playlists ("Playlists" / "Wiedergabelisten", icon ci_myplaylists) for the Playlists chip
     const plItem = topItems.find((i) => /myplaylists/i.test(attr(i, "image")) || /^(playlists|wiedergabelisten)$/i.test(attr(i, "text")));
     playlistsKey = plItem ? attr(plItem, "browseKey") : "";
     loadPlaylists();
@@ -2896,7 +2896,7 @@ function render(list, noRandom) {
     more();
   } else list.forEach(addItem);
   // One grid tile: cover (opens details) with play / add-to-queue buttons and the heart, title, artist link
-  // (a saved playlist: delete button instead of the heart, the line "Playlist" instead of the artist).
+  // (a BluOS playlist: delete button instead of the heart, the line "Playlist" instead of the artist).
   function addItem(a) {
     if (a.line) {
       const l = document.createElement("div");
@@ -3005,7 +3005,7 @@ function render(list, noRandom) {
 const randomAlbum = (list) => list[Math.floor(Math.random() * list.length)];
 // First tile of the grid. Click / play button: plays a random album of the current view,
 // add button: appends one to the queue. No popup; a toast tells which album was picked.
-// In the Playlists view the same for a random saved playlist.
+// In the Playlists view the same for a random BluOS playlist.
 function randomTile(list) {
   const isPl = !!list[0].pl, kind = isPl ? "playlist" : "album", name = (a) => isPl ? a.t : a.t + " \u2013 " + a.a;
   const item = document.createElement("div");
@@ -3117,7 +3117,7 @@ async function toggleFav(a) {
 /* ---------- Popups ---------- */
 // Album popup and the popup for unsuccessful player answers.
 
-// Opens the album popup: details and the track list; for a saved playlist (a.pl) its tracks (playlistTracks()).
+// Opens the album popup: details and the track list; for a BluOS playlist (a.pl) its tracks (playlistTracks()).
 // Play, add to queue and the favourite heart are on the cover in the grid, not in the popup.
 async function openAlbum(a) {
   showImg($("#dimg"), imgUrl(a.img, COVER_FULL));
@@ -3276,9 +3276,9 @@ function loadFailed(prefix, title, e) {
 }
 
 /* ---------- Playlists ---------- */
-// Saved playlists of the player: the Playlists chip, its tiles and track lists.
+// BluOS playlists of the player: the Playlists chip, its tiles and track lists.
 
-// Loads the saved playlists (following nextKey paging) as album-like tiles: name, cover (the first track's),
+// Loads the BluOS playlists (following nextKey paging) as album-like tiles: name, cover (the first track's),
 // browse key of the tracks, play URL and the actions of the context menu (add-last for the add button).
 // Called on connect, after saving / deleting a playlist and on every click of the Playlists chip; an open
 // Playlists view is drawn again when the list has changed.
@@ -3324,7 +3324,7 @@ function renderPlChip() {
     plBtn = document.createElement("button");
     plBtn.className = "sp plc";
     plBtn.textContent = "Playlists";
-    plBtn.title = "Saved playlists";
+    plBtn.title = "BluOS playlists";
     plBtn.onclick = () => {
       selectView("__pl", plBtn);
       showPlaylists();
@@ -3336,13 +3336,13 @@ function renderPlChip() {
   if (nw) nw.after(plBtn);
   else nav.prepend(plBtn);
 }
-// The Playlists view: the random playlist tile, then one tile per saved playlist.
+// The Playlists view: the random playlist tile, then one tile per BluOS playlist.
 function showPlaylists() {
   shown = playlists;
   render(shown);
-  msg(shown.length ? nPl(shown.length) : "No saved playlists.");
+  msg(shown.length ? nPl(shown.length) : "No BluOS playlists.");
 }
-// Deletes a saved playlist on the player after confirmation, with the "delete" action of its context menu
+// Deletes a BluOS playlist on the player after confirmation, with the "delete" action of its context menu
 // (/Delete?name=…&service=BluOS); the queue stays. Success: toast and the playlists read again (its tile goes).
 async function deletePlaylist(p) {
   if (!confirm("Delete the playlist \u201C" + p.t + "\u201D from the player?\nThe current queue is not changed.")) return;
@@ -3354,14 +3354,14 @@ async function deletePlaylist(p) {
   }
   showApiResponse("Deleting the playlist did not succeed", base + p.menu.delete, r.status, r.body);
 }
-// Plays a saved playlist (replaces the queue).
+// Plays a BluOS playlist (replaces the queue).
 function playPlaylist(p) {
   // The new playlist id in /Status reloads the queue. A broken (empty) playlist may not change
   // the id, so the queue is reloaded after 1.5 s only when that has not happened yet.
   const seq = qSeq;
   cmd(p.play, "Playing playlist: " + p.t).then(() => setTimeout(() => qOpen && qSeq === seq && loadQueue(), 1500));
 }
-// Track list of a saved playlist in the popup: every page of the playlist's browse list (10 tracks each),
+// Track list of a BluOS playlist in the popup: every page of the playlist's browse list (10 tracks each),
 // number, title, "track artist \u2022 album" and duration; a click plays the playlist from that track (the
 // track's autoplayURL). Not kept in popCache: saving the queue under the name changes the playlist.
 async function playlistTracks(p, seq) {
@@ -4232,12 +4232,12 @@ $("#qsave").onclick = async () => {
   if (!base) return toast("Connect first");
   const d = new Date(), pad = (n) => String(n).padStart(2, "0");
   const def = "Queue " + d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
-  const name = (prompt("Save the queue as playlist:", def) || "").trim();
+  const name = (prompt("Save the queue as BluOS playlist:", def) || "").trim();
   if (!name) return;
   const path = "/Save?name=" + encodeURIComponent(name), r = await apiRaw(path);
   const e = r.ok && new DOMParser().parseFromString(r.body, "text/xml").querySelector("saved > entries"), n = e ? +e.textContent : 0;
   if (n > 0) {
-    toast("Saved playlist \u201C" + name + "\u201D (" + n + (n === 1 ? " track)" : " tracks)"));
+    toast("Saved BluOS playlist \u201C" + name + "\u201D (" + n + (n === 1 ? " track)" : " tracks)"));
     loadPlaylists();
     return;
   }

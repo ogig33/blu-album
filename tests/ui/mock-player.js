@@ -32,7 +32,7 @@ const USB_GENRES = ["Soundtrack"];
 const USB_SECTIONS = ["A", "S"];
 const USB_YEARS = [{ t: "Soundtrack Classics", a: "Various", y: "1964" }];
 const VERSIONS = { bluos: "4.18.18", api: "v0.5.43" };
-// Tracks on the second page of a saved playlist (the first page is fixture 28 with 10 tracks)
+// Tracks on the second page of a BluOS playlist (the first page is fixture 28 with 10 tracks)
 const PL_PAGE2 = 3;
 const COMMANDS =
   /^\/(Add|Play|Pause|Skip|Back|Load|Save|Delete|AddFavourite|DeleteFavourite|Clear|Shuffle|Repeat|Move|Volume\?)/;
@@ -45,7 +45,7 @@ function createPlayer(opts = {}) {
     queueEmpty: false,
     // Order of the recorded queue after /Move (ids of fixture 20 in their new order), null = as recorded
     queueOrder: null,
-    deletedPlaylists: [], // names of the saved playlists the app deleted (left out of the playlists list)
+    deletedPlaylists: [], // names of the BluOS playlists the app deleted (left out of the playlists list)
     shuffle: false,
     repeat: "2",
     songArtists: {}, // title -> artist, overrides the artist of single songs (compilation test)
@@ -195,7 +195,7 @@ function createPlayer(opts = {}) {
         /\s*<item browseKey="BluOS:MG[^>]* text="([^"]*)"[\s\S]*?<\/contextMenu>\s*<\/item>/g,
         (m, n) => (state.deletedPlaylists.includes(n.replace(/&amp;/g, "&")) ? "" : m),
       );
-    // Track list of a saved playlist (Bruno A28): every playlist gets the recorded tracks under its own name.
+    // Track list of a BluOS playlist (Bruno A28): every playlist gets the recorded tracks under its own name.
     // Like the real player, 10 tracks per page with nextKey; page 2 (offset=10) holds PL_PAGE2 more tracks,
     // without autoplayURL, the playURL carries listindex (from 0 again) and offset.
     const pln = (key.match(/^BluOS:MG\/BluOS-Playlist\?playlist=(.*)$/) || [])[1];
@@ -398,7 +398,7 @@ function createPlayer(opts = {}) {
       state.queueOrder = ids;
       return '<?xml version="1.0" encoding="UTF-8"?>\n<moved>moved</moved>';
     }
-    // Deleting a saved playlist: gone from the playlists list (the answer as for every other command)
+    // Deleting a BluOS playlist: gone from the playlists list (the answer as for every other command)
     if (p === "/Delete" && q.get("service") === "BluOS") state.deletedPlaylists.push(q.get("name"));
     if (p === "/Load") {
       state.queueEmpty = true; // the recorded playlists behave like the broken ones: empty queue
