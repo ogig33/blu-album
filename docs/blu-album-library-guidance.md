@@ -18,9 +18,9 @@ BluOS supports several options of integrating local music libraries. BluAlbum su
 | ------------------ | ------------- | ----------- | --------------------------- | ---------------------------- |
 | Where the music is | SMB network share | A folder on the computer running the BluOS Controller desktop app | A drive plugged into a player | A drive plugged into the player |
 | BluOS Controller music library settings | Network shares | Local shares | Enable Server Mode = on | Enable Server Mode = off |
-| Music Available on | Every BluOS player in the network | Every BluOS player in the network (while your computer runs) | Every BluOS player in the network | Only the player the drive is plugged into |
-| Music library updates|Update on share, then reindex |Update on share, then reindex|Unplug USB,plug into Computer, update,plug into Player, reindex | Unplug USB,plug into Computer, update,plug into Player, reindex|
-| Appearance    | Under "Library" | Under "Library" | Under "Library" | Under "USB" |
+| Music Available on | Every BluOS player in the network | Every BluOS player in the network (while your computer runs) | Every BluOS player in the network | Only the BluOS player the drive is plugged into |
+| Music library updates|Update on share, then reindex |Update on share, then reindex|Unplug from Player, plug into Computer and update, plug into Player, reindex | Unplug from Player, plug into Computer and update, plug into Player, reindex|
+| Service listing    | Under "Library" | Under "Library" | Under "Library" | Under "USB" |
 | Favourites support | Yes | Yes | Yes | No (not supported by BluOS) |
 
 Recommendations:
