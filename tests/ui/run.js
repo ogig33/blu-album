@@ -1907,11 +1907,18 @@ test(
     await t.openQueue();
     const qa = (await links("#qlist li:first-child .qt .al")).join(", ");
     ok(qa, "queue: artist link");
-    ok((await t.page.textContent("#qlist li:first-child .qt span")).startsWith(qa + " – "), "queue: artist – album");
+    ok(
+      (await t.page.textContent("#qlist li:first-child .qt span")).startsWith(qa + " – "),
+      "queue: artist – album",
+    );
     await searches("#qlist li:first-child .qt .al", "queue");
     eq(t.cmds(/^\/Move/), [], "queue: no move");
     // Player bar: line 2 "artist – album", the artist (title2 = artist) as link
-    eq(await t.page.textContent("#nt2"), [t.st("title2"), t.st("title3")].filter(Boolean).join(" – "), "player bar: line 2");
+    eq(
+      await t.page.textContent("#nt2"),
+      [t.st("title2"), t.st("title3")].filter(Boolean).join(" – "),
+      "player bar: line 2",
+    );
     eq((await links("#nt2 .al")).join(", "), t.st("title2"), "player bar: artist link");
     await searches("#nt2 .al", "player bar");
   },
