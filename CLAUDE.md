@@ -9,6 +9,7 @@
 - Minimalistic design for fast and efficient access to the library: no tree-based navigation, find music with search, filters and sorting instead.
 - Focus on music albums: album art is the visual navigation; show covers in the highest quality possible.
 - Expects a tagged music library with cover art.
+- **Terms:** queue (what the player plays), BluOS playlist (stored in the player, changeable), library playlist (imported playlist file of the share or USB drive, read-only), service playlist (streaming service) – as defined in `docs/bluos-api.md` (Basics); no "saved playlist".
 - Owner: Ingmar Gebert. MIT licence. Repository: `blu-album`.
 - Independent project, not affiliated with Lenbrook / Bluesound (no need to mention in README, file header or the about popup).
 - Owner's test setup: Bluesound Powernode, BluOS 4.18.18, API v0.5.43, library on a network share plus a USB drive. Main browser: Safari on macOS; Chrome as second browser.
@@ -28,7 +29,7 @@ Do not build these; when asked, point to the alternative.
 
 ## Where to look
 
-- `docs/bluos-api.md` – BluOS API reference: every endpoint with parameters, answers, verified state and pitfalls (answer language, `hd` / `hr`, MP3 quality, favourite state, genres, `/Delete` forms, CORS of `/Artwork`, …). **Look up an endpoint here before using or changing a player request.**
+- `docs/bluos-api.md` – BluOS API reference (chapter 9: service lists `/Albums`, `/Playlists`, `/Songs` … dispatched by `service`; chapter 10: library `/library/v1`): every endpoint with parameters, answers, verified state and pitfalls (answer language, `hd` / `hr`, MP3 quality, favourite state, genres, `/Delete` forms, CORS of `/Artwork`, …). **Look up an endpoint here before using or changing a player request.**
 - `docs/blu-album-api-usage.md` – every click of the app with its requests, measurements and endpoint choices. Private, git-ignored: missing in worktrees, cloud sessions and clones.
 - `docs/blu-album-library-guidance.md` – how users should tag their library and set "Optimize Artwork" for the best experience with BluAlbum.
 - `docs/blu-album-test-plan.md` – test plan: every function of the app as test cases per block (inputs, expected outputs, status Auto = UI test automation / Manual), test data dictionary; update it when a function or a UI test changes.
@@ -76,7 +77,7 @@ Do not build these; when asked, point to the alternative.
   - Fixtures with personal data stay in `tests/api/fixtures/` (git-ignored); copy them with `tests/tools/sanitize-fixtures.js`.
   - Find new endpoints with `node tests/tools/crawl-endpoints.js <player IP>` (read-only, compares with `docs/bluos-api.md`); verify each finding in Bruno before documenting it.
 - Test methodology:
-  - The test plan has at most 150 core test cases; `tests/ui/run.js` stops when this limit or the local limit of 50 is exceeded.
+  - The test plan has at most 150 core test cases; `tests/ui/run.js` stops when this limit or the local limit of 50 is exceeded. Both limits are reached (2026-11-23): extend an existing case or add a case outside the core ("–").
   - UI tests: local tests performs only a subset of 50 core tests with core browsers (Safari, Chrome), run within 5 mins
   - UI remote tests: github runs the full test case scope with all browsers (Safari, Chrome, Edge and Firefox) and OSes (macos, Linux, Windows)
   - UI tests must not assume a window size (use `VIEWPORT`).
@@ -115,7 +116,7 @@ Do not build these; when asked, point to the alternative.
 - **No player discovery:** not technically feasible from a local HTML page in a browser.
 - **No album and track info (`/Info`):** it only redirects to last.fm.
 - **No compilation chip:** the player offers no compilation filter; the `COMPILATION` tag is only in the songs of a single album, and the album artist "Various" is a convention of the library, not a value of the API.
-- **The heart re-reads the album context menu** after toggling a favourite (1 request) – without it the next click would use a self-built URL.
+- **The heart re-reads the context menu** (album or library playlist) after toggling a favourite (1 request) – without it the next click would use a self-built URL.
 - **No player status text** (e.g. paused, streaming): niche, not essential. The play / pause button still reflects the state.
 - **Do not use /ui endpoints:** these endpoints are specific to BluOS Controller app and too risky for other clients
 - **No "Recently played" chip:** the only source found for this list is `/ui/RecentlyPlayed` (see the rule above; checked 2026-11-22 with BluOS 4.18.18), the "Recent" album sort means recently added (same as New); no own history in localStorage either, it would miss what other clients play.
@@ -125,7 +126,7 @@ Do not build these; when asked, point to the alternative.
 - **Album artist search in the app:** the player's search does not match the album artist (see pitfalls); the Artist search area also matches the album artist of every album of the library (`section=all` without a filter, 1 request per source, shared with the decade chips) in the app, with the player's rules (`atWordStart()`); result group "by the album artist" before "by a track artist", one chip for both.
 - **No song favourites:** no heart per track in the album popup and no "Favourite songs" chip, although the API supports both (`/AddFavourite?fn=`, `autoplayURL` with `category=FAVOURITES`); BluAlbum keeps to album favourites and the favourites of library playlists (heart on their tile; BluOS playlists have none).
 - **No playlist search:** the player offers none (see `/Playlists` in `docs/bluos-api.md`); a name filter in the app would be possible, but is not wanted.
-- **The Playlists view keeps the player's order:** no "Date added" sort (`/Playlists?sort=recent`) and no warning when the queue is saved under an existing playlist name.
+- **The Playlists view:** BluOS playlists, then library playlists of the enabled sources, grouped like the search results, each group in the player's order; no "Date added" sort (`/Playlists?sort=recent`) and no warning when the queue is saved under an existing playlist name.
 
 ## Known pitfalls
 
@@ -134,6 +135,8 @@ Do not build these; when asked, point to the alternative.
 - The player's search does not find albums by their album artist, only by title and track artists (Bruno E40, `docs/bluos-api.md`): albums of "Various" or "Putumayo Presents" whose tracks carry other artists are found only by the app's own album artist match. Test search behaviour with albums whose album artist is on none of their tracks.
 - MQA comes in FLAC: format, bit depth and sample rate do not rule it out. An empty MQA chip is the BluOS bug (see Decisions), not an app bug.
 - `section=all` fails silently: `category`, `recent` and `composer` are ignored (all albums), its index (`length=1`) counts 0 with `artist` / `expr`, Songs and Composers list nothing, in a browse key only the first section answers (`docs/bluos-api.md`).
+- The context menu key of a library playlist carries `isFavourite=1` right after `?` (album keys: at the end); switching the flag must keep the key valid (`toggleFav()`).
+- Library playlists: their tracks come only from `/Browse` (`/library/v1/Songs?playlist=` answers empty); the USB drive lists none on the test player.
 - The `close` event of `<dialog>` arrives late: the next album may be open already, check `dlg.open` in the handler.
 - App names used in `page.evaluate()` belong in `APP_GLOBALS` (`.github/lint/eslint.config.mjs`) and must not be assigned: ESLint fails, and only on GitHub.
 - `--player`: GRD-06, FAV-04 and POP-06 fail on the fixed 400 ms wait; repeat with `UI_SLOW=8` before chasing a bug.
