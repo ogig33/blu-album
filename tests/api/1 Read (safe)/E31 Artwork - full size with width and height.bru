@@ -22,7 +22,7 @@ script:pre-request {
   // The album popup and the full-screen view ask the cover with width and height 3000: the player
   // answers its stored image scaled to that size, but never larger than the original. Without them it
   // answers at most 600 px. Full-size covers need "Optimize Artwork" off and a rebuilt index; with it on
-  // the stored cover has 600 px (see docs/bluos-api.md, /Artwork).
+  // the stored cover has 600 px (see docs/blu-album-library-guidance.md).
   const img = bru.getVar("albumImage");
   if (!img) { bru.runner.skipRequest(); return; }
   req.setUrl("http://" + bru.getEnvVar("host") + ":11000" + img + "&width=3000&height=3000&followRedirects=1");

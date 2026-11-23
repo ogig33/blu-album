@@ -1289,11 +1289,6 @@ The image (HTTP 200, e.g. `image/jpeg`). Without `followRedirects=1` a library s
 - Take the URL from the `image` attribute of an answer and append `followRedirects=1`.
 - CORS: `Access-Control-Allow-Origin: *` (also for `Origin: null`, a page opened as a file), so a web page can read it with `fetch()`. Firefox upgrades `<img src="http://…">` on a `file://` page to https, which the player does not offer.
 - No cache headers (`Cache-Control`, `Expires`, `ETag`, `Last-Modified`).
-- Library cover size depends on the library setting "Optimize Artwork" (`resizeall`) when the index was built:
-  - ON: the player stores at most 600 × 600 px; a larger `width` / `height` returns the same file.
-  - OFF, index rebuilt with [`/delete_index`](#get-post-delete_index) (a normal rescan keeps the stored covers): the original is stored. Without `width` / `height` the answer is at most 600 px; with them it scales up to the original size, never beyond (e.g. 2000 → the 1000 px original; aspect ratio kept).
-  - OFF: a cover file larger than 600 KB is replaced by a grey placeholder (the same image for every such album); the pixel size is not the limit.
-- Other image paths in answers (`/images/…`, `/Sources/images/…`) are static files; they take `width`, `height` and `style` (e.g. `Bluesound`). Source icons: `/images/LibraryIcon.png`, `/images/USBIcon.png` (PNG, white on transparent; `style` `Default`, `Dark`, `Light` give the same file), CORS like `/Artwork`.
 
 ### `GET /Playlists`
 
@@ -2163,7 +2158,7 @@ GET: HTML page "Confirmation" ("Rebuild index and start re-index?") with a form 
 **Notes**
 
 - Linked on the diagnostics page ("Rebuild Index"). The GET only asks; `no` keeps the index.
-- `yes` presumably deletes the library index and scans the whole library again (not sent); needed for new cover sizes (see [`/Artwork`](#get-artwork)).
+- `yes` presumably deletes the library index and scans the whole library again (not sent).
 
 ### `GET /diag`
 
