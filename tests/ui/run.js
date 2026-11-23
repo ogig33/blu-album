@@ -1774,7 +1774,7 @@ test(
   R,
 );
 
-// ART-05: an album artist with commas is several artists: one link each, which searches the track artists
+// ART-05: an album artist with commas is several artists: one link each, which searches the artists
 test(
   "ART-05 several artists (comma): one link each in the tile and the popup, each searches the artist",
   async (t) => {
@@ -2489,9 +2489,24 @@ const searchGrid = (t) =>
       .map((e) => (e.classList.contains("gl") ? "| " + e.textContent : e.querySelector("b")?.textContent))
       .filter(Boolean),
   );
+// Every album of the library (section=all without a filter) for the album artist match of the search "fugue":
+// one album only found by its album artist, one that the albums list has already (shown once), one with the
+// term inside a word of the album artist (not found).
+const LIB_ALL = /^\/library\/v1\/Albums\?service=LocalMusic&section=all$/;
+const FUGUE_LIB = [
+  ["Baroque Night", "Fugue Ensemble"],
+  ["Night Moves", "Fugue Artist"],
+  ["Quiet Hours", "Refugue Band"],
+];
+const fugueLib = () => {
+  const albums = FUGUE_LIB.map(([t, a]) => `<album tracks="9"><title>${t}</title><art>${a}</art></album>`);
+  return `<albums section="all" service="LocalMusic"><sections><section name="#">${albums.join("")}</section></sections></albums>`;
+};
 // Search "fugue" (SRH-10, SRH-11): library albums list with title and artist hits (word start, accents),
-// empty on the USB drive; one composer with one new album and one album of the albums list.
+// empty on the USB drive; one composer with one new album and one album of the albums list; the library's
+// albums with album artist hits (fugueLib).
 const fugueSearch = () => [
+  { match: LIB_ALL, body: fugueLib() },
   {
     match: /key=LocalMusic:Album\/%2Flibrary%2Fv1%2FAlbums%3Fexpr=/,
     body: `<browse type="albums">${albumItem("A Fugue for Two")}${albumItem("Night Moves").replace(/Test Artist|Test\+Artist/g, (m) => m.replace("Test", "Fugue"))}${albumItem("Refugue")}${albumItem("The Fügue Book")}</browse>`,
@@ -2521,20 +2536,23 @@ test(
             getComputedStyle(e).borderBottomStyle === "solid" && parseFloat(getComputedStyle(e).borderBottomWidth) > 0,
         ),
       );
-    eq((await ruled("#msg, #grid .gl")).join(), "true,true,true", "fine line under every group line");
+    eq((await ruled("#msg, #grid .gl")).join(), "true,true,true,true", "fine line under every group line");
     eq(
       (await searchGrid(t)).join(" / "),
       [
         "A Fugue for Two",
         "The F\u00FCgue Book",
-        "| 2 albums for \u201Cfugue\u201D by the artist",
+        "| 2 albums for \u201Cfugue\u201D by the album artist",
+        "Baroque Night",
         "Night Moves",
+        "| 1 album for \u201Cfugue\u201D by a track artist",
         "Refugue",
         "| 1 album for \u201Cfugue\u201D by the composer",
         "Cello Suites",
       ].join(" / "),
-      "groups: title (word start, accents ignored), artist (the rest), composer",
+      "groups: title (word start, accents ignored), album artist, track artist (the rest), composer",
     );
+    eq(t.reqs(LIB_ALL).length, 1, "every album of the library read once for the album artist");
     eq(
       await t.page.$$eval("#grid .item b", (x) => x.filter((e) => e.textContent === "Random album").length),
       0,
@@ -2569,23 +2587,30 @@ test(
     eq(await t.msg(), "2 albums for \u201Cfugue\u201D in the album title", "status line = title group");
     ok(albumLists() > 0, "albums list read");
     eq(composers(), 0, "no composer request");
+    eq(t.reqs(LIB_ALL).length, 0, "Artist off: no album list of the library");
 
     await area("Artist");
     await gridIs(
       [
         "A Fugue for Two",
         "The F\u00FCgue Book",
-        "| 2 albums for \u201Cfugue\u201D by the artist",
+        "| 2 albums for \u201Cfugue\u201D by the album artist",
+        "Baroque Night",
         "Night Moves",
+        "| 1 album for \u201Cfugue\u201D by a track artist",
         "Refugue",
       ],
-      "Artist on: searched again with the artist group",
+      "Artist on: searched again with the album artist and track artist groups",
     );
     eq(composers(), 0, "still no composer request");
 
     await area("Album");
-    await gridIs(["Night Moves", "Refugue"], "Album off: only the artist group");
-    eq(await t.msg(), "2 albums for \u201Cfugue\u201D by the artist", "status line = artist group");
+    await gridIs(
+      ["Baroque Night", "Night Moves", "| 1 album for \u201Cfugue\u201D by a track artist", "Refugue"],
+      "Album off: only the artist groups",
+    );
+    eq(await t.msg(), "2 albums for \u201Cfugue\u201D by the album artist", "status line = album artist group");
+    eq(t.reqs(LIB_ALL).length, 1, "album list of the library read once for the session");
 
     const n = searches();
     await area("Artist");

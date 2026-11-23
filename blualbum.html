@@ -1794,7 +1794,7 @@ dialog * {
     <input id="q" type="search" placeholder="Search (Enter)" aria-label="Search">
     <div id="sin" role="group" aria-label="Search in">
       <button data-in="title" aria-pressed="true" title="Search in album titles">Album</button>
-      <button data-in="artist" aria-pressed="false" title="Search in track artists">Artist</button>
+      <button data-in="artist" aria-pressed="false" title="Search in album and track artists">Artist</button>
       <button data-in="composer" aria-pressed="false" title="Search in composers">Composer</button>
     </div>
   </div>
@@ -2113,7 +2113,7 @@ async function showImg(el, url) {
 
 // Player and current view.
 // base: player URL ("" = not connected), cache: albums per view (genre name, "__all", "__q:cd" ...;
-// "__years": promise of every album with its year, shared by the decade chips),
+// "__lib": promise of every album with its year and album artist, shared by the decade chips and the search),
 // shown: albums currently rendered, activeKey: id of the selected view (drops outdated async results),
 // activeBtn: selected chip.
 let base = "", cache = {}, shown = [], activeKey = "", activeBtn = null;
@@ -2712,9 +2712,18 @@ const loadNew = (btn) => loadLibView("__new", btn, "recent=1", 200, "new albums"
 // "Favourites" chip: the player's favourite albums.
 const loadFavourites = (btn) => loadLibView("__fav", btn, "category=FAVOURITES", 5000, "favourites", "in favourites", "No favourite albums yet.");
 const loadQuality = (btn, q, name) => loadLibView("__q:" + q, btn, "quality=" + q, 0, name + " albums", "in " + name + " quality", "No " + name + " albums.", true);
-// Decade chip (dec = "1980"): the albums of the decade. The years come with the sectioned
-// /library/v1/Albums list without a filter (Bruno E34, E43), read once per source selection into
-// cache.__years (a promise, shared by every decade) and filtered here.
+// Every album of the enabled sources with year and album artist: the sectioned /library/v1/Albums list without a
+// filter (1 request per source, Bruno E34, E43), read once per source selection into cache.__lib (a promise,
+// shared by the decade chips and the album artist search).
+function libAllAlbums() {
+  const c = cache;
+  if (!c.__lib) {
+    c.__lib = Promise.all(srcs.filter((x) => x.albumsKey).map((x) => libSectionAlbums(x, ""))).then(joinSources);
+    c.__lib.catch(() => delete c.__lib);
+  }
+  return c.__lib;
+}
+// Decade chip (dec = "1980"): the albums of the decade, filtered from libAllAlbums() by their year.
 async function loadDecade(dec, btn) {
   const key = "__d:" + dec, mine = ctx();
   selectView(key, btn);
@@ -2722,12 +2731,7 @@ async function loadDecade(dec, btn) {
   shown = [];
   msg("Loading albums from the " + dec + "s …");
   try {
-    if (!cache.__years) {
-      const c = cache;
-      c.__years = Promise.all(srcs.filter((x) => x.albumsKey).map((x) => libSectionAlbums(x, ""))).then(joinSources);
-      c.__years.catch(() => delete c.__years);
-    }
-    const all = await cache.__years;
+    const all = await libAllAlbums();
     const list = all.filter((a) => a.y.slice(0, 3) + "0" === dec);
     viewOut(key, mine, () => showView(list, list.length ? nAlb(list.length) + " from the " + dec + "s" : "No albums from the " + dec + "s."));
   } catch (e) {
@@ -2786,7 +2790,7 @@ function artistLinks(name, cls = "") {
     const b = document.createElement("button");
     b.className = cls;
     b.textContent = n;
-    b.title = one ? "Show albums by " + n : "Search for " + n + " in the track artists";
+    b.title = one ? "Show albums by " + n : "Search for " + n + " in the artists";
     b.onclick = () => one ? showArtist(n) : searchArtist(n);
     return i ? [", ", b] : [b];
   });
@@ -3832,10 +3836,12 @@ async function composerAlbums(key) {
   }));
   return lists.flat();
 }
-// The albums of `more` that `albums` does not contain (same browse key), each once.
+// The same album: source, title and album artist (lists from /Browse and from /library/v1 compare alike).
+const albumId = (a) => a.key.split(":")[0] + "\n" + a.t + "\n" + a.a;
+// The albums of `more` that `albums` does not contain (same albumId), each once.
 function newAlbums(albums, more) {
-  const seen = new Set(albums.map((a) => a.key));
-  return more.filter((a) => !seen.has(a.key) && seen.add(a.key));
+  const seen = new Set(albums.map(albumId));
+  return more.filter((a) => !seen.has(albumId(a)) && seen.add(albumId(a)));
 }
 // Folds a text for matching like the player's search: lower case, accents removed.
 const fold = (s) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
@@ -3862,10 +3868,11 @@ function showSearch(open) {
 const searchIn = (k) => $(`#sin [data-in=${k}]`).getAttribute("aria-pressed") === "true";
 // Uses the player's own search (Enter, or while typing, see SEARCH_MIN / SEARCH_DELAY).
 // The result comes in groups, each A-Z by title and each album once: album title (the term is in the title),
-// artist (the rest of the search's albums list: a track artist; the player does not match the album artist)
+// album artist (the albums whose album artist has the term, matched here in libAllAlbums(), because the player's
+// search does not match the album artist, Bruno E40), track artist (the rest of the search's albums list)
 // and composer (the albums of the composers found). The status line names the first group, a line in the grid every further group.
 // Only the groups of the search areas that are on; an area that is off costs no request (albums list only for
-// title or artist, composers only for composer).
+// title or artist, every album of the library only for artist, composers only for composer).
 // Fewer than SEARCH_MIN characters or no search area: no search, only a hint (the view stays).
 // An empty field restores the selected view.
 async function search() {
@@ -3899,24 +3906,31 @@ async function search() {
   btns.forEach((b) => b.setAttribute("aria-pressed", "false"));
   msg("Searching \u2026");
   try {
-    // Search every enabled source: [albums list, albums of the composers] per source
-    const res = await Promise.all(sk.map(async (x) => {
+    // Search every enabled source: [albums list, albums of the composers] per source; for the artist area also every
+    // album of the library (session cache, shared with the decade chips)
+    const [res, lib] = await Promise.all([Promise.all(sk.map(async (x) => {
       const its = items(await browse(x.searchKey, v));
       const direct = its.filter((i) => attr(i, "type") === "album").map(toAlbum);
       if (direct.length) return [direct, []];
       const link = (title || artist) && its.find((i) => /Album/i.test(attr(i, "browseKey")) || /^(Alben?|Albums?)$/i.test(attr(i, "text")));
       const comp = composer && its.find((i) => /:Composer\//.test(attr(i, "browseKey")));
       return Promise.all([link ? searchAlbums(attr(link, "browseKey")) : [], comp ? composerAlbums(attr(comp, "browseKey")) : []]);
-    }));
+    })), artist ? libAllAlbums() : []]);
     if (seq !== searchSeq) return;
     const az = (l) => l.sort((x, y) => x.t.localeCompare(y.t));
     const found = res.flatMap((r) => r[0]), inTitle = found.filter((a) => atWordStart(a.t, v));
-    const byTitle = title ? inTitle : [], byArtist = artist ? found.filter((a) => !inTitle.includes(a)) : [];
+    const byTitle = title ? inTitle : [];
+    // Album artist group: its matches not in the title group; track artist group: the rest of the albums list
+    // without the album artist group
+    const byAlbumArtist = newAlbums(byTitle, lib.filter((a) => atWordStart(a.a, v)));
+    const inAlbumArtist = new Set(byAlbumArtist.map(albumId));
+    const byTrackArtist = artist ? found.filter((a) => !inTitle.includes(a) && !inAlbumArtist.has(albumId(a))) : [];
     // Composer group: the albums the shown groups do not contain (album keys differ per source)
     const groups = [
       [byTitle, "in the album title"],
-      [byArtist, "by the artist"],
-      [newAlbums([...byTitle, ...byArtist], res.flatMap((r) => r[1])), "by the composer"]
+      [byAlbumArtist, "by the album artist"],
+      [byTrackArtist, "by a track artist"],
+      [newAlbums([...byTitle, ...byAlbumArtist, ...byTrackArtist], res.flatMap((r) => r[1])), "by the composer"]
     ].filter((g) => g[0].length).map(([l, how]) => [az(l), nAlb(l.length) + " for \u201C" + v + "\u201D " + how]);
     render(groups.flatMap(([l, line], i) => i ? [{ line }, ...l] : l), true);
     msg(groups.length ? groups[0][1] : nAlb(0) + " for \u201C" + v + "\u201D");

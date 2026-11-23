@@ -3,6 +3,7 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Search: the search area Artist also finds albums by their album artist (e.g. "Various"), shown in a group before the albums found by a track artist.
 - Fix: search results are no longer replaced by a view that finishes loading later.
 - Fix: quality chips could show the albums of the previous source selection.
 - Fix: late errors no longer disturb the view, album or source selection opened after them, nor appear after closing the popup.

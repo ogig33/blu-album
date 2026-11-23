@@ -46,7 +46,7 @@ Do not build these; when asked, point to the alternative.
 - **Lean and Modular code structure.** Structure the code so that features reuse shared functions as much as possible.
 - **One implementation per feature.** No second implementation as a fallback. Only the variant verified against the real player (Bruno) is implemented.
 - **Avoid hard-coding.** Derive as much of the app logic as possible from API answers, e.g. source names, play / action URLs, quality. Accepted exceptions are the configuration constants (see "Code conventions").
-- **Avoid self-built API URLs.** Play / queue / favourite URLs come from `/Browse`; the only exception are the `/library/v1` lists (New, Favourites, quality, decades, genres), built by the fixed pattern in `libAlbum()`.
+- **Avoid self-built API URLs.** Play / queue / favourite URLs come from `/Browse`; the only exception are the `/library/v1` lists (New, Favourites, quality, decades, genres, album artist search), built by the fixed pattern in `libAlbum()`.
 - **Store changes at the player.** Favourites, playlists and every other change the player supports are stored there, so they persist across sessions and are visible in other player clients. localStorage only for conveniences (see "Code conventions").
 - **Expose API errors.** Show failed player requests to the user (network error, HTTP status other than 200, `<e>` answer) with the endpoint URL and the error answer. Exceptions: expected failures – `/audioPreset` on players without listening modes, status polling (aborted or retried), missing covers, statistic lists that are not available.
 - **Check layout changes in Safari** as well (see "Known pitfalls").
@@ -122,7 +122,7 @@ Do not build these; when asked, point to the alternative.
 - **No workaround for the empty MQA chip:** BluOS bug, albums with `mqaBrowse` songs are in no quality list (`docs/bluos-api.md`); the chip keeps the player's filter. Documented only.
 - **No default IP address** in the app.
 - **No song title search area:** the search's songs list has no link to the album of a song (no browse key, no "Go to album" in the song context menu); the album would need a self-built URL, which fails for samplers (the song carries the track artist, not the album artist).
-- **No album artist search:** the player's search does not match the album artist (see pitfalls). Finding album artists would need the whole artists list of the library (1 request per source with `section=all`, 20 KB) and a match in the app, plus 2 requests per artist found; not wanted. The Artist search area finds track artists only; a compilation is found by the artist of one of its tracks, not by its album artist (e.g. "Various").
+- **Album artist search in the app:** the player's search does not match the album artist (see pitfalls); the Artist search area also matches the album artist of every album of the library (`section=all` without a filter, 1 request per source, shared with the decade chips) in the app, with the player's rules (`atWordStart()`); result group "by the album artist" before "by a track artist", one chip for both.
 - **No song favourites:** no heart per track in the album popup and no "Favourite songs" chip, although the API supports both (`/AddFavourite?fn=`, `autoplayURL` with `category=FAVOURITES`); BluAlbum keeps to album favourites.
 - **No playlist search:** the player offers none (see `/Playlists` in `docs/bluos-api.md`); a name filter in the app would be possible, but is not wanted.
 - **The Playlists view keeps the player's order:** no "Date added" sort (`/Playlists?sort=recent`) and no warning when the queue is saved under an existing playlist name.
@@ -131,7 +131,7 @@ Do not build these; when asked, point to the alternative.
 
 - Safari collapses a flex child with an indefinite height to 0 (happened with the popup track list) – avoid flex sizing for scrolling lists, use a max-height.
 - Safari may keep an old version of the local file: reload without cache (⌥⌘R) before chasing a "bug".
-- The player's search does not find albums by their album artist, only by title and track artists (Bruno E40, `docs/bluos-api.md`): albums of "Various" or "Putumayo Presents" whose tracks carry other artists are not found. Test search behaviour with albums whose album artist is on none of their tracks.
+- The player's search does not find albums by their album artist, only by title and track artists (Bruno E40, `docs/bluos-api.md`): albums of "Various" or "Putumayo Presents" whose tracks carry other artists are found only by the app's own album artist match. Test search behaviour with albums whose album artist is on none of their tracks.
 - MQA comes in FLAC: format, bit depth and sample rate do not rule it out. An empty MQA chip is the BluOS bug (see Decisions), not an app bug.
 - `section=all` fails silently: `category`, `recent` and `composer` are ignored (all albums), its index (`length=1`) counts 0 with `artist` / `expr`, Songs and Composers list nothing, in a browse key only the first section answers (`docs/bluos-api.md`).
 - The `close` event of `<dialog>` arrives late: the next album may be open already, check `dlg.open` in the handler.
