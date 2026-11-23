@@ -1912,10 +1912,7 @@ test(
     await t.openQueue();
     const qa = (await links("#qlist li:first-child .qt .al")).join(", ");
     ok(qa, "queue: artist link");
-    ok(
-      (await t.page.textContent("#qlist li:first-child .qt span")).startsWith(qa + " – "),
-      "queue: artist – album",
-    );
+    ok((await t.page.textContent("#qlist li:first-child .qt span")).startsWith(qa + " – "), "queue: artist – album");
     await searches("#qlist li:first-child .qt .al", "queue");
     eq(t.cmds(/^\/Move/), [], "queue: no move");
     // Player bar: line 2 "artist – album", the artist (title2 = artist) as link
