@@ -1898,7 +1898,12 @@ test(
       eq(await t.page.textContent("#tracks li.tr .ta"), x.text2, "playlist popup: line as the player sends it");
       eq(
         (await links("#tracks li.tr:first-child .ta .al")).join(", "),
-        x.text2.split(" • ")[0].split(",").map((s) => s.trim()).filter(Boolean).join(", "),
+        x.text2
+          .split(" • ")[0]
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(", "),
         "playlist popup: the artist before “ • ” as link",
       );
       await searches("#tracks li.tr:first-child .ta .al", "playlist popup");
