@@ -1024,6 +1024,7 @@ Favourites by kind – where the add / remove URL comes from, and where the favo
 | Album (library) | `/AddFavourite?album=…&artist=…` | `/DeleteFavourite?album=…&artist=…` | album context menu (`LocalMusic:CM/LocalMusic-Album?…`) | `/library/v1/Albums?category=FAVOURITES`, `isFavourite` | ✓ |
 | Artist (library) | `/AddFavourite?artist=…` | `/DeleteFavourite?artist=…` | artist context menu (`LocalMusic:CM/LocalMusic-Artist?artist=…[&isFavourite=1]`) | `/library/v1/Artists?category=FAVOURITES`, `isFavourite` | ✓ |
 | Song (library) | `/AddFavourite?fn=…` | `/DeleteFavourite?fn=…` | song context menu (`LocalMusic:CM/LocalMusic-Song?…`), `/ui/queueItemCM` | `/library/v1/Songs?category=FAVOURITES`, `isFavourite` | ✓ |
+| Library playlist | `/AddFavourite?playlistid=…` | `/DeleteFavourite?playlistid=…` | context menu of the library playlist (`LocalMusic:CM/LocalMusic-Playlist?…[&isFavourite=1]`) | `/library/v1/Playlists?category=FAVOURITES`, `isFavourite` | ✓ |
 | Album (streaming service) | `/AddFavourite?albumid=…` | `/DeleteFavourite?albumid=…` | context menu of the service | – | |
 | TuneIn station | `/AddFavourite?preset_id=…&service=TuneIn` | `/DeleteFavourite?id=…&service=TuneIn` | station context menu (`TuneIn:CM/TuneIn-Item?…`) | TuneIn › Favorites (`/RadioBrowse?service=TuneIn&url=presets`, `is_preset="1"`) | ✓ |
 | Airable station | `/AddFavourite?url=…&service=Airable` | `/DeleteFavourite?url=…&service=Airable` (same `url`, from `/Services`) | station context menu (`Airable:CM/Airable-Item?…`) | no list; `is_preset=1` on the station | needs a login |
@@ -1044,7 +1045,7 @@ GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn=<f
 | `albumid` | album of a streaming service |
 | `artist` alone | an artist of the local library |
 | `fn` | a song of the local library (its file name, as in `fn` of `/Status`) |
-| `playlistid` | a library playlist (seen in its context menu, not tried) |
+| `playlistid` | a library playlist (with `service=LocalMusic`) |
 | `preset_id` | TuneIn station, e.g. `t548782914` (with `service=TuneIn`) |
 | `url` | Airable station: its favourite action URL `https://….airable.io/radio/action/…` (with `service=Airable`) |
 
@@ -1066,7 +1067,7 @@ GET /AddFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn=<f
 ### `GET /DeleteFavourite`
 
 ```
-GET /DeleteFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn=<file>&id=<station id>
+GET /DeleteFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn=<file>&playlistid=<id>&id=<station id>
 ```
 
 | Parameter | Meaning |
@@ -1076,6 +1077,7 @@ GET /DeleteFavourite?service=<svc>&album=<album>&artist=<artist>&albumid=<id>&fn
 | `albumid` | album of a streaming service |
 | `artist` alone | an artist of the local library |
 | `fn` | a song of the local library (its file name) |
+| `playlistid` | a library playlist (with `service=LocalMusic`) |
 | `id` | TuneIn favourite, e.g. `s115194` (station), `p2378061` (program), `u31` (URL favourite) (with `service=TuneIn`) |
 | `url` | Airable station: the same action URL as for `/AddFavourite` (with `service=Airable`; from `/Services`, not verified) |
 
@@ -1478,7 +1480,7 @@ GET /library/v1/Playlists?service=<svc>&imported=1&category=FAVOURITES
 |---|---|
 | `service` | `LocalMusic` or the USB id |
 | `imported` | `1` = library playlists (playlist files of the share, e.g. M3U, imported by the index) |
-| `category` | `FAVOURITES` = favourite library playlists (presumably those marked with the `favourite-add` of their context menu; not tried) |
+| `category` | `FAVOURITES` = favourite library playlists (marked with [`/AddFavourite?playlistid=`](#get-addfavourite)) |
 
 **Response format**
 
@@ -1494,6 +1496,7 @@ GET /library/v1/Playlists?service=<svc>&imported=1&category=FAVOURITES
 - `id` = id of the playlist (32 hex digits): `playlistid` in the browse keys and in `/Add`, `id` in `/Load`.
 - In [`/Browse`](#get-browse): the link "Playlists" of the library menu (`LocalMusic:Playlist/%2Flibrary%2Fv1%2FPlaylists%3Fimported=1&service=LocalMusic`) answers `type="playlists"` with one `item type="playlist"` per playlist: `browseKey` `LocalMusic:MG/LocalMusic-Playlist?playlist=<name>&playlistid=<id>`, `contextMenuKey` `LocalMusic:CM/LocalMusic-Playlist?…`, `playURL` `/Load?service=LocalMusic&name=<name>&id=<id>`, `image`. The `browseKey` answers `type="tracks"` with `playURL` `/Load?service=LocalMusic&id=<id>` and all tracks in one answer (no `nextKey`), each with `autoplayURL` carrying `playlist` and `playlistid`.
 - Context menu: `add-now` (`/Add?clear=0&playlist=<name>&playlistid=<id>&playnow=1&service=LocalMusic&shuffle=0`), `add-shuffle`, `add-next`, `add-last`, `favourite-add` (`/AddFavourite?playlistid=<id>&service=LocalMusic`); **no `delete`**: a library playlist cannot be changed through the player.
+- **Favourite** (verified 2026-11-23, added and removed again): `/AddFavourite?playlistid=<id>&service=LocalMusic` answers `<favourite service="LocalMusic">added</favourite>`; then the playlist is in `category=FAVOURITES`, every list carries `isFavourite="1"` on its `<name>`, the browse item `isFavourite="true"` and a `contextMenuKey` with `&isFavourite=1`, whose menu offers `favourite-delete` (`/DeleteFavourite?playlistid=<id>&service=LocalMusic`, answer `deleted`). The library favourites menu (`LocalMusic:MG/LocalMusic-Favourites`) links them as "Playlists". BluOS playlists have no favourite: their context menu (`BluOS:CM/BluOS-Playlist?playlist=…`) offers only `add-now`, `add-shuffle`, `add-next`, `add-last`, `delete`.
 - Not in the BluOS playlists ([`/Playlists`](#get-playlists), `/Browse?key=BluOS:`); `/library/v1/Songs?playlist=<id>` answers empty, the tracks come only from `/Browse`.
 
 ### `GET /library/v1/Search`
