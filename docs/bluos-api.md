@@ -1396,11 +1396,11 @@ GET /library/v1/Albums?service=<svc>&section=<letter|all>&length=1&recent=1&cate
 | `service` | `LocalMusic` or the USB id |
 | `section` | alphabetic section, e.g. `A`: all albums of the section; `all` = all sections in one answer |
 | `length` | `1` with `section=all`: only the sections with their album counts |
-| `recent` | `1` = newest albums, 50 per page |
+| `recent` | `1` = the 1000 newest albums, 50 per page |
 | `category` | `FAVOURITES` = favourite albums, one answer |
-| `quality` | `hr` (HD), `cd`, `mqa` – only with `section` |
-| `genre` | albums of a genre – only with `section`; all albums of a genre: `section=all` |
-| `artist` | all albums of the artist, one answer |
+| `quality` | `hr` (HD), `cd`, `mqa` – only with `section`, `artist`, `category`, `recent` or `expr` |
+| `genre` | albums of a genre – only with `section`, `artist`, `category` or `recent`; all albums of a genre: `section=all` |
+| `artist` | all albums whose album artist or a track artist is exactly this name, one answer |
 | `album` | with `artist`: one album with `cover` |
 | `composer` | albums with songs of the composer |
 | `expr` | search term (see [`/Browse`](#get-browse)) |
@@ -1493,17 +1493,20 @@ GET /library/v1/Albums?service=<svc>&section=<letter|all>&length=1&recent=1&cate
 - Without a filter (or only `service`) the answer is empty.
 - `section=all` answers the same albums as the requests per section; no paging (`limit`, `count`, `start`, `offset` ignored). In a [`/Browse`](#get-browse) key only the first section is answered.
 - `section=all` fails silently: `category`, `recent` and `composer` are ignored (all albums); `artist` and `expr` filter the list, but the index (`length=1`) counts 0.
-- `genre` takes the value as in the `browseKey` of the genre (e.g. `R%26B`); without `section` the answer is empty.
+- `genre` takes the value as in the `browseKey` of the genre (e.g. `R%26B`).
+- Filters combine: `genre` and `quality` narrow `section`, `artist`, `category` and `recent` (with `recent` within the 1000 newest albums); `quality` also narrows `expr`, `genre` with `expr` answers empty. Alone, `genre` and `quality` answer empty.
+- Of `expr`, `artist`, `category` and `recent` only one applies: `expr` wins over `artist`, `artist` over `category` and `recent`.
+- No filter for other tags: `year`, `date`, `decade`, `albumartist`, `label`, `conductor`, `performer`, `discno`, `format`, `codec`, `atype`, `samplerate`, `samplebits`, `channels`, `mood`, `rating`, `comment`, `title` are ignored.
 - Decades: the counts equal the `date` years of the letter sections; albums without a year tag are in no decade.
 - One `date` per album, also when its songs have different years.
-- **No compilation filter:** `compilation=1`, `compilations=1`, `category=COMPILATIONS`, `type=compilation`, `albumartist=…` are ignored. The `compilation` tag is only in the songs of one album ([`/library/v1/Songs`](#get-libraryv1songs)); samplers are found only by their album artist (e.g. `artist=Various`).
+- **No compilation filter:** `compilation=1`, `compilations=1`, `category=COMPILATIONS`, `type=compilation` are ignored. The `compilation` tag is only in the songs of one album ([`/library/v1/Songs`](#get-libraryv1songs)); samplers are found only by their album artist (e.g. `artist=Various`).
 - **No genre per album** in any answer; it follows only from the album lists of all genres (`genre=…&section=all`, one request per genre).
 - **Albums with `mqaBrowse` songs are in no quality list** (player bug): albums whose songs all have `<quality>mqaBrowse</quality>` are missing from `quality=hr`, `cd`, `mqa` and `mqaBrowse`, while `/library/v1/Songs` finds their songs with `quality=mqa`.
 
 ### `GET /library/v1/Artists`
 
 ```
-GET /library/v1/Artists?service=<svc>&section=<letter|all>&category=FAVOURITES&genre=<genre>&artist=<artist>&offset=<n>
+GET /library/v1/Artists?service=<svc>&section=<letter|all>&category=FAVOURITES&genre=<genre>&artist=<artist>&expr=<text>&offset=<n>
 ```
 
 | Parameter | Meaning |
@@ -1513,6 +1516,7 @@ GET /library/v1/Artists?service=<svc>&section=<letter|all>&category=FAVOURITES&g
 | `category` | `FAVOURITES` = favourite artists |
 | `genre` | artists of a genre – with `section` |
 | `artist` | only this artist |
+| `expr` | album and track artists with a word starting with the term |
 | `offset` | without a filter: first entry of the page |
 
 **Response format**
@@ -1592,7 +1596,7 @@ GET /library/v1/Composers?service=<svc>&section=<letter>&genre=<genre>
 
 **Notes**
 
-- Without a filter: pages of 51.
+- Without a filter: pages of 51. `artist` is ignored.
 
 ### `GET /library/v1/Folders`
 
@@ -1748,13 +1752,13 @@ GET /library/v1/Songs?service=<svc>&album=<album>&artist=<artist>&composer=<comp
 |---|---|
 | `service` | `LocalMusic` or the USB id |
 | `album` | with `artist`: all songs of the album with technical data |
-| `artist` | alone: all songs of the artist, one answer |
+| `artist` | all songs whose album artist or track artist is exactly this name, one answer |
 | `composer` | songs of the composer |
 | `section` | songs of the section, paged; `all` only with `length=1` (index), else empty |
-| `genre` | with `section`: songs of the genre, 50 per page |
+| `genre` | with `section` (50 per page) or `artist`: songs on albums of the genre |
 | `category` | `FAVOURITES` = favourite songs |
-| `quality` | songs of a quality, e.g. `mqa`, `mqaBrowse` |
-| `expr` | search term (see [`/Browse`](#get-browse)) |
+| `quality` | with `section`, `artist`, `composer` or `expr`: songs of a quality, e.g. `cd`, `mqa`, `mqaBrowse` |
+| `expr` | search term, song titles only (see [`/Browse`](#get-browse)) |
 | `limit` | page size (e.g. `section=A&limit=5`); `limit=1` can answer only a `nextlink` |
 | `all` | `1` = all songs of the source, paged with `offset` |
 | `offset` | first entry of the page |
@@ -1798,7 +1802,8 @@ GET /library/v1/Songs?service=<svc>&album=<album>&artist=<artist>&composer=<comp
 
 **Notes**
 
-- Empty with only `service`.
+- Empty with only `service`, and with `genre` or `quality` alone.
+- `composer` wins over `artist`. No filter for other tags (e.g. `year`, `albumartist`, `discno`, `samplerate`).
 - Paged lists (`section`, `genre`, `all`) lack the technical attributes and `songID`, `track`, `date`, `time`.
 - Songs are sorted by `discno`, then `track` – the order of the album track list of [`/Browse`](#get-browse).
 - Without `albumartist` the album artist is the `art` of the album in [`/library/v1/Albums`](#get-libraryv1albums).

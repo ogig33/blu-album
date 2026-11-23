@@ -1,0 +1,115 @@
+meta {
+  name: E48 Song and artist filter combinations
+  type: http
+  seq: 140
+}
+
+get {
+  url: http://{{host}}:11000/library/v1/Songs
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Filters of /library/v1/Songs, /library/v1/Artists and /library/v1/Composers (library): artist matches the album
+  // artist or the track artist exactly and combines with genre and quality; composer wins over artist and combines
+  // with quality; expr finds song titles only and combines with quality; Artists takes expr (track artists) and genre
+  // with section=all; Composers ignores artist. Uses the artist and genre of E47 (run it first). Read only.
+  const svc = bru.getVar("libSvc");
+  const e47 = JSON.parse(bru.getVar("e47") || "{}");
+  if (!svc || !e47.genre) { bru.runner.skipRequest(); return; }
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const axios = require("axios");
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(+n)).replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  const e = encodeURIComponent;
+  const q = "?service=" + e(svc);
+  const S = "/library/v1/Songs" + q;
+  const field = (x, t) => dec((x.match(new RegExp("<" + t + ">([^<]*)</" + t + ">")) || [])[1] || "");
+  const songs = async (p) => [...(await get(p)).matchAll(/<song\b[^>]*>([\s\S]*?)<\/song>/g)].map((m) => ({ fn: field(m[1], "fn"), title: field(m[1], "title"), art: field(m[1], "art"), alb: field(m[1], "alb"), albumartist: field(m[1], "albumartist"), quality: field(m[1], "quality") }));
+  const fns = (l) => new Set(l.map((s) => s.fn));
+  const subset = (a, b) => { const s = fns(b); return a.every((x) => s.has(x.fn)); };
+  const same = (a, b) => a.length === b.length && subset(a, b);
+  const words = (v) => v.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z0-9]+/);
+  const atStart = (v, t) => words(v).some((w) => w.startsWith(t.toLowerCase()));
+  const { artist, genre } = e47;
+  const r = { artist, genre };
+
+  const byArtist = await songs(S + "&artist=" + e(artist));
+  r.songs = byArtist.length;
+  r.artistMatch = byArtist.every((s) => s.art === artist || s.albumartist === artist);
+  const track = byArtist.find((s) => s.art !== artist && s.albumartist === artist);
+  if (track) { const t = await songs(S + "&artist=" + e(track.art)); r.trackArtist = track.art; r.trackArtistFound = t.length > 0 && t.every((s) => s.art === track.art || s.albumartist === track.art); }
+  const genreAlbums = new Set([...(await get("/library/v1/Albums" + q + "&genre=" + e(genre) + "&section=all")).matchAll(/<title>([^<]*)<\/title>\s*<art>([^<]*)<\/art>/g)].map((m) => dec(m[1]) + " | " + dec(m[2])));
+  const ag = await songs(S + "&artist=" + e(artist) + "&genre=" + e(genre));
+  r.artistGenre = ag.length > 0 && ag.length < byArtist.length && subset(ag, byArtist) && ag.every((s) => genreAlbums.has(s.alb + " | " + s.albumartist));
+  const aq = await songs(S + "&artist=" + e(artist) + "&quality=cd");
+  r.artistQuality = aq.length > 0 && subset(aq, byArtist) && aq.every((s) => s.quality === "cd") && aq.length === byArtist.filter((s) => s.quality === "cd").length;
+  const composer = dec(((await get("/library/v1/Composers" + q)).match(/<composer>([^<]*)<\/composer>/) || [])[1] || "");
+  const byComposer = await songs(S + "&composer=" + e(composer));
+  r.composer = composer;
+  r.composerWins = byComposer.length > 0 && same(await songs(S + "&composer=" + e(composer) + "&artist=" + e(artist)), byComposer);
+  const cq = await songs(S + "&composer=" + e(composer) + "&quality=cd");
+  r.composerQuality = cq.every((s) => s.quality === "cd") && cq.length === byComposer.filter((s) => s.quality === "cd").length;
+  const term = (byArtist.map((s) => (s.title.match(/[A-Za-z]{4,}/) || [])[0]).find(Boolean)) || "love";
+  const byExpr = await songs(S + "&expr=" + e(term));
+  r.term = term;
+  r.exprTitles = byExpr.length > 0 && byExpr.every((s) => atStart(s.title, term));
+  r.exprArtistName = (await songs(S + "&expr=" + e(words(artist).find((w) => w.length > 3) || artist))).filter((s) => !atStart(s.title, words(artist).find((w) => w.length > 3) || artist)).length;
+  r.filtersTag = [];
+  for (const [k, v] of Object.entries({ year: "2000", date: "2000", albumartist: artist, discno: "2", atype: "flc", samplerate: "96000", title: term })) if (!same(await songs(S + "&artist=" + e(artist) + "&" + k + "=" + e(v)), byArtist)) r.filtersTag.push(k);
+  r.alone = (await songs(S + "&genre=" + e(genre))).length + (await songs(S + "&quality=cd")).length;
+  const eq = await songs(S + "&expr=" + e(term) + "&quality=cd");
+  r.exprQuality = eq.every((s) => s.quality === "cd" && atStart(s.title, term));
+  const arts = (x) => [...x.matchAll(/<art\b[^>]*>([^<]*)<\/art>/g)].map((m) => dec(m[1]));
+  const word = words(artist).find((w) => w.length > 3) || artist;
+  const ae = arts(await get("/library/v1/Artists" + q + "&expr=" + e(word)));
+  r.artistsExpr = ae.length > 0 && ae.every((a) => atStart(a, word));
+  const allArtists = arts(await get("/library/v1/Artists" + q + "&section=all"));
+  const ga = arts(await get("/library/v1/Artists" + q + "&section=all&genre=" + e(genre)));
+  r.artistsGenre = ga.length > 0 && ga.length < allArtists.length && ga.every((a) => allArtists.includes(a));
+  const comp = (x) => [...x.matchAll(/<composer>([^<]*)<\/composer>/g)].map((m) => m[1]).join("|");
+  r.composersIgnoreArtist = comp(await get("/library/v1/Composers" + q + "&artist=" + e(artist))) === comp(await get("/library/v1/Composers" + q));
+  bru.setVar("e48", JSON.stringify(r));
+  req.setUrl(H + S + "&artist=" + e(artist) + "&genre=" + e(genre));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("explore-48-song-filter-combinations.xml");
+  console.log(bru.getVar("e48"));
+}
+
+tests {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  const r = JSON.parse(bru.getVar("e48"));
+  test("artist = album artist or track artist", () => { expect(r.songs).to.be.above(0); expect(r.artistMatch).to.equal(true); });
+  test("artist finds a track artist that is no album artist", () => { if (r.trackArtist) expect(r.trackArtistFound).to.equal(true); });
+  test("artist + genre = songs of the artist on albums of the genre", () => expect(r.artistGenre).to.equal(true));
+  test("artist + quality = songs of the artist in the quality", () => expect(r.artistQuality).to.equal(true));
+  test("genre or quality alone answer empty", () => expect(r.alone).to.equal(0));
+  test("year, album artist, disc, format and title are ignored", () => expect(r.filtersTag.join(", ")).to.equal(""));
+  test("composer wins over artist", () => expect(r.composerWins).to.equal(true));
+  test("composer + quality = songs of the composer in the quality", () => expect(r.composerQuality).to.equal(true));
+  test("expr finds song titles only", () => { expect(r.exprTitles).to.equal(true); expect(r.exprArtistName).to.equal(0); });
+  test("expr + quality = hits in the quality", () => expect(r.exprQuality).to.equal(true));
+  test("Artists: expr finds artist names", () => expect(r.artistsExpr).to.equal(true));
+  test("Artists: genre filters with section=all", () => expect(r.artistsGenre).to.equal(true));
+  test("Composers ignore artist", () => expect(r.composersIgnoreArtist).to.equal(true));
+}

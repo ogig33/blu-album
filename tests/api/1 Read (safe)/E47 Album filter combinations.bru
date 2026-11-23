@@ -1,0 +1,128 @@
+meta {
+  name: E47 Album filter combinations
+  type: http
+  seq: 139
+}
+
+get {
+  url: http://{{host}}:11000/library/v1/Albums
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Which filters of /library/v1/Albums combine without section (library): artist, category=FAVOURITES and recent=1
+  // with genre or quality; expr with quality but not with genre; expr wins over artist, artist over category; recent
+  // lists only the 1000 newest albums and filters within them; year, album artist, label, format and other tags are
+  // ignored. Every expected list is built from the single filters.
+  // The album artist with the most albums, a genre that holds some of its albums and the first favourite genre are
+  // taken from the library. Read only.
+  const svc = bru.getVar("libSvc");
+  if (!svc) { bru.runner.skipRequest(); return; }
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const axios = require("axios");
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(+n)).replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  const L = "/library/v1/Albums?service=" + encodeURIComponent(svc);
+  const e = encodeURIComponent;
+  // "title | album artist" of every album, for all answer forms (section, recent / category, artist)
+  const keys = (x) => {
+    const r = [...x.matchAll(/<album\b[^>]*>\s*(?:<title>([^<]*)<\/title>|<alb>([^<]*)<\/alb>)\s*<art>([^<]*)<\/art>/g)].map((m) => dec(m[1] ?? m[2]) + " | " + dec(m[3]));
+    if (r.length) return r;
+    const name = dec((x.match(/<artist name="([^"]*)"/) || [])[1] || "");
+    return [...x.matchAll(/<album\b[^>]*>([^<]+)<\/album>/g)].map((m) => dec(m[1]) + " | " + name);
+  };
+  const set = async (p) => new Set(keys(await get(p)));
+  const walk = async (p) => {
+    const s = new Set();
+    for (let n = 0; p && n < 60; n++) {
+      const x = await get(p);
+      keys(x).forEach((k) => s.add(k));
+      const m = x.match(/<nextlink>([^<]*)<\/nextlink>/);
+      p = m ? dec(m[1]) : "";
+    }
+    return s;
+  };
+  const and = (a, b) => new Set([...a].filter((k) => b.has(k)));
+  const same = (a, b) => a.size === b.size && [...a].every((k) => b.has(k));
+
+  const all = keys(await get(L + "&section=all"));
+  const cnt = {};
+  all.forEach((k) => { const a = k.split(" | ")[1]; cnt[a] = (cnt[a] || 0) + 1; });
+  const artist = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
+  const byArtist = await set(L + "&artist=" + e(artist));
+  const genres = [...(await get("/library/v1/Genres?service=" + e(svc))).matchAll(/<genre>([^<]*)<\/genre>/g)].map((m) => dec(m[1]));
+  const gset = {};
+  const genreSet = async (g) => (gset[g] = gset[g] || (await set(L + "&genre=" + e(g) + "&section=all")));
+  let genre = "";
+  for (const g of genres) { const i = and(byArtist, await genreSet(g)); if (i.size && i.size < byArtist.size) { genre = g; break; } }
+  const r = { artist, albums: byArtist.size, genre };
+  if (genre) {
+    const g = await genreSet(genre);
+    r.artistGenre = same(await set(L + "&artist=" + e(artist) + "&genre=" + e(genre)), and(byArtist, g));
+    const cd = await set(L + "&quality=cd&section=all");
+    r.artistQuality = same(await set(L + "&artist=" + e(artist) + "&quality=cd"), and(byArtist, cd));
+    r.alone = (await set(L + "&genre=" + e(genre))).size + (await set(L + "&quality=cd")).size;
+    const fav = await set(L + "&category=FAVOURITES");
+    r.favArtist = same(await set(L + "&category=FAVOURITES&artist=" + e(artist)), byArtist);
+    let fg = "";
+    for (const x of genres) if (fav.size && and(fav, await genreSet(x)).size) { fg = x; break; }
+    r.favGenre = fg ? same(await set(L + "&category=FAVOURITES&genre=" + e(fg)), and(fav, await genreSet(fg))) : null;
+    const newest = await walk(L + "&recent=1");
+    r.newest = newest.size;
+    r.recentGenre = same(await walk(L + "&recent=1&genre=" + e(genre)), and(newest, g));
+    const other = all.find((k) => k.split(" | ")[1] !== artist && /[A-Za-z]{4,}/.test(k.split(" | ")[0]));
+    const term = other.split(" | ")[0].match(/[A-Za-z]{4,}/)[0];
+    const byExpr = await set(L + "&expr=" + e(term));
+    r.term = term;
+    r.exprWins = same(await set(L + "&artist=" + e(artist) + "&expr=" + e(term)), byExpr);
+    r.exprQuality = same(await set(L + "&expr=" + e(term) + "&quality=cd"), and(byExpr, cd));
+    r.exprGenre = (await set(L + "&expr=" + e(term) + "&genre=" + e(genre))).size;
+    // other tags give no filter: the albums of the artist stay the same
+    const title = [...byArtist][0].split(" | ")[0];
+    const tags = { year: "2000", date: "2000", decade: "1990", albumartist: artist, label: "EMI", conductor: "Karajan", performer: "Karajan", discno: "2", format: "flac", codec: "flac", atype: "flc", samplerate: "96000", samplebits: "24", channels: "2", mood: "Happy", rating: "5", comment: "test", title };
+    r.filtersTag = [];
+    for (const [k, v] of Object.entries(tags)) if (!same(await set(L + "&artist=" + e(artist) + "&" + k + "=" + e(v)), byArtist)) r.filtersTag.push(k);
+  }
+  bru.setVar("e47", JSON.stringify(r));
+  req.setUrl(H + L + "&artist=" + e(artist) + (genre ? "&genre=" + e(genre) : ""));
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("explore-47-album-filter-combinations.xml");
+  console.log(bru.getVar("e47"));
+}
+
+tests {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  const r = JSON.parse(bru.getVar("e47"));
+  test("a genre with some albums of the artist", () => expect(r.genre).to.not.equal(""));
+  test("artist + genre = albums of the artist in the genre", () => expect(r.artistGenre).to.equal(true));
+  test("artist + quality = albums of the artist in the quality", () => expect(r.artistQuality).to.equal(true));
+  test("genre or quality alone answer empty", () => expect(r.alone).to.equal(0));
+  test("category=FAVOURITES + genre = favourites in the genre", () => { if (r.favGenre !== null) expect(r.favGenre).to.equal(true); });
+  test("artist wins over category=FAVOURITES", () => expect(r.favArtist).to.equal(true));
+  test("recent=1 lists at most 1000 albums", () => expect(r.newest).to.be.within(1, 1000));
+  test("recent=1 + genre = newest albums in the genre", () => expect(r.recentGenre).to.equal(true));
+  test("expr wins over artist", () => expect(r.exprWins).to.equal(true));
+  test("expr + quality = hits in the quality", () => expect(r.exprQuality).to.equal(true));
+  test("expr + genre answers empty", () => expect(r.exprGenre).to.equal(0));
+  test("year, album artist, label, format and other tags are ignored", () => expect(r.filtersTag.join(", ")).to.equal(""));
+}
