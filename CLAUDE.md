@@ -9,7 +9,7 @@
 - Minimalistic design for fast and efficient access to the library: no tree-based navigation, find music with search, filters and sorting instead.
 - Focus on music albums: album art is the visual navigation; show covers in the highest quality possible.
 - Expects a tagged music library with cover art.
-- **Terms:** queue (what the player plays), BluOS playlist (stored in the player, changeable), library playlist (imported playlist file of the share or USB drive, read-only), service playlist (streaming service) – as defined in `docs/bluos-api.md` (Basics); no "saved playlist".
+- **Terms:** queue (what the player plays), BluOS playlist (stored in the player, changeable), library playlist (imported playlist file of the share or USB drive, read-only), service playlist (streaming service); no "saved playlist".
 - Owner: Ingmar Gebert. MIT licence. Repository: `blu-album`.
 - Independent project, not affiliated with Lenbrook / Bluesound (no need to mention in README, file header or the about popup).
 - Owner's test setup: Bluesound Powernode, BluOS 4.18.18, API v0.5.43, library on a network share plus a USB drive. Main browser: Safari on macOS; Chrome as second browser.
@@ -29,7 +29,7 @@ Do not build these; when asked, point to the alternative.
 
 ## Where to look
 
-- `docs/bluos-api.md` – BluOS API reference (chapter 9: service lists `/Albums`, `/Playlists`, `/Songs` … and `/Artwork`, dispatched by `service`; chapter 10: library `/library/v1`): every endpoint with parameters, answers, verified state and pitfalls (answer language, `hd` / `hr`, MP3 quality, favourite state, genres, `/Delete` forms, CORS of `/Artwork`, …). **Look up an endpoint here before using or changing a player request.**
+- `docs/bluos-api.md` – BluOS API reference (chapter 10: service functions `/Albums`, `/Playlists`, `/Songs` … and `/Artwork`, dispatched by `service`; chapter 11: library functions `/library/v1`): every endpoint with parameters, answers, verified state and pitfalls (answer language, `hd` / `hr`, MP3 quality, favourite state, genres, `/Delete` forms, CORS of `/Artwork`, …). **Look up an endpoint here before using or changing a player request.**
 - `docs/blu-album-api-usage.md` – every click of the app with its requests, measurements and endpoint choices. Private, git-ignored: missing in worktrees, cloud sessions and clones.
 - `docs/blu-album-library-guidance.md` – how users should tag their library and set "Optimize Artwork" for the best experience with BluAlbum.
 - `docs/blu-album-test-plan.md` – test plan: every function of the app as test cases per block (inputs, expected outputs, status Auto = UI test automation / Manual), test data dictionary; update it when a function or a UI test changes.
