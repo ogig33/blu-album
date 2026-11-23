@@ -36,8 +36,14 @@ node run.js --list                  # every test with its marks: read / write (a
 
 A failed test saves a screenshot of the page to `test-results/` (ignored by git). Tests must not assume a window size: use `VIEWPORT` for coordinates.
 
+## Writing tests
+- **Mock player**: listens at the documentation address `IP` of `run.js` (never a real device; `IP2` is a second mock player for changing the player), answers from the fixtures and records every request (`state.requests`, with time and `Accept-Language`) and every command (`state.commands`). With `--player` the requests go to the real player and are recorded the same way (`createRecorder()`).
+- **Mock options per test**: `usb: false`, `playing: false`, `listeningModes: false`, `statusPatch` (replaces tags of `/Status`, e.g. `quality`, `canSeek`, `volume`), `overrides` (answer a matching request with an HTTP status or body, edit the mock's answer, or answer later), `state.hold()` (an answer waits until the test releases it), `mock` (sets state, e.g. an empty or generated long queue).
+- **Start options per test**: `connect: false` (start page), `storage` (localStorage before the start), `locale`, `dialog: "dismiss"` / `promptValue` (prompt and confirm), `unreachable` (every player request fails), `blockStorage` (localStorage throws), `appDefaults` (the app's own chip defaults; otherwise genre and quality chips and the search areas Artist and Composer are on in the fresh profile).
+- **GitHub API**: intercepted by `run.js` (`gh.answer`, `gh.delay`); without an answer the request fails.
+
 ## Against the real player
-The tests marked `read` (and with `--write` also those marked `write`) run against your own player instead of the mock (test environment ENV-4 of `docs/blu-album-test-plan.md`). The expected values are read from the player before the tests start.
+The tests marked `read` (and with `--write` also those marked `write`) run against your own player instead of the mock (test environment ENV-3 of `docs/blu-album-test-plan.md`). The expected values are read from the player before the tests start.
 
 ```
 node run.js --player 192.168.1.50 --browser chrome           # read-only: changes nothing on the player
