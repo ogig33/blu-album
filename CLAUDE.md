@@ -65,6 +65,9 @@ Do not build these; when asked, point to the alternative.
 - **`docs/bluos-api.md`:** API facts only, independent of BluAlbum.
   - Structure: per category a one-sentence description, the overview table (Endpoint | Function | Official | Verified), optionally a "Common …" block; per endpoint one `###` with request line (all parameters), parameter table, **Response format**, response keys table, **Notes** (only facts that help in the endpoint's context). Basics only for rules of every endpoint.
   - Not in it: answer or image sizes (→ `docs/blu-album-api-usage.md`), dates and versions per statement, verification logs, Bruno IDs, values of the test player, how the BluOS Controller calls endpoints, client advice, personal-data notes.
+- **`docs/blu-album-api-usage.md`:** the requests of every click of BluAlbum with measured data.
+  - Structure: measurement conditions (date, app and BluOS version, library) once at the top, overview of every click; per app area a chapter with a one-sentence description and one table (Trigger | Requests | Count | Data | Cache | Purpose), below it only facts needed for the requests; then endpoint choices and open proposals.
+  - Not in it: endpoints the app does not use, code internals (variable and function names), done or decided proposals (→ CHANGELOG, CLAUDE.md "Decisions"), statements repeated from CLAUDE.md or `bluos-api.md`.
 
 ## Tests and workflow
 
