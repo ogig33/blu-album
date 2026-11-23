@@ -62,6 +62,9 @@ Do not build these; when asked, point to the alternative.
   - BluAlbum API usage `docs/blu-album-api-usage.md`.
   - BluAlbum music library end user guidance `docs/blu-album-library-guidance.md`
   - BluAlbum test case in `docs/blu-album-test-plan.md`.
+- **`docs/bluos-api.md`:** API facts only, independent of BluAlbum.
+  - Structure: per category a one-sentence description, the overview table (Endpoint | Function | Official | Verified), optionally a "Common …" block; per endpoint one `###` with request line (all parameters), parameter table, **Response format**, response keys table, **Notes** (only facts that help in the endpoint's context). Basics only for rules of every endpoint.
+  - Not in it: answer or image sizes (→ `docs/blu-album-api-usage.md`), dates and versions per statement, verification logs, Bruno IDs, values of the test player, how the BluOS Controller calls endpoints, client advice, personal-data notes.
 
 ## Tests and workflow
 
