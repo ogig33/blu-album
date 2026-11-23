@@ -1,6 +1,6 @@
 # BluOS API reference
 
-All known BluOS HTTP endpoints by category: the official *BluOS Custom Integration API* and unofficial endpoints found in the player's answers, in community projects or by exploring a real player.
+All known BluOS HTTP endpoints by category: the official *BluOS Custom Integration API* and unofficial endpoints.
 
 - **Official documentation:** [BluOS Custom Integration API v1.7](https://bluos.io/wp-content/uploads/2025/06/BluOS-Custom-Integration-API_v1.7.pdf) ([bluos.io/downloads](https://bluos.io/downloads/)); column "Official" in the overview of each category.
 - **Verified:** column "Verified" = checked on a Bluesound Powernode N331 with BluOS 4.18.18 (API v0.5.43); other players and versions may differ.
@@ -129,7 +129,7 @@ GET /Status?timeout=<seconds>&etag=<etag>
 
 **Notes**
 
-- Without parameters the answer comes at once. With `timeout=100` the player holds the request for the full 100 s and answers at once on a change (title, position jump, volume, shuffle, repeat, `pid`).
+- Without parameters the answer comes at once; with `timeout` the player holds the request up to `timeout` seconds and answers at once on a change (title, position jump, volume, shuffle, repeat, `pid`).
 - Clients advance `secs` themselves while `state` is `play` or `stream`.
 - `quality` is `hd` here but `hr` in the library filter. MP3 files report their bitrate; recognise MP3 by `streamFormat`.
 - One long poll on `/Status` *or* [`/SyncStatus`](#get-syncstatus) is usually enough: `syncStat` changes whenever `/SyncStatus` changes.
@@ -230,9 +230,8 @@ GET /Volume?level=<0–100>&abs_db=<dB>&db=<±dB>&mute=<0|1>&tell_slaves=<0|1>&t
 **Notes**
 
 - Without parameters: read the volume. Use one of `level`, `abs_db`, `db` or `mute` per request.
-- All variants are limited to the volume range configured in the BluOS Controller (typically -80…0 dB).
-- The official parameter table says `mute=0` mutes; its own examples use `mute=1` to mute – the examples are right.
-- The BluOS Controller sends every change with `tell_slaves=1`.
+- All variants are limited to the configured volume range (`volumeLimits` of [`/audiomodes`](#get-post-audiomodes)).
+- `mute=1` mutes; the official parameter table wrongly says `mute=0`.
 
 ---
 
@@ -422,7 +421,7 @@ POST http://<player>:80/playurl   (form field url)
 
 **Response format**
 
-An HTML page "Confirmation" ("Settings Updated – Playing TuneIn:s16252 – Please wait…") with a refresh to `/` after 3 s.
+An HTML page "Confirmation" ("Settings Updated – Playing TuneIn:s16252 – Please wait…").
 
 **Notes**
 
@@ -580,7 +579,7 @@ GET /Delete?id=<n>&service=BluOS&name=<name>
 
 **Notes**
 
-- Two functions, one per request: `id` removes a queue entry (official); `service=BluOS&name=…` deletes a BluOS playlist (context menu type `delete` in `/Browse`; ask the user first).
+- Two functions, one per request: `id` removes a queue entry (official); `service=BluOS&name=…` deletes a BluOS playlist (context menu type `delete` in `/Browse`).
 
 ### `GET /Move`
 
@@ -606,7 +605,7 @@ GET /Move?new=<to>&old=<from>
 **Notes**
 
 - The entry is taken out, then inserted at `new`: `old=0&new=3` puts the first entry at index 3 and moves entries 1–3 up by one.
-- Gives the queue a new id. Playback goes on; `song` of `/Status` follows the playing entry to its new position (about 1 s later).
+- Gives the queue a new id. Playback goes on; `song` of `/Status` follows the playing entry to its new position.
 
 ### `GET /Playlist`
 
@@ -892,8 +891,8 @@ Not known.
 
 **Notes**
 
-- Seen only in the deep link `/reorder-presets?url=%2FPresets%2Fedit%3Fprid%3D7` of [`/ui/presets`](#get-uipresets) ("Reorder Presets").
-- `GET`, `HEAD` and `OPTIONS` answer HTTP 405; presumably takes a `POST` with the new order (body not known, not tried).
+- Target of the deep link `/reorder-presets?url=%2FPresets%2Fedit%3Fprid%3D7` of [`/ui/presets`](#get-uipresets) ("Reorder Presets").
+- `GET`, `HEAD` and `OPTIONS` answer HTTP 405; presumably takes a `POST` with the new order (body not known).
 
 ### `GET /SetPreset`
 
@@ -909,7 +908,7 @@ GET /SetPreset?id=<slot>&name=<name>&url=<url>&encoded_url=<url>&image=<image ur
 | `encoded_url` | source URL, e.g. `RadioParadise:/3:20/The%20Globe` |
 | `image` | image of the preset |
 | `volume` | volume set when the preset is loaded |
-| `service` | source of the item, e.g. `RadioParadise` (seen in the "Add preset" `actionURL` of `/Browse`; not verified) |
+| `service` | source of the item, e.g. `RadioParadise` (not verified) |
 | `delete` | `1` together with `id`: deletes the preset |
 
 **Response format**
@@ -920,7 +919,6 @@ The new preset list with a new `prid`, as [`/Presets`](#get-presets).
 
 - Without parameters: the preset list.
 - `name`, `url`, `image` (from [`/Services`](#get-services)) store the preset in the first free slot; `url` is stored URL-encoded.
-- The BluOS Controller edits a preset with `id`, `name`, `volume`, `image`, `encoded_url`.
 - Moving a preset = store it under the new `id`, then `/SetPreset?id=<old>&delete=1`.
 - Sources for a new preset: [`/RadioBrowse?service=Presets`](#get-radiobrowse) (BluOS playlists, inputs, radio); albums, artists and songs are not offered.
 
@@ -1000,7 +998,6 @@ Tracks of an album:
 **Notes**
 
 - Keys are opaque: pass them unchanged, URL-encoded, as `key=`. Paging with `nextKey`; the page size is fixed by the player.
-- Which of `playURL` / `autoplayURL` is the default should be a user preference; ask the user before a `delete` action.
 - With a German `Accept-Language` (as browsers send it) some album keys (`LocalMusic:MG/LocalMusic-Album?…`) answer an empty `<browse type="menu"/>` instead of the tracks; with `Accept-Language: en` or without the header they answer normally.
 - Multi-disc albums: the track list has no disc marker; all discs follow in one list. Track *i* is song *i* of [`/library/v1/Songs`](#get-libraryv1songs) for the same album (sorted by `discno`, then `track`), which gives its disc. The number in `text` is the `track` tag; titles may repeat on different discs.
 - Streaming services use keys like `/Albums?service=Tidal&category=masters`; their search answers link to `/Artists|Albums|Songs|Playlists?service=…&expr=…`.
@@ -1030,9 +1027,9 @@ Tracks of an album:
   | `BluOS:MG/BluOS-Playlist?playlist=…` | `type="tracks"` with `playURL` `/Load?service=BluOS&name=…`, 10 tracks per page: `playURL`, `autoplayURL` (`/Add?service=BluOS&listindex=<n>&…&playlist=…`), `text`, `text2`, `duration`, `image`; no `browseKey`, no context menus; `nextKey` `BluOS:Song/%2FSongs%3Fplaylist=…&offset=10`; on later pages `listindex` starts at 0 and the `autoplayURL` carries `offset` |
 
 - Library search: every result list wraps the `/library/v1` endpoint of its type with `expr=<q>` (e.g. `LocalMusic:Album/%2Flibrary%2Fv1%2FAlbums%3Fexpr=love&service=LocalMusic`).
-  - A term matches at the start of a word (`Muscat`, not `uscat`); case and accents are ignored (`buble` finds `Bublé`); several words are matched as one string, punctuation included (`Superman: Dawn` finds "Batman v Superman: Dawn of Justice", `Superman Dawn` does not).
+  - A term matches at the start of a word, not inside a word; case and accents are ignored (`buble` finds `Bublé`); several words are matched as one string, punctuation included.
   - Albums: title and track artists of the album's songs; **not the album artist**, not song titles, not composers. Songs: title only (not the track artist). Composers: composer name. Artists: track artists only.
-  - Albums of "Various" whose tracks carry other artists are therefore not found by `various`. Album artists are listed in the sectioned artists list (`…bySection:Artist/…`, [`/library/v1/Artists`](#get-libraryv1artists)); finding an album artist by a term needs a match in the client, e.g. on the `<art>` of all albums ([`/library/v1/Albums`](#get-libraryv1albums) with `section=all`).
+  - Album artists are only in the sectioned artists list (`…bySection:Artist/…`, [`/library/v1/Artists`](#get-libraryv1artists)) and in `<art>` of [`/library/v1/Albums`](#get-libraryv1albums).
 
 ### `GET /Info`
 
@@ -1047,7 +1044,7 @@ GET /Info?service=<svc>&artist=<artist>&album=<album>&title=<title>&category=tec
 | `category`, `filename` | `technical` + file of the track: technical data |
 | `lyricsid` | lyrics of a track (`lyricsid` of `/Status`) |
 | `infourl` | info page of the playing item (`infourl` of `/Status`) |
-| `url` | info on a radio station or stream (not seen) |
+| `url` | info on a radio station or stream (not verified) |
 
 **Response format**
 
@@ -1057,10 +1054,6 @@ GET /Info?service=<svc>&artist=<artist>&album=<album>&title=<title>&category=tec
 | `category=technical&filename=…` | empty |
 | `infourl=…` | the info web page itself (HTML, e.g. Wikipedia) |
 | `lyricsid=…` | HTML page with the lyrics |
-
-**Notes**
-
-- The variants come from the `info` menu entries of [`/Services`](#get-services).
 
 ### `GET /RadioBrowse`
 
@@ -1287,7 +1280,7 @@ The image (HTTP 200, e.g. `image/jpeg`). Without `followRedirects=1` a library s
 **Notes**
 
 - Take the URL from the `image` attribute of an answer and append `followRedirects=1`.
-- CORS: `Access-Control-Allow-Origin: *` (also for `Origin: null`, a page opened as a file), so a web page can read it with `fetch()`. Firefox upgrades `<img src="http://…">` on a `file://` page to https, which the player does not offer.
+- CORS: `Access-Control-Allow-Origin: *`, also for `Origin: null` (a page opened as a file).
 - No cache headers (`Cache-Control`, `Expires`, `ETag`, `Last-Modified`).
 
 ### `GET /Playlists`
@@ -1301,7 +1294,7 @@ GET /Playlists?service=BluOS&sort=<alpha|recent>&playlist=<name>&playlistid=&myP
 | `service` | `BluOS`; none or `LocalMusic` answer the same, the USB id HTTP 404; other services see [`/Albums`](#get-albums-artists-composers-folders-genres) |
 | `sort` | `alpha` (default, A → Z, upper case before lower case) or `recent` ("Date added"); any other non-empty value sorts like `recent` |
 | `playlist` | only this playlist (exact name, case-sensitive); unknown: `<error service="BluOS"><message>not found</message></error>` |
-| `playlistid` | sent empty by the BluOS Controller with `playlist`; no effect |
+| `playlistid` | no effect |
 | `myPlaylists` | `1` = only the user's own playlists (`myPlaylistsFilter` of `/Services`) |
 
 **Response format**
@@ -1321,7 +1314,7 @@ GET /Playlists?service=BluOS&sort=<alpha|recent>&playlist=<name>&playlistid=&myP
 **Notes**
 
 - One answer, no paging (`start` / `end` have no effect); no play URL – that comes from `/Browse`.
-- **No search:** `expr`, `search`, `q`, `filter`, `name`, `text` are ignored; the service `BluOS` has no `searchKey` (`/Browse?key=BluOS:Search` answers HTTP 500). Finding a playlist by name means filtering this list in the client.
+- **No search:** `expr`, `search`, `q`, `filter`, `name`, `text` are ignored; the service `BluOS` has no `searchKey` (`/Browse?key=BluOS:Search` answers HTTP 500).
 - Library playlists come from [`/library/v1/Playlists`](#get-libraryv1playlists).
 
 ### `GET /Songs`
@@ -1502,10 +1495,10 @@ GET /library/v1/Albums?service=<svc>&section=<letter|all>&length=1&recent=1&cate
 - `section=all` fails silently: `category`, `recent` and `composer` are ignored (all albums); `artist` and `expr` filter the list, but the index (`length=1`) counts 0.
 - `genre` takes the value as in the `browseKey` of the genre (e.g. `R%26B`); without `section` the answer is empty.
 - Decades: the counts equal the `date` years of the letter sections; albums without a year tag are in no decade.
-- One year per album: a sampler with discs of 2002 and 2001 answers `date="2002"`.
-- **No compilation filter:** `compilation=1`, `compilations=1`, `category=COMPILATIONS`, `type=compilation`, `albumartist=…` are ignored. The `compilation` tag is only in the songs of one album ([`/library/v1/Songs`](#get-libraryv1songs)); samplers are found only by their album artist (e.g. `artist=Various`), a convention of the library.
+- One `date` per album, also when its songs have different years.
+- **No compilation filter:** `compilation=1`, `compilations=1`, `category=COMPILATIONS`, `type=compilation`, `albumartist=…` are ignored. The `compilation` tag is only in the songs of one album ([`/library/v1/Songs`](#get-libraryv1songs)); samplers are found only by their album artist (e.g. `artist=Various`).
 - **No genre per album** in any answer; it follows only from the album lists of all genres (`genre=…&section=all`, one request per genre).
-- **Albums with `mqaBrowse` songs are in no quality list** (player bug): albums whose songs all have `<quality>mqaBrowse</quality>` are missing from `quality=hr`, `cd`, `mqa` and `mqaBrowse`, while `/library/v1/Songs` finds their songs with `quality=mqa`. The files are real MQA (MQA sync word, tag `MQAENCODER`).
+- **Albums with `mqaBrowse` songs are in no quality list** (player bug): albums whose songs all have `<quality>mqaBrowse</quality>` are missing from `quality=hr`, `cd`, `mqa` and `mqaBrowse`, while `/library/v1/Songs` finds their songs with `quality=mqa`.
 
 ### `GET /library/v1/Artists`
 
@@ -1545,8 +1538,8 @@ GET /library/v1/Artists?service=<svc>&section=<letter|all>&category=FAVOURITES&g
 
 **Notes**
 
-- Empty without a filter; with `offset` alone the list is paged (the BluOS Controller asks 0, 30, 60 …).
-- The sections list **album artists**, not artists that only appear on tracks (`Various` is listed, a track artist `Putumayo Presents , Diogal` is not).
+- Empty without a filter; with `offset` alone the list is paged.
+- The sections list **album artists**, not artists that only appear on tracks.
 
 ### `GET /library/v1/Artwork`
 
@@ -2013,7 +2006,6 @@ GET /Alarms?tz=<time zone>&id=<id>&enable=<0|1>&days=<flags>&hour=<HH>&minute=<M
 
 **Notes**
 
-- Reading verified; creating, changing, switching and deleting are the requests of the BluOS Controller (not verified).
 - Alarm sources: [`/RadioBrowse?service=Alarms`](#get-radiobrowse). While an alarm plays, `/Status` shows the rest in `alarmsecondsremaining`.
 
 ### `GET, POST /alsa_setting`
@@ -2041,7 +2033,7 @@ Empty answer (HTTP 200); with `preset` HTTP 205.
 **Notes**
 
 - GET with name and value as query and POST with a JSON body work alike; numbers without quotes in JSON (`{"eq-bass":-1}`).
-- Names, ranges and dependencies come from `/Settings?id=audio`; which settings exist depends on the player (DSP, centre, subwoofer).
+- Available settings, ranges and dependencies: `/Settings?id=audio`; they depend on the player (DSP, centre, subwoofer).
 - A `preset` change ends a `/Status` long poll with `syncStat` + 1.
 
 ### `GET /apmode`
@@ -2060,7 +2052,7 @@ Not known.
 
 **Notes**
 
-- Linked on the diagnostics page. Presumably switches the player to its own Wi-Fi hotspot (setup mode), leaving the home network; not opened.
+- Linked on the diagnostics page. Presumably switches the player to its own Wi-Fi hotspot (setup mode), leaving the home network.
 
 ### `GET, POST /audiomodes`
 
@@ -2071,15 +2063,15 @@ POST /audiomodes   (JSON body {"<name>":"<value>"})
 
 | Parameter | Meaning |
 |---|---|
-| `bluetoothAutoplay` | Bluetooth mode: `0` = manual, `1` = automatic, `2` = guest, `3` = disabled (official) |
+| `bluetoothAutoplay` | Bluetooth mode: `0` = manual, `1` = automatic, `2` = guest, `3` = disabled |
 | `subwoofer` | `default` = off, `withsub` = on |
 | `ears` | stereo surround `ON` / `OFF` |
 | `volumeLimits` | minimum and maximum volume in dB, e.g. `-70,-10` (range -90 … 0, at least 30 dB apart) |
 | `replayGainMode` | `none`, `track`, `album`, `smart` |
-| `mqaDisable` | MQA decoding off (`ON`) / on (`OFF`) (community projects) |
-| `fixedVolume` | fixed volume `ON` / `OFF` (community projects) |
-| `channelMode` | channel mode (community projects) |
-| `enableClockTrim` | `ON` / `OFF` (community projects) |
+| `mqaDisable` | MQA decoding off (`ON`) / on (`OFF`) (not verified) |
+| `fixedVolume` | fixed volume `ON` / `OFF` (not verified) |
+| `channelMode` | channel mode (not verified) |
+| `enableClockTrim` | clock trim `ON` / `OFF` (not verified) |
 
 **Response format**
 
@@ -2120,7 +2112,7 @@ No parameters.
 **Notes**
 
 - Only players with listening modes have it; their [`/SyncStatus`](#get-syncstatus) carries `audioPresetUrl`.
-- Change the mode with `/alsa_setting?preset=<name>`; `/audioPreset` shows it about 1 s later.
+- Change the mode with `/alsa_setting?preset=<name>`.
 - `/Status` does not name the mode, but a change ends its long poll with `syncStat` + 1 as the only change: read `/audioPreset` again when `syncStat` changes.
 
 ### `GET /Dataexport`
@@ -2134,10 +2126,6 @@ No parameters.
 **Response format**
 
 Plain text: the system log of the player (`syslogd`, network, services …).
-
-**Notes**
-
-- The BluOS Controller checks with `HEAD` first, then loads it with GET.
 
 ### `GET, POST /delete_index`
 
@@ -2158,7 +2146,7 @@ GET: HTML page "Confirmation" ("Rebuild index and start re-index?") with a form 
 **Notes**
 
 - Linked on the diagnostics page ("Rebuild Index"). The GET only asks; `no` keeps the index.
-- `yes` presumably deletes the library index and scans the whole library again (not sent).
+- `yes` presumably deletes the library index and scans the whole library again.
 
 ### `GET /diag`
 
@@ -2174,11 +2162,11 @@ GET http://<player>:80/diag?noheader=1&playnum=1&print=1
 
 **Response format**
 
-HTML page (web app "BluOS"); with `print=1` the report as text in `<pre>`: shares (user name, password hidden), Wi-Fi scan, network, services and more.
+HTML page (web app "BluOS"); with `print=1` the diagnostic report as text in `<pre>`.
 
 **Notes**
 
-- Opened through `/redirectToCp?href=/diag&noheader=1` (help area of the BluOS Controller).
+- Opened through `/redirectToCp?href=/diag&noheader=1`.
 
 ### `GET /diagnostics`
 
@@ -2194,7 +2182,7 @@ GET http://<player>:80/diagnostics?noheader=1&playnum=1&slave=<ip>
 
 **Response format**
 
-HTML page "Diagnostics": network name, signal strength, IP and MAC address, BluOS version, uptime, number of songs, shares, other players, statistics switch, links "Rebuild Index", "Force Hotspot Mode", "Reboot".
+HTML page "Diagnostics": network and player state, statistics switch, links "Rebuild Index", "Force Hotspot Mode", "Reboot".
 
 **Notes**
 
@@ -2222,7 +2210,7 @@ GET /Doorbell?play=1
 
 **Notes**
 
-- Depends on the player model; the Powernode answers `<error>Not supported</error>`.
+- Depends on the player model.
 
 ### `GET /download_playlists_api`
 
@@ -2283,7 +2271,7 @@ GET /error?<counter>&clear=1&counter=<counter>
 
 **Notes**
 
-- After a failed command (e.g. `/Back` on a radio station) the BluOS Controller reads `/error?<n>` and clears it; the counter counts up.
+- Holds the message of a failed command (e.g. `/Back` on a radio station); the counter counts up.
 
 ### `GET /GitVersion`
 
@@ -2321,10 +2309,6 @@ No parameters.
 |---|---|
 | `lastscancode` | last received IR code as a signed 32-bit number; as unsigned hex the `value` of [`/ShowIRCodes`](#get-showircodes) (`-1465131975` = `0xa8abdc39` = `KEY_VOLUMEDOWN`) |
 
-**Notes**
-
-- For learning a remote control: press a button, then read the code.
-
 ### `GET /Name`
 
 ```
@@ -2357,11 +2341,11 @@ POST http://<player>:80/reboot   (form field yes=1)
 
 **Response format**
 
-HTML page "Confirmation" ("Settings Updated – Rebooting…") with a refresh to `/` after 15 s.
+HTML page "Confirmation" ("Settings Updated – Rebooting…").
 
 **Notes**
 
-- Example: `curl -d yes=1 http://<player>/reboot`. The player answers again after about 20 s; playback stops.
+- Playback stops.
 - `/reboot?noheader=1` is the web page with the reboot button.
 
 ### `GET /redirectToCp`
@@ -2380,7 +2364,7 @@ HTTP redirect to that page (HTML).
 
 **Notes**
 
-- `url` of the [`/Services`](#get-services) root; "Cp" presumably means control panel.
+- `url` of the [`/Services`](#get-services) root.
 
 ### `GET /Reindex`
 
@@ -2486,7 +2470,7 @@ HTML page "Configure Music Services" with one link per streaming and radio servi
 **Notes**
 
 - Lower case, port 80 only (port 11000: 404); not the same as [`/Services`](#get-services).
-- Opened through `/redirectToCp`. Its links lead to `/credentials?service=<service>&noheader=1&schemaVersion=<n>&playnum=1` (sign-in of a service) and `/spotifyinfo?service=Spotify&…` (not tried).
+- Opened through `/redirectToCp`. Its links lead to `/credentials?service=<service>&noheader=1&schemaVersion=<n>&playnum=1` (sign-in of a service) and `/spotifyinfo?service=Spotify&…`.
 
 ### `GET, POST /setting`
 
@@ -2602,7 +2586,7 @@ HTML page (web app "BluOS", the script loads the content).
 
 **Notes**
 
-- The page sends a request to Bluesound support – do not submit it while testing.
+- The page sends a request to Bluesound support.
 
 ### `GET /sharecfg`
 
@@ -2756,10 +2740,6 @@ No known parameters.
 |---|---|
 | `update` | presumably a firmware update message; `no message` = nothing to report |
 
-**Notes**
-
-- Do not try parameters: an update endpoint may start a firmware update. Compare [`/upgrade`](#get-upgrade).
-
 ### `GET /UpdateDNS`
 
 ```
@@ -2771,10 +2751,6 @@ No known parameters.
 **Response format**
 
 Empty answer.
-
-**Notes**
-
-- Nothing noticeable happens; the name suggests a refresh of the DNS or network name registration.
 
 ### `GET /upgrade`
 
@@ -2789,10 +2765,6 @@ GET /upgrade?noheader=1
 **Response format**
 
 HTTP redirect to a web page (HTML).
-
-**Notes**
-
-- Presumably the firmware upgrade page; open it only on purpose.
 
 ### `POST /upload_playlists_api`
 
@@ -2936,7 +2908,7 @@ Empty answer.
 
 **Notes**
 
-- Style selector of [`/ui/BrowseObjects`](#get-uibrowseobjects); neither `grid~Playlist` nor `list~Playlist` changed its answer. What the call changes is not known.
+- Style selector of [`/ui/BrowseObjects`](#get-uibrowseobjects); the effect is not known.
 
 ### `GET /ui/browseContext`
 
@@ -3345,7 +3317,7 @@ No known parameters.
 
 | Element | Meaning |
 |---|---|
-| `list` | news entries (empty on the test player) |
+| `list` | news entries |
 
 ### `GET /ui/nowPlayingCM`
 
@@ -3529,7 +3501,7 @@ Without a URL the text `invalid URL scheme: ` (no XML).
 
 **Notes**
 
-- Expects a URL with a special scheme ("Sovi", presumably an internal name of BluOS).
+- Expects a URL with a special scheme.
 
 ### `GET /ui/Search`
 
@@ -3679,9 +3651,8 @@ GET  /mcp   (event stream from the server)
 **Notes**
 
 - Transport "Streamable HTTP" (MCP 2025-06-18); no authentication, no session (`Mcp-Session-Id`). CORS: `Access-Control-Allow-Origin: *`, methods `GET, POST, OPTIONS`.
-- Verified: `initialize`, `notifications/initialized`, `tools/list`, `resources/list`, `prompts/list`, CORS and the tools `get_music_services`, `search_music`; the other tools not called.
 - `search_music` on the library wraps [`/library/v1/Albums`](#get-libraryv1albums) / [`/library/v1/Songs`](#get-libraryv1songs) with `expr`, sorted by title; `artists` gives only `title` and `context_menu_key`; `playlists` is not supported for the library.
 - **Paging skips one result per page:** a page has 50 results, but `next_key` continues at `start=51` (then 102 …).
-- Every tool is annotated `readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: true`, also the reading ones; MCP clients may ask for a confirmation on every call.
+- Every tool is annotated `readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: true`, also the reading ones.
 - For the local library only the search: no browsing, no filters (genre, quality, decade, favourites), no track list of an album, no covers (only the `/Artwork` path).
 - `/mcp/`, `/sse` and `/.well-known/mcp.json` answer 404; on port 80 `/mcp` is not the MCP server.
