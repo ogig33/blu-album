@@ -1940,7 +1940,7 @@ dialog * {
  *   9. Album grid                      Lazy rendering of the album tiles and the random album tile.
  *  10. Favourites                      Favourite state and toggling for the heart on the cover.
  *  11. Popups                          Album popup and the popup for unsuccessful player answers.
- *  12. Playlists                       BluOS playlists of the player: the Playlists chip, its tiles (play, add, delete), track lists.
+ *  12. Playlists                       BluOS and library playlists: the Playlists chip, its tiles (play, add, delete), track lists.
  *  13. Queue panel                     Play queue: list, reordering, pinning, shuffle, repeat, save as playlist, clear.
  *  14. Player footer & full screen     Now playing, progress, transport, volume, listening mode, status polling, full-screen view.
  *  15. Search                          The player's own search.
@@ -2034,8 +2034,8 @@ const fmtTime = (n) => {
 };
 // "1 album" / "5 albums".
 const nAlb = (n) => n + (n === 1 ? " album" : " albums");
-// "1 playlist" / "3 playlists", "1 track" / "12 tracks".
-const nPl = (n) => n + (n === 1 ? " playlist" : " playlists");
+// "1 playlist" / "3 playlists" (kind: "3 BluOS playlists"), "1 track" / "12 tracks".
+const nPl = (n, kind) => n + (kind ? " " + kind : "") + (n === 1 ? " playlist" : " playlists");
 const nTr = (n) => n + (n === 1 ? " track" : " tracks");
 const errMsg = (prefix, e) => e.name === "TimeoutError" ? NO_REPLY_MSG : e instanceof TypeError && /fetch|load failed|network/i.test(e.message) ? LAN_MSG : prefix + e.message;
 // Status line below the genre chips.
@@ -2118,15 +2118,16 @@ async function showImg(el, url) {
 // activeBtn: selected chip.
 let base = "", cache = {}, shown = [], activeKey = "", activeBtn = null;
 // sources: music sources found on the player (USB drive, library).
-// srcs: the enabled sources after opening, each {key, svc, name, searchKey, genresKey, albumsKey, genres, menu,
-// secs} (secs: promise of the album sections, see albumSections()).
+// srcs: the enabled sources after opening, each {key, svc, name, searchKey, genresKey, albumsKey, playlistsKey, genres,
+// menu, secs} (playlistsKey: its library playlists, secs: promise of the album sections, see albumSections()).
 // epoch increases on every connect / source change so late async results can be ignored (see ctx()).
 let sources = [], srcs = [], epoch = 0;
 // Album grid: lazy rendering observer, a token that cancels an older render, observer that loads the covers.
 let lazyObs = null, lazyTok = 0, coverObs = null, cutObs = null;
-// BluOS playlists. playlistsKey: browse key ("" if the player has none), plSeq: request counter,
+// Playlists. playlistsKey: browse key of the BluOS playlists ("" if the player has none), plSeq: request counter,
 // plBtn: the Playlists chip (re-added after the genre chips are rebuilt), plCount: number for the stats (null = unknown),
-// playlists: tiles like albums (toAlbum() + pl: true).
+// playlists: tiles like albums (toAlbum() + pl: true), the BluOS playlists first, then the library playlists of the
+// enabled sources (lib: true).
 let playlistsKey = "", plSeq = 0, plBtn = null, plCount = null, playlists = [];
 // Decade chips: ctx() for which they were built or are loading ("" = not yet).
 let dcCtx = "";
@@ -2176,6 +2177,7 @@ function resetLibrary() {
   cache = {};
   popCache = {};
   srcs = [];
+  playlists = playlists.filter((p) => !p.lib);
   activeBtn = null;
   activeKey = "";
   shown = [];
@@ -2356,8 +2358,11 @@ async function connect() {
     // BluOS playlists ("Playlists" / "Wiedergabelisten", icon ci_myplaylists) for the Playlists chip
     const plItem = topItems.find((i) => /myplaylists/i.test(attr(i, "image")) || /^(playlists|wiedergabelisten)$/i.test(attr(i, "text")));
     playlistsKey = plItem ? attr(plItem, "browseKey") : "";
-    loadPlaylists();
-    if (!sources.length) throw new Error("No USB or library source found. Is the drive connected?");
+    // The playlists are loaded with the sources (openSources()); without a source only the BluOS playlists
+    if (!sources.length) {
+      loadPlaylists();
+      throw new Error("No USB or library source found. Is the drive connected?");
+    }
     loadInfo();
     pollStatus();
     renderSources();
@@ -2385,7 +2390,8 @@ async function openSources() {
   $("#q").value = "";
   const on = sources.filter(sourceOn);
   if (!on.length) {
-    renderPlChip();
+    renderPlChip(); // the BluOS playlists known already, at once
+    loadPlaylists();
     msg("No music source enabled. Switch one on in the settings panel.", true);
     return;
   }
@@ -2395,6 +2401,7 @@ async function openSources() {
       const md = await browse(src.key), menu = items(md);
       const gi = menu.find((i) => /GG\/Genres/.test(attr(i, "browseKey")) || attr(i, "text") === "Genres");
       const alb = menu.find((i) => /bySection:Album/.test(attr(i, "browseKey"))) || menu.find((i) => /^(Alben|Albums)$/.test(attr(i, "text")));
+      const pli = menu.find((i) => /:Playlist\//.test(attr(i, "browseKey")));
       const genresKey = gi ? attr(gi, "browseKey") : "";
       const genres = genresKey ? items(await browse(genresKey)).filter((x) => attr(x, "type") === "genre") : [];
       return {
@@ -2405,11 +2412,13 @@ async function openSources() {
         searchKey: md.documentElement.getAttribute("searchKey") || "",
         genresKey,
         albumsKey: alb ? attr(alb, "browseKey") : "",
+        playlistsKey: pli ? attr(pli, "browseKey") : "",
         genres
       };
     }));
     if (mine !== ctx()) return;
     srcs = opened;
+    loadPlaylists();
     // Genre chips: union of the genre names of all sources
     const names = [...new Set(srcs.flatMap((x) => x.genres.map((g) => attr(g, "text"))))].sort((x, y) => x.localeCompare(y));
     if (!names.length) throw new Error("No genres found. Has the library finished indexing?");
@@ -2457,13 +2466,14 @@ async function openSources() {
       nav.append(b);
     });
     msg("Select a genre.");
-    // Add the Playlists chip after New (the playlists may have arrived while this function was waiting).
+    // Add the Playlists chip after New (with the BluOS playlists known from before; loadPlaylists() adds it again).
     renderPlChip();
     decadeChips();
     // Default view: Favourites, or the first genre (not the Playlists chip).
     nav.querySelector(hasAlbums ? "button[aria-label=Favourites]" : "button:not(.plc)")?.click();
   } catch (e) {
     if (mine !== ctx()) return;
+    if (!srcs.length) loadPlaylists(); // the source menus failed: at least the BluOS playlists
     loadFailed("Could not open the music source: ", "Opening the music source did not succeed", e);
     panel(true);
   }
@@ -2524,13 +2534,14 @@ function toAlbum(i) {
     menu
   };
 }
-// Loads all <item>s of one type of a list, following nextKey paging. first: answer of `key` when it was read already.
-async function fetchItems(key, type, first) {
+// Loads all <item>s of one type of a list, following nextKey paging. first: answer of `key` when it was read already,
+// menus: with the context menus of the items.
+async function fetchItems(key, type, first, menus = true) {
   const all = [], seen = new Set();
   let k = key, d = first;
   while (k && !seen.has(k)) {
     seen.add(k);
-    if (!d) d = await browse(k);
+    if (!d) d = await browse(k, "", menus);
     all.push(...items(d).filter((i) => attr(i, "type") === type));
     const nx = d.querySelector("[nextKey]");
     k = nx ? attr(nx, "nextKey") : "";
@@ -2882,7 +2893,7 @@ function render(list, noRandom) {
     }
   };
   // "Random album" tile first, but not for search results.
-  if (!noRandom && list.length) g.append(randomTile(list));
+  if (!noRandom && list.length) g.append(randomTile(list.filter((a) => !a.line)));
   if ("IntersectionObserver" in window) {
     lazyObs = new IntersectionObserver((e) => {
       if (e.some((x) => x.isIntersecting)) more();
@@ -2896,7 +2907,7 @@ function render(list, noRandom) {
     more();
   } else list.forEach(addItem);
   // One grid tile: cover (opens details) with play / add-to-queue buttons and the heart, title, artist link
-  // (a BluOS playlist: delete button instead of the heart, the line "Playlist" instead of the artist).
+  // (a BluOS playlist: delete button instead of the heart; a playlist: the line "Playlist" instead of the artist).
   function addItem(a) {
     if (a.line) {
       const l = document.createElement("div");
@@ -2944,19 +2955,17 @@ function render(list, noRandom) {
       aq.onclick = () => cmd(addUrl, "Added to queue: " + a.t);
       cw.append(aq);
     }
-    if (a.pl) {
-      // Delete button of a playlist (only when its player menu offers "delete")
-      if (a.menu.delete) {
-        const db = document.createElement("button");
-        db.className = "play delp";
-        db.innerHTML = ICON_TRASH;
-        db.title = "Delete playlist";
-        db.setAttribute("aria-label", "Delete playlist " + a.t);
-        db.onclick = () => deletePlaylist(a);
-        cw.append(db);
-      }
+    if (a.pl && a.menu.delete) {
+      // Delete button of a BluOS playlist (its player menu offers "delete", no favourite)
+      const db = document.createElement("button");
+      db.className = "play delp";
+      db.innerHTML = ICON_TRASH;
+      db.title = "Delete playlist";
+      db.setAttribute("aria-label", "Delete playlist " + a.t);
+      db.onclick = () => deletePlaylist(a);
+      cw.append(db);
     } else {
-      // Favourite heart (only for albums whose player menu offers favourites)
+      // Favourite heart (only for albums and library playlists whose player menu offers favourites)
       const fh = document.createElement("button");
       fh.className = "play favc";
       fh.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + HEART + "</svg>";
@@ -3005,7 +3014,7 @@ function render(list, noRandom) {
 const randomAlbum = (list) => list[Math.floor(Math.random() * list.length)];
 // First tile of the grid. Click / play button: plays a random album of the current view,
 // add button: appends one to the queue. No popup; a toast tells which album was picked.
-// In the Playlists view the same for a random BluOS playlist.
+// In the Playlists view the same for a random playlist (BluOS or library).
 function randomTile(list) {
   const isPl = !!list[0].pl, kind = isPl ? "playlist" : "album", name = (a) => isPl ? a.t : a.t + " \u2013 " + a.a;
   const item = document.createElement("div");
@@ -3061,7 +3070,7 @@ function randomTile(list) {
 }
 
 /* ---------- Favourites ---------- */
-// Favourite state and toggling for the heart on the cover.
+// Favourite state and toggling for the heart on the cover (albums and library playlists).
 
 // {on, url}: current state and the URL for the next toggle.
 const favOf = (a) => a.menu["favourite-delete"] ? { on: true, url: a.menu["favourite-delete"] } : a.menu["favourite-add"] ? { on: false, url: a.menu["favourite-add"] } : { on: false, url: "" };
@@ -3078,7 +3087,7 @@ const repaintCoverHeart = (a) => {
   const b = coverHearts.get(a);
   if (b) paintHeart(b, a);
 };
-// Fetches the album's context menu again (current state + URL for the opposite action); report: shows a failure.
+// Fetches the context menu of the album or library playlist again (current state + URL for the opposite action); report: shows a failure.
 async function refreshFav(a, report = apiFail) {
   if (!a.cm) return false;
   try {
@@ -3097,13 +3106,14 @@ async function refreshFav(a, report = apiFail) {
     return false;
   }
 }
-// Toggles the favourite on the player. The player encodes the state in the context menu key
-// (...&isFavourite=1), so the key is switched before the menu is read again. Returns false on failure.
+// Toggles the favourite on the player (album or library playlist). The player encodes the state in the context menu
+// key (album: ...&isFavourite=1, library playlist: ...?isFavourite=1&playlist=...), so the key is switched before the
+// menu is read again. Returns false on failure.
 async function toggleFav(a) {
   const f = favOf(a);
   if (!f.url || !await xml(f.url)) return false;
   toast(f.on ? "Removed from favourites" : "Added to favourites");
-  const k = a.cm.replace(/[&?]isFavourite=1/, "");
+  const k = a.cm.replace(/([?&])isFavourite=1(&|$)/, (m, p, q) => q ? p : "");
   a.cm = f.on ? k : k + "&isFavourite=1";
   delete a.menu["favourite-add"];
   delete a.menu["favourite-delete"];
@@ -3117,7 +3127,7 @@ async function toggleFav(a) {
 /* ---------- Popups ---------- */
 // Album popup and the popup for unsuccessful player answers.
 
-// Opens the album popup: details and the track list; for a BluOS playlist (a.pl) its tracks (playlistTracks()).
+// Opens the album popup: details and the track list; for a playlist (a.pl) its tracks (playlistTracks()).
 // Play, add to queue and the favourite heart are on the cover in the grid, not in the popup.
 async function openAlbum(a) {
   showImg($("#dimg"), imgUrl(a.img, COVER_FULL));
@@ -3276,36 +3286,43 @@ function loadFailed(prefix, title, e) {
 }
 
 /* ---------- Playlists ---------- */
-// BluOS playlists of the player: the Playlists chip, its tiles and track lists.
+// BluOS playlists (stored in the player) and library playlists (imported playlist files of the enabled sources):
+// the Playlists chip, its tiles and track lists.
 
-// Loads the BluOS playlists (following nextKey paging) as album-like tiles: name, cover (the first track's),
-// browse key of the tracks, play URL and the actions of the context menu (add-last for the add button).
-// Called on connect, after saving / deleting a playlist and on every click of the Playlists chip; an open
-// Playlists view is drawn again when the list has changed.
+// Tiles of one playlist list (following nextKey paging) like albums: name, cover (the first track's), browse key of
+// the tracks, play URL and the actions of the context menu (add-last for the add button, delete for BluOS playlists).
+async function playlistTiles(key, lib) {
+  const list = [];
+  for (let i = 0; key && i < 20; i++) {
+    const d = await browse(key);
+    // Play URL: playURL, or else a "play" action from the item's context menu.
+    items(d).forEach((it) => {
+      const p = toAlbum(it), pm = Object.keys(p.menu).find((m) => /^play/i.test(m));
+      p.play = p.play || (pm ? p.menu[pm] : "");
+      p.pl = true;
+      if (lib) p.lib = true;
+      if (p.play) list.push(p);
+    });
+    key = attr(d.documentElement, "nextKey");
+  }
+  return list;
+}
+// Loads the BluOS playlists (top menu) and the library playlists of every enabled source (link "Playlists" of its
+// menu). Called after opening the sources, after saving / deleting a playlist and on every click of the Playlists
+// chip; an open Playlists view is drawn again when the list has changed.
 async function loadPlaylists() {
-  const seq = ++plSeq, mine = base;
-  if (!playlistsKey) {
+  const seq = ++plSeq, mine = ctx(), keys = [playlistsKey, ...srcs.map((x) => x.playlistsKey)];
+  if (!keys.some(Boolean)) {
     playlists = [];
     renderPlChip();
     return;
   }
   try {
-    const list = [];
-    let key = playlistsKey;
-    for (let i = 0; key && i < 20; i++) {
-      const d = await browse(key);
-      // Play URL: playURL, or else a "play" action from the item's context menu.
-      items(d).forEach((it) => {
-        const p = toAlbum(it), pm = Object.keys(p.menu).find((m) => /^play/i.test(m));
-        p.play = p.play || (pm ? p.menu[pm] : "");
-        p.pl = true;
-        if (p.play) list.push(p);
-      });
-      key = attr(d.documentElement, "nextKey");
-    }
-    if (seq !== plSeq || mine !== base) return;
+    const list = (await Promise.all(keys.map((k, i) => k ? playlistTiles(k, i > 0) : []))).flat();
+    if (seq !== plSeq || mine !== ctx()) return;
     const sig = (l) => l.map((p) => [p.t, p.img, p.play].join("\n")).join("\n\n"), changed = sig(list) !== sig(playlists);
-    plCount = list.length;
+    // statistic only when the player has BluOS playlists or library playlists
+    plCount = playlistsKey || list.length ? list.length : null;
     playlists = list;
     renderLib();
     renderPlChip();
@@ -3324,7 +3341,7 @@ function renderPlChip() {
     plBtn = document.createElement("button");
     plBtn.className = "sp plc";
     plBtn.textContent = "Playlists";
-    plBtn.title = "BluOS playlists";
+    plBtn.title = "BluOS and library playlists";
     plBtn.onclick = () => {
       selectView("__pl", plBtn);
       showPlaylists();
@@ -3336,11 +3353,15 @@ function renderPlChip() {
   if (nw) nw.after(plBtn);
   else nav.prepend(plBtn);
 }
-// The Playlists view: the random playlist tile, then one tile per BluOS playlist.
+// The Playlists view: the random playlist tile (all playlists), then the groups BluOS playlists and library playlists,
+// each in the player's order. Like the search results, the status line names the first group, a line in the grid the
+// second one.
 function showPlaylists() {
   shown = playlists;
-  render(shown);
-  msg(shown.length ? nPl(shown.length) : "No BluOS playlists.");
+  const groups = [[playlists.filter((p) => !p.lib), "BluOS"], [playlists.filter((p) => p.lib), "library"]]
+    .filter((g) => g[0].length).map(([l, kind]) => [l, nPl(l.length, kind)]);
+  render(groups.flatMap(([l, line], i) => i ? [{ line }, ...l] : l));
+  msg(groups.length ? groups[0][1] : "No playlists.");
 }
 // Deletes a BluOS playlist on the player after confirmation, with the "delete" action of its context menu
 // (/Delete?name=…&service=BluOS); the queue stays. Success: toast and the playlists read again (its tile goes).
@@ -3354,20 +3375,21 @@ async function deletePlaylist(p) {
   }
   showApiResponse("Deleting the playlist did not succeed", base + p.menu.delete, r.status, r.body);
 }
-// Plays a BluOS playlist (replaces the queue).
+// Plays a playlist (replaces the queue).
 function playPlaylist(p) {
   // The new playlist id in /Status reloads the queue. A broken (empty) playlist may not change
   // the id, so the queue is reloaded after 1.5 s only when that has not happened yet.
   const seq = qSeq;
   cmd(p.play, "Playing playlist: " + p.t).then(() => setTimeout(() => qOpen && qSeq === seq && loadQueue(), 1500));
 }
-// Track list of a BluOS playlist in the popup: every page of the playlist's browse list (10 tracks each),
+// Track list of a playlist in the popup: every page of the playlist's browse list without context menus (BluOS: 10
+// tracks each, library: all in one answer),
 // number, title, "track artist \u2022 album" and duration; a click plays the playlist from that track (the
 // track's autoplayURL). Not kept in popCache: saving the queue under the name changes the playlist.
 async function playlistTracks(p, seq) {
   const ol = $("#tracks");
   try {
-    const tr = await fetchItems(p.key, "track");
+    const tr = await fetchItems(p.key, "track", null, false); // no context menus (a library playlist: 40 instead of 18 KB)
     if (seq !== dlgSeq) return;
     ol.innerHTML = "";
     const secs = tr.reduce((t, i) => t + (+attr(i, "duration") || 0), 0);

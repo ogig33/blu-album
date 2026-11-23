@@ -214,6 +214,25 @@ function createPlayer(opts = {}) {
         );
       return `<browse serviceIcon="/images/BluOSIcon.png" serviceName="BluOS" type="tracks" playURL="/Load?service=BluOS&amp;name=${pl2}">${tracks.join("")}</browse>`;
     }
+    // Library playlists (Bruno A29 / A30): the library has the recorded ones, the USB drive none (like the real
+    // player); the track list of every library playlist is the recorded one, all tracks in one answer.
+    if (/:Playlist\/%2Flibrary%2Fv1%2FPlaylists%3F/.test(key))
+      return key.startsWith(USB)
+        ? '<browse serviceIcon="/images/USBIcon.png" serviceName="USB" type="playlists"></browse>'
+        : fx("29");
+    if (/MG\/LocalMusic-Playlist\?/.test(key)) return fx("30");
+    // Context menu of a library playlist (Bruno W38): the recorded one, with the favourite state of the key's
+    // isFavourite flag
+    if (/CM\/LocalMusic-Playlist\?/.test(key)) {
+      const menu = (fx("29").match(/<contextMenu>([\s\S]*?)<\/contextMenu>/) || [])[1] || "";
+      const fav = /[?&]isFavourite=1(&|$)/.test(key)
+        ? menu
+            .replace("/AddFavourite", "/DeleteFavourite")
+            .replace("favourite-add", "favourite-delete")
+            .replace('text="Favourite"', 'text="Remove favourite"')
+        : menu;
+      return `<browse type="contextMenu">${fav}</browse>`;
+    }
     // Search menu: like the real player, the USB drive links to lists with its own keys
     if (/:Search$/.test(key)) return key.startsWith(USB) ? fx("18").replace(/LocalMusic/g, USB) : fx("18");
     if (/Albums%3Fexpr=/.test(key)) return fx("07");

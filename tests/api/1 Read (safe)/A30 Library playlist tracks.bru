@@ -1,0 +1,66 @@
+meta {
+  name: A30 Library playlist tracks
+  type: http
+  seq: 138
+}
+
+get {
+  url: http://{{host}}:11000/Browse
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const key = bru.getVar("libPlaylistKey");
+  if (!key) {
+    // No library playlist found by A29 (none imported)
+    bru.runner.skipRequest();
+    return;
+  }
+  // Same request as the app (playlist popup): browse key of the first library playlist, without context menu items
+  req.setUrl("http://" + bru.getEnvVar("host") + ":11000/Browse?key=" + encodeURIComponent(key) + "&withContextMenuItems=0");
+}
+
+script:post-response {
+  const body = String(res.getBody() || "");
+
+  // Stores the answer in fixtures/ (needs Developer mode for the JavaScript sandbox)
+  const saveFixture = (file) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), body);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("30-library-playlist-tracks.xml");
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tags = (name) => body.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const items = (type) => tags("item").filter((t) => !type || attr(t, "type") === type);
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+
+  test("type=tracks with the play URL of the playlist", () => {
+    const top = tags("browse")[0] || "";
+    expect(attr(top, "type")).to.equal("tracks");
+    expect(attr(top, "playURL")).to.match(/^\/Load\?service=LocalMusic&id=/);
+  });
+
+  test("tracks have text, text2, duration and an autoplayURL of the playlist", () => {
+    const t = items("track");
+    expect(t.length).to.be.above(0);
+    t.forEach((x) => ["text", "text2", "duration", "autoplayURL"].forEach((n) => expect(attr(x, n), n).to.not.equal("")));
+    t.forEach((x, i) => expect(attr(x, "autoplayURL")).to.match(new RegExp("listindex=" + i + "&.*playlistid=")));
+  });
+}

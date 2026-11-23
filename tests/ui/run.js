@@ -266,13 +266,29 @@ async function buildTD(get) {
     k = ent((x.match(/<browse [^>]*nextKey="([^"]*)"/) || [])[1] || "");
   }
   // TD-PL-TRK: tracks of the first BluOS playlist, every page (like fetchItems of the app)
-  D.PL_TRK = [];
-  for (let k = D.PL.length ? D.PL[0].browseKey : "", seen = new Set(); k && !seen.has(k);) {
-    seen.add(k);
-    const x = await browse(k);
-    D.PL_TRK.push(...itemsOf(x, ofType("track")));
-    k = ent((x.match(/<browse [^>]*nextKey="([^"]*)"/) || [])[1] || "");
+  const fetchTracks = async (key) => {
+    const out = [];
+    for (let k = key, seen = new Set(); k && !seen.has(k);) {
+      seen.add(k);
+      const x = await browse(k);
+      out.push(...itemsOf(x, ofType("track")));
+      k = ent((x.match(/<browse [^>]*nextKey="([^"]*)"/) || [])[1] || "");
+    }
+    return out;
+  };
+  D.PL_TRK = D.PL.length ? await fetchTracks(D.PL[0].browseKey) : [];
+  // TD-LPL: library playlists of every source (link "Playlists" of its menu, following nextKey like the app)
+  D.LPL = [];
+  for (const svc of D.SVC) {
+    const li = itemsOf(D.MENU[svc]).find((i) => /:Playlist\//.test(i.browseKey || ""));
+    for (let k = li ? li.browseKey : "", i = 0; k && i < 20; i++) {
+      const x = await browse(k);
+      D.LPL.push(...itemsOf(x, ofType("playlist")));
+      k = ent((x.match(/<browse [^>]*nextKey="([^"]*)"/) || [])[1] || "");
+    }
   }
+  // TD-LPL-TRK: tracks of the first library playlist
+  D.LPL_TRK = D.LPL.length ? await fetchTracks(D.LPL[0].browseKey) : [];
   // TD-STATUS, TD-QUEUE (pages of 200, at most 2000 like the app), TD-SET, TD-LM, TD-VER
   D.STATUS = (await get("/Status")) || "";
   // TD-NOW-LIB: a title of a library source is playing or paused
@@ -346,7 +362,7 @@ async function buildTD(get) {
     D.STATS[label] = any ? n.toLocaleString("en") : "\u2013";
   }
   D.STATS.Genres = String(D.GEN.length);
-  D.STATS.Playlists = String(D.PL.length);
+  D.STATS.Playlists = String(D.PL.length + D.LPL.length);
   // TD-TERM: a search term from the library (the first word of 3+ letters in an album title)
   D.TERM = (
     [...D.ALL, ...D.FAV.map((f) => ({ text: f.t }))]
@@ -404,7 +420,17 @@ const fmtTime = (n) => {
   return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0");
 };
 const nAlb = (n) => n + (n === 1 ? " album" : " albums");
-const nPl = (n) => n + (n === 1 ? " playlist" : " playlists");
+const nPl = (n, kind) => n + (kind ? " " + kind : "") + (n === 1 ? " playlist" : " playlists");
+// Playlists view: names of all tiles (BluOS playlists, then library playlists), status line (the first group) and the
+// grid lines of the further groups (like the app's showPlaylists())
+const plNames = () => [...TD.PL, ...TD.LPL].map((p) => p.text);
+const plGroups = () =>
+  [
+    [TD.PL, "BluOS"],
+    [TD.LPL, "library"],
+  ]
+    .filter((g) => g[0].length)
+    .map(([l, kind]) => nPl(l.length, kind));
 const nTr = (n) => n + (n === 1 ? " track" : " tracks");
 const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const re = (s) => new RegExp(reEsc(s));
@@ -617,14 +643,15 @@ const openLibAlbum = async (t) => {
 // Playlists view (Playlists chip); the tile of a BluOS playlist in it (selector, waits until it is drawn)
 const openPlaylists = async (t) => {
   await t.page.click("#az .plc");
-  await t.waitMsg(/^\d+ playlists?$/);
+  await t.waitMsg(/^\d+ (BluOS|library) playlists?$/);
 };
 const openTile = async (t, name) => {
   await openPlaylists(t);
   const has = (n) => [...document.querySelectorAll("#grid .item b")].some((e) => e.textContent === n);
   await t.page.waitForFunction(has, name);
   const i = await t.page.evaluate(
-    (n) => [...document.querySelectorAll("#grid .item")].findIndex((e) => e.querySelector("b")?.textContent === n),
+    // index among all children of the grid (the group lines count for :nth-child too)
+    (n) => [...document.querySelector("#grid").children].findIndex((e) => e.querySelector("b")?.textContent === n),
     name,
   );
   return `#grid .item:nth-child(${i + 1})`;
@@ -659,7 +686,7 @@ const R = { real: "read" };
 const W = { real: "write" };
 // opts.needs: what a test needs on the real player; skipped without it (read-only) or set up first (--write, see prepare())
 // usb: a USB drive (a second source), library: a library title playing or paused, queue: at least 3 tracks,
-// playlist: a BluOS playlist
+// playlist: a BluOS playlist, libplaylist: a library playlist (cannot be set up, the test is skipped without one)
 const U = { real: "read", needs: ["usb"] };
 
 // ---------- 4.1 Connection & start (CON) ----------
@@ -978,7 +1005,7 @@ test(
       "special chips, Playlists after New",
     );
     eq(c.slice(4 + lead.length), TD.GEN, "genres of both sources, A-Z");
-    eq(await t.page.getAttribute("#az .plc", "title"), "BluOS playlists", "tooltip");
+    eq(await t.page.getAttribute("#az .plc", "title"), "BluOS and library playlists", "tooltip");
     ok(!(await t.page.$("#az .plc svg")), "no icon");
   },
   { ...R, needs: ["playlist"] },
@@ -2705,7 +2732,7 @@ test("SRH-13 a view that finishes during a search waits until the search is clea
     { match: /:S:Album\//, start: () => t.chip("All"), msg: /^\d+ albums?$/ },
     { match: /recent=1/, start: () => t.chip("New"), msg: /recently added/ },
     { match: /quality=hr/, start: () => t.chip("HD"), msg: failed, status: 500, popup: "Loading the albums" },
-    { match: /key=BluOS:$/, start: changedPlaylists, msg: /^\d+ playlists?$/ },
+    { match: /key=BluOS:$/, start: changedPlaylists, msg: /^\d+ (BluOS|library) playlists?$/ },
   ];
   await t.openSearch();
   for (const v of views) {
@@ -3801,38 +3828,47 @@ test(
 
 // ---------- 4.12 Playlists (PLS) ----------
 test(
-  'PLS-01 Playlists chip: random playlist tile, tiles with cover, name and "Playlist", list read again',
+  'PLS-01 Playlists chip: random playlist tile, groups BluOS / library, tiles with cover, name and "Playlist", list read again',
   async (t) => {
     const n = t.reqs(/key=BluOS:$/).length;
     await openPlaylists(t);
     eq(await t.page.getAttribute("#az .plc", "aria-pressed"), "true", "chip selected");
-    eq(await t.page.textContent("#msg"), nPl(TD.PL.length), "status line");
+    const [first, ...lines] = plGroups();
+    eq(await t.page.textContent("#msg"), first, "status line names the first group");
+    eq(await t.$$text("#grid .gl"), lines, "a line for the library playlists");
     eq(
       await t.$$text("#grid .item:not(:has(.rnd)) b"),
-      TD.PL.map((p) => p.text),
-      "one tile per playlist, in the player's order",
+      plNames(),
+      "one tile per playlist: BluOS, then library, each in the player's order",
     );
     eq(
       await t.$$text("#grid .item:not(:has(.rnd)) > .card.static"),
-      TD.PL.map(() => "Playlist"),
+      plNames().map(() => "Playlist"),
       "second line",
     );
     eq(await t.page.$$("#grid .item .ar"), [], "no artist link");
     eq(
       await t.$$text("#grid .item:first-child > .card"),
-      ["Random playlist", "from " + nPl(TD.PL.length)],
-      "random playlist tile first",
+      ["Random playlist", "from " + nPl(plNames().length)],
+      "random playlist tile first, for all playlists",
     );
     eq(
       await t.page.$$eval("#grid .item .cov img", (x) => x.length),
-      TD.PL.filter((p) => p.image).length,
+      [...TD.PL, ...TD.LPL].filter((p) => p.image).length,
       "cover of every playlist with an image",
     );
     await t.page.hover("#grid .item:nth-child(2)");
-    eq(await t.page.$$("#grid .item .favc"), [], "no heart");
+    eq(await t.page.$$("#grid .item:nth-child(2) .favc"), [], "BluOS playlist: no heart");
     ok(await t.page.isVisible("#grid .item:nth-child(2) .delp"), "delete button");
     ok(await t.page.isVisible("#grid .item:nth-child(2) .addq"), "add button");
     ok(t.reqs(/key=BluOS:$/).length > n, "playlists read again");
+    if (TD.LPL.length) {
+      const tile = await openTile(t, TD.LPL[0].text);
+      await t.page.hover(tile);
+      ok(await t.page.isVisible(tile + " .addq"), "library playlist: add button");
+      ok(await t.page.isVisible(tile + " .favc"), "library playlist: heart");
+      eq(await t.page.$$(tile + " .delp"), [], "library playlist: no delete button");
+    }
   },
   { ...R, needs: ["playlist"] },
 );
@@ -3872,13 +3908,33 @@ test(
 );
 
 test(
-  "PLS-03 player without BluOS playlists: no chip, no statistic",
+  "PLS-03 player without playlists: no chip, no statistic",
   async (t) => {
     eq(await t.page.$$("#az .plc"), [], "no Playlists chip");
     await t.page.click("#gear");
     await t.page.click("#aboutb");
     await t.waitText("#infodlg", /Composers\s*[\d,]/);
     ok(!/Playlists/.test(await t.page.textContent("#info")), "no Playlists statistic");
+  },
+  {
+    overrides: [
+      { match: TOP, edit: (x) => x.replace(/\s*<item browseKey="BluOS:"[^>]*><\/item>/, "") },
+      { match: /key=[^&]*%3APlaylist%2F/, edit: (x) => x.replace(/<item [\s\S]*<\/item>/, "") },
+    ],
+  },
+);
+
+test(
+  "PLS-03 player with library playlists only: chip, only the library group",
+  async (t) => {
+    await openPlaylists(t);
+    eq(await t.page.textContent("#msg"), nPl(TD.LPL.length, "library"), "status line");
+    eq(await t.$$text("#grid .gl"), [], "no group line");
+    eq(
+      await t.$$text("#grid .item:not(:has(.rnd)) b"),
+      TD.LPL.map((p) => p.text),
+      "library playlists",
+    );
   },
   { overrides: [{ match: TOP, edit: (x) => x.replace(/\s*<item browseKey="BluOS:"[^>]*><\/item>/, "") }] },
 );
@@ -3903,8 +3959,8 @@ test(
     await openPlaylists(t);
     eq(
       await t.$$text("#grid .item:not(:has(.rnd)) b"),
-      [...TD.PL.map((p) => p.text), "Page two"],
-      "playlists of both pages",
+      [...TD.PL.map((p) => p.text), "Page two", ...TD.LPL.map((p) => p.text)],
+      "BluOS playlists of both pages",
     );
   },
   {
@@ -3965,6 +4021,33 @@ test(
 );
 
 test(
+  "PLS-07 library playlist popup: name, source, every track",
+  async (t) => {
+    const p = TD.LPL[0],
+      svc = p.browseKey.split(":")[0];
+    await openPlaylistPopup(t, p.text);
+    eq(await t.page.textContent("#dt"), p.text, "name");
+    eq((await t.page.textContent("#da")).trim(), "Playlist", "second line");
+    eq(
+      (await t.page.textContent("#ds")).trim(),
+      TD.SRC.find((x) => x.browseKey.split(":")[0] === svc).text,
+      "source of the playlist",
+    );
+    eq(
+      await trackRows(t),
+      TD.LPL_TRK.map((x, i) => [String(i + 1), x.text, x.duration ? fmtTime(+x.duration) : ""]),
+      "position, title and duration of every track",
+    );
+    eq(
+      await t.$$text("#tracks .ta"),
+      TD.LPL_TRK.map((x) => x.text2),
+      "track artist and album per track",
+    );
+  },
+  { ...R, needs: ["libplaylist"] },
+);
+
+test(
   "PLS-08 click on a playlist track plays the playlist from that track",
   async (t) => {
     await openPlaylistPopup(t, TD.PL[0].text);
@@ -3985,13 +4068,9 @@ test(
     await t.page.press("#q", "Enter");
     await t.waitMsg(/for/);
     await t.page.fill("#q", "");
-    await t.waitMsg(nPl(TD.PL.length));
+    await t.waitMsg(plGroups()[0]);
     eq(await t.page.getAttribute("#az .plc", "aria-pressed"), "true", "chip pressed again");
-    eq(
-      await t.$$text("#grid .item:not(:has(.rnd)) b"),
-      TD.PL.map((p) => p.text),
-      "playlist tiles",
-    );
+    eq(await t.$$text("#grid .item:not(:has(.rnd)) b"), plNames(), "playlist tiles");
     ok(await t.page.$("#grid .item:first-child .rnd"), "random playlist tile first");
   },
   { ...R, needs: ["playlist"] },
@@ -4030,11 +4109,7 @@ test(
     await t.page.click(tile + " .delp");
     await t.settle();
     eq(t.cmds(/^\/Delete\?/), [], "no delete");
-    eq(
-      await t.$$text("#grid .item:not(:has(.rnd)) b"),
-      TD.PL.map((p) => p.text),
-      "all tiles stay",
-    );
+    eq(await t.$$text("#grid .item:not(:has(.rnd)) b"), plNames(), "all tiles stay");
   },
   { ...R, needs: ["playlist"], dialog: "dismiss" },
 );
@@ -4065,7 +4140,7 @@ test(
     await t.page.click("#grid .item:first-child .play:not(.addq)");
     await t.waitToast(/^Playing playlist: .+$/);
     const name = (await t.page.textContent("#toast")).replace(/^Playing playlist: /, ""),
-      p = TD.PL.find((x) => x.text === name);
+      p = [...TD.PL, ...TD.LPL].find((x) => x.text === name);
     ok(p, "a playlist of the view: " + name);
     ok(t.player.state.commands.includes(decodeURIComponent(p.playURL)), "its play URL");
   },
@@ -4081,12 +4156,34 @@ test(
     await t.waitToast(/^Added to queue: .+$/);
     const name = (await t.page.textContent("#toast")).replace(/^Added to queue: /, "");
     ok(
-      TD.PL.some((x) => x.text === name),
+      plNames().includes(name),
       "a playlist of the view: " + name,
     );
-    eq(t.cmds(/^\/Add\?playlist=.*&where=last$/).length, 1, "add-last of its context menu");
+    eq(t.cmds(/^\/Add\?playlist(id)?=.*&where=last$/).length, 1, "add-last of its context menu");
   },
   { ...W, needs: ["playlist"] },
+);
+
+test(
+  "PLS-13 library playlist: the heart adds and removes the favourite via the player",
+  async (t) => {
+    const p = TD.LPL[0],
+      tile = await openTile(t, p.text),
+      heart = tile + " .favc",
+      pressed = (v) => t.page.waitForFunction(([s, x]) => document.querySelector(s).getAttribute("aria-pressed") === x, [heart, v]);
+    await t.page.hover(tile);
+    eq(await t.page.getAttribute(heart, "aria-pressed"), "false", "empty heart");
+    eq(await t.page.getAttribute(heart, "aria-label"), "Add to favourites: " + p.text, "label");
+    await t.page.click(heart);
+    await t.waitToast("Added to favourites");
+    ok(/^\/AddFavourite\?playlistid=.+&service=LocalMusic$/.test(t.cmds(/^\/AddFavourite/)[0] || ""), "AddFavourite of its menu");
+    await pressed("true");
+    eq(t.reqs(/CM\/LocalMusic-Playlist.*isFavourite=1/).length, 1, "context menu read again with isFavourite=1");
+    await t.page.click(heart);
+    await t.waitToast("Removed from favourites");
+    ok(/^\/DeleteFavourite\?playlistid=/.test(t.cmds(/^\/DeleteFavourite/)[0] || ""), "DeleteFavourite of its menu");
+    await pressed("false");
+  },
 );
 
 // ---------- 4.13 Settings panel (SET) ----------
@@ -4912,6 +5009,7 @@ const NEEDS = {
   library: { ok: () => TD.NOW_LIB, why: "no library title playing or paused" },
   queue: { ok: () => TD.QUEUE.length >= 3, why: "fewer than 3 tracks in the queue" },
   playlist: { ok: () => TD.PL.length > 0, why: "no BluOS playlist" },
+  libplaylist: { ok: () => TD.LPL.length > 0, why: "no library playlist" },
 };
 async function runIn(key, list, real) {
   const { label } = BROWSERS[key];

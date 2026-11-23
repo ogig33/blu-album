@@ -3,6 +3,7 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Playlists: the Playlists chip also shows the library playlists (imported playlist files), in a group after the BluOS playlists, with a heart to mark them as favourites.
 - Playlists: tooltip, messages and the save prompt name the playlists "BluOS playlists", as the BluOS Controller does.
 - Search: the search area Artist also finds albums by their album artist (e.g. "Various"), shown in a group before the albums found by a track artist.
 - Fix: search results are no longer replaced by a view that finishes loading later.

@@ -1,0 +1,68 @@
+meta {
+  name: W38 Favourite a library playlist and back (playlistid=)
+  type: http
+  seq: 137
+}
+
+get {
+  url: http://{{host}}:11000/library/v1/Playlists
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 15000, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
+  const menuOf = async (key) => Object.fromEntries(tagsOf(await browse(key), "item").map((t) => [attr(t, "type"), attr(t, "actionURL")]));
+  // Like the heart of the app: the first library playlist that is no favourite; /AddFavourite?playlistid= of its context
+  // menu, the menu read again with &isFavourite=1 appended to the key (favourite-delete), /DeleteFavourite?playlistid=,
+  // the menu without the flag (favourite-add). Changes no queue, runs without W16; skipped without a library playlist.
+  const r = { skipped: true };
+  bru.setVar("w38", JSON.stringify(r));
+  const plKey = tagsOf(await browse("LocalMusic:"), "item").map((t) => attr(t, "browseKey")).find((k) => /:Playlist\//.test(k));
+  const pl = plKey ? tagsOf(await browse(plKey), "item").find((t) => attr(t, "type") === "playlist" && !/isFavourite=1/.test(attr(t, "contextMenuKey"))) : "";
+  if (!pl) { console.log("No library playlist without favourite – skipped"); bru.runner.skipRequest(); return; }
+  const cm = attr(pl, "contextMenuKey"), id = (cm.match(/[?&]playlistid=([^&]*)/) || [])[1] || "";
+  const before = await menuOf(cm);
+  r.skipped = false;
+  r.addUrl = before["favourite-add"] || "";
+  r.added = /<favourite\b[^>]*>added</.test(await get(r.addUrl));
+  r.favList = (await get("/library/v1/Playlists?service=LocalMusic&category=FAVOURITES")).includes('id="' + id + '"');
+  const on = await menuOf(cm + "&isFavourite=1");
+  r.delUrl = on["favourite-delete"] || "";
+  r.deleted = /<favourite\b[^>]*>deleted</.test(await get(r.delUrl));
+  r.offMenu = !!(await menuOf(cm))["favourite-add"];
+  r.id = id;
+  bru.setVar("w38", JSON.stringify(r));
+  req.setUrl(H + "/library/v1/Playlists?service=LocalMusic&category=FAVOURITES");
+}
+
+script:post-response {
+  console.log(bru.getVar("w38"));
+}
+
+tests {
+  const r = JSON.parse(bru.getVar("w38"));
+  const body = String(res.getBody() || "");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("add: /AddFavourite?playlistid=… of the context menu answers added", () => {
+    expect(r.addUrl).to.match(/^\/AddFavourite\?playlistid=/);
+    expect(r.added).to.equal(true);
+  });
+  test("the playlist is in category=FAVOURITES", () => expect(r.favList).to.equal(true));
+  test("the context menu key with &isFavourite=1 at the end offers /DeleteFavourite?playlistid=", () => expect(r.delUrl).to.match(/^\/DeleteFavourite\?playlistid=/));
+  test("remove answers deleted; the menu offers favourite-add again; no longer a favourite", () => {
+    expect(r.deleted).to.equal(true);
+    expect(r.offMenu).to.equal(true);
+    expect(body.includes('id="' + r.id + '"')).to.equal(false);
+  });
+}

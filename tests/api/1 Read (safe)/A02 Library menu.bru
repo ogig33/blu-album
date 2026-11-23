@@ -52,6 +52,9 @@ script:post-response {
   bru.setVar("libSearchKey", attr(top, "searchKey"));
   bru.setVar("libGenresKey", genres ? attr(genres, "browseKey") : "");
   bru.setVar("libAlbumsKey", albums ? attr(albums, "browseKey") : "");
+  // Library playlists (A29): the link "Playlists" of the library menu
+  const pls = items().find((t) => /:Playlist\//.test(attr(t, "browseKey")));
+  bru.setVar("libPlaylistsKey", pls ? attr(pls, "browseKey") : "");
 }
 
 tests {

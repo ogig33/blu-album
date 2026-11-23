@@ -123,7 +123,7 @@ Do not build these; when asked, point to the alternative.
 - **No default IP address** in the app.
 - **No song title search area:** the search's songs list has no link to the album of a song (no browse key, no "Go to album" in the song context menu); the album would need a self-built URL, which fails for samplers (the song carries the track artist, not the album artist).
 - **Album artist search in the app:** the player's search does not match the album artist (see pitfalls); the Artist search area also matches the album artist of every album of the library (`section=all` without a filter, 1 request per source, shared with the decade chips) in the app, with the player's rules (`atWordStart()`); result group "by the album artist" before "by a track artist", one chip for both.
-- **No song favourites:** no heart per track in the album popup and no "Favourite songs" chip, although the API supports both (`/AddFavourite?fn=`, `autoplayURL` with `category=FAVOURITES`); BluAlbum keeps to album favourites.
+- **No song favourites:** no heart per track in the album popup and no "Favourite songs" chip, although the API supports both (`/AddFavourite?fn=`, `autoplayURL` with `category=FAVOURITES`); BluAlbum keeps to album favourites and the favourites of library playlists (heart on their tile; BluOS playlists have none).
 - **No playlist search:** the player offers none (see `/Playlists` in `docs/bluos-api.md`); a name filter in the app would be possible, but is not wanted.
 - **The Playlists view keeps the player's order:** no "Date added" sort (`/Playlists?sort=recent`) and no warning when the queue is saved under an existing playlist name.
 
