@@ -1120,7 +1120,8 @@ test(
     // the tile whose longer line (title or artist) is the shortest of the grid
     const s =
       (await t.page.$$eval("#grid .item", (x) => {
-        const len = (e) => Math.max(...[...e.querySelectorAll(":scope > .card > *")].map((y) => y.textContent.length), 0);
+        const len = (e) =>
+          Math.max(...[...e.querySelectorAll(":scope > .card > *")].map((y) => y.textContent.length), 0);
         return x.reduce((m, e, k) => (len(e) < len(x[m]) ? k : m), 0);
       })) + 1;
     const short = await tileLines(t.page, s);
