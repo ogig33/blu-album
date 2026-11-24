@@ -1965,6 +1965,9 @@ const LAN_MSG = "Please make sure your browser has permission to access the Loca
 // browser would wait for minutes. Later requests have no limit (large lists, long polling).
 const CONNECT_TIMEOUT = 5000;
 const NO_REPLY_MSG = "The player did not answer. Please check the IP address and that the player is switched on and in the same network.";
+// Keys of the views (activeKey) and of their albums in the cache; a genre view uses the genre name.
+// lib: every album of the enabled sources with year and album artist (cache only: decade chips, album artist search).
+const VIEW = { all: "__all", new: "__new", fav: "__fav", pl: "__pl", lib: "__lib", quality: (q) => "__q:" + q, decade: (d) => "__d:" + d, artist: (name) => "artist:" + name };
 // Quality chips: filter values of the library ("Filter by quality" in /Services).
 const QUALITIES = [["hr", "HD", "High resolution albums"], ["cd", "CD", "CD quality albums"], ["mqa", "MQA", "MQA albums"]];
 // Search: only from SEARCH_MIN characters (each search costs several player requests, a shorter term
@@ -2072,6 +2075,24 @@ function toast(t) {
   clearTimeout(toast.t);
   toast.t = setTimeout(() => e.className = "", 1800);
 }
+// Calls the async fn for every entry of `list`, at most n at a time; returns the results in the order of the list.
+// After a failure no further entry starts (the entries running then still end).
+async function mapLimit(list, n, fn) {
+  const out = [], q = list.map((x, i) => i);
+  const worker = async () => {
+    while (q.length) {
+      const i = q.shift();
+      try {
+        out[i] = await fn(list[i]);
+      } catch (e) {
+        q.length = 0;
+        throw e;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: n }, worker));
+  return out;
+}
 // Form encoding of a value inside a player key or URL, as the player writes it: spaces as "+",
 // also ! ' ( ) * percent-encoded (e.g. "album=Brothers+In+Arms").
 const formEnc = (v) => encodeURIComponent(v).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g, "+");
@@ -2132,8 +2153,7 @@ async function showImg(img, url) {
 // All mutable state of the app, declared in one place.
 
 // Player and current view.
-// base: player URL ("" = not connected), cache: albums per view (genre name, "__all", "__q:cd" ...;
-// "__lib": promise of every album with its year and album artist, shared by the decade chips and the search),
+// base: player URL ("" = not connected), cache: albums per view (keys: VIEW; VIEW.lib: a promise),
 // shown: albums currently rendered, activeKey: id of the selected view (drops outdated async results),
 // activeBtn: selected chip.
 let base = "", cache = {}, shown = [], activeKey = "", activeBtn = null;
@@ -2641,78 +2661,76 @@ async function loadGenre(name, btn) {
     viewFailed(name, mine, e);
   }
 }
-// "All" chip: every album of the enabled sources, read once into cache.__all (3 sections in parallel, progress in
+// "All" chip: every album of the enabled sources, read once into the cache (3 sections in parallel, progress in
 // the status line). Stops when the user switched to another view or source.
 async function loadAllAlbums(btn) {
-  const key = "__all", label = "Loading all albums", mine = ctx();
+  const key = VIEW.all, label = "Loading all albums", mine = ctx();
   selectView(key, btn);
   try {
-    if (!cache.__all) {
+    if (!cache[key]) {
       msg(label + " \u2026");
       // Sections of all sources (each source's albums come A-Z, the sources are joined and re-sorted)
-      const lists = await Promise.all(srcs.filter((x) => x.albumsKey).map(filledSections));
-      const secs = lists.flat(), parts = [], q = secs.map((x, i) => i);
+      const secs = (await Promise.all(srcs.filter((x) => x.albumsKey).map(filledSections))).flat();
+      const current = () => mine === ctx() && activeKey === key;
       let n = 0, failed = false;
-      const worker = async () => {
-        while (q.length && mine === ctx() && activeKey === key) {
-          const i = q.shift();
-          parts[i] = await fetchAlbums(attr(secs[i], "browseKey"));
-          n++;
-          const text = label + " \u2026 " + n + "/" + secs.length;
-          if (!failed) viewOut(key, mine, () => msg(text));
-        }
-      };
-      await Promise.all([worker(), worker(), worker()]).catch((e) => {
+      const parts = await mapLimit(secs, 3, async (s) => {
+        if (!current()) return []; // another view: no further requests
+        const albums = await fetchAlbums(attr(s, "browseKey"));
+        const text = label + " \u2026 " + ++n + "/" + secs.length;
+        if (!failed) viewOut(key, mine, () => msg(text)); // no progress over the error
+        return albums;
+      }).catch((e) => {
         failed = true;
-        q.length = 0; // no further sections, no progress over the error
         throw e;
       });
-      if (mine !== ctx() || activeKey !== key) return;
-      cache.__all = joinSources(parts, srcs.length > 1);
+      if (!current()) return;
+      cache[key] = joinSources(parts, srcs.length > 1);
     }
-    viewOut(key, mine, () => showView(cache.__all, nAlb(cache.__all.length)));
+    viewOut(key, mine, () => showView(cache[key], nAlb(cache[key].length)));
   } catch (e) {
     viewFailed(key, mine, e);
   }
 }
-// Shared loader for the "New", "Favourites" and quality chips. sectioned = use libSectionAlbums.
-async function loadLibView(key, btn, filter, max, label, done, empty, sectioned) {
+// Shared loader for the "New", "Favourites" and quality chips, from /library/v1/Albums of every enabled source.
+// filter: of the request, max: albums per source (plain lists), label: of the loading line, done: of the result line
+// (after the number of albums), empty: line of an empty list. sectioned: the sectioned list (libSectionAlbums), kept
+// for the session (New and Favourites are always fresh). newest: each source's newest-first order is kept (sources
+// one after another); otherwise the lists are joined A-Z.
+async function loadLibView(key, btn, { filter, max = 0, label, done, empty, sectioned = false, newest = false }) {
   selectView(key, btn);
   clearGrid();
   const mine = ctx();
   msg("Loading " + label + " \u2026");
   try {
-    // Sectioned results are kept for the session; New / Favourites are always fresh.
-    // Every enabled source is asked; New keeps each source's newest-first order (sources one after another),
-    // the other lists are joined A-Z.
     const per = (x) => sectioned ? libSectionAlbums(x, filter) : libAlbums(x.svc, filter, max);
     const lists = sectioned && cache[key] ? null : await Promise.all(srcs.map(per));
     if (mine !== ctx()) return; // not into the cache of another source selection
-    const list = sectioned ? cache[key] || (cache[key] = joinSources(lists)) : key === "__new" ? lists.flat() : joinSources(lists);
+    const list = sectioned ? cache[key] || (cache[key] = joinSources(lists)) : newest ? lists.flat() : joinSources(lists);
     viewOut(key, mine, () => showView(list, list.length ? nAlb(list.length) + " " + done : empty));
   } catch (e) {
     viewFailed(key, mine, e);
   }
 }
 // "New" chip: the 200 most recently added albums, newest first.
-const loadNew = (btn) => loadLibView("__new", btn, "recent=1", 200, "new albums", "recently added, newest first", "No recently added albums.");
+const loadNew = (btn) => loadLibView(VIEW.new, btn, { filter: "recent=1", max: 200, label: "new albums", done: "recently added, newest first", empty: "No recently added albums.", newest: true });
 // "Favourites" chip: the player's favourite albums.
-const loadFavourites = (btn) => loadLibView("__fav", btn, "category=FAVOURITES", 5000, "favourites", "in favourites", "No favourite albums yet.");
-const loadQuality = (btn, q, name) => loadLibView("__q:" + q, btn, "quality=" + q, 0, name + " albums", "in " + name + " quality", "No " + name + " albums.", true);
+const loadFavourites = (btn) => loadLibView(VIEW.fav, btn, { filter: "category=FAVOURITES", max: 5000, label: "favourites", done: "in favourites", empty: "No favourite albums yet." });
+// Quality chip (q: filter value of QUALITIES).
+const loadQuality = (btn, q, name) => loadLibView(VIEW.quality(q), btn, { filter: "quality=" + q, label: name + " albums", done: "in " + name + " quality", empty: "No " + name + " albums.", sectioned: true });
 // Every album of the enabled sources with year and album artist: the sectioned /library/v1/Albums list without a
-// filter (1 request per source, Bruno E34, E43), read once per source selection into cache.__lib (a promise,
+// filter (1 request per source, Bruno E34, E43), read once per source selection into the cache (a promise,
 // shared by the decade chips and the album artist search).
 function libAllAlbums() {
   const c = cache;
-  if (!c.__lib) {
-    c.__lib = Promise.all(srcs.filter((x) => x.albumsKey).map((x) => libSectionAlbums(x, ""))).then(joinSources);
-    c.__lib.catch(() => delete c.__lib);
+  if (!c[VIEW.lib]) {
+    c[VIEW.lib] = Promise.all(srcs.filter((x) => x.albumsKey).map((x) => libSectionAlbums(x, ""))).then(joinSources);
+    c[VIEW.lib].catch(() => delete c[VIEW.lib]);
   }
-  return c.__lib;
+  return c[VIEW.lib];
 }
 // Decade chip (dec = "1980"): the albums of the decade, filtered from libAllAlbums() by their year.
 async function loadDecade(dec, btn) {
-  const key = "__d:" + dec, mine = ctx();
+  const key = VIEW.decade(dec), mine = ctx();
   selectView(key, btn);
   clearGrid();
   msg("Loading albums from the " + dec + "s …");
@@ -2746,7 +2764,7 @@ async function artistAlbums(x, name, report) {
 // Clicking an artist name: shows all albums of that artist from every enabled source (session cache).
 async function showArtist(name) {
   if ($("#dlg").open) $("#dlg").close();
-  const key = "artist:" + name, mine = ctx();
+  const key = VIEW.artist(name), mine = ctx();
   selectView(key, null);
   scrollTo(0, 0);
   let favFailed = null; // an unreadable favourite state is reported with the view
@@ -3078,7 +3096,7 @@ async function openAlbum(a) {
       if (discs > 1 && dn && dn !== disc) ol.append(el("li", { className: "disc" }, "Disc " + dn));
       disc = dn || disc;
       const ar = sg ? textOf(sg, "art") : "";
-      ol.append(trackItem(parts[k][1] || "", parts[k][2], ar !== a.a ? ar : "", "", +attr(i, "duration"), attr(i, "autoplayURL") || attr(i, "playURL")));
+      ol.append(trackItem(i, { num: parts[k][1] || "", title: parts[k][2], artist: ar !== a.a ? ar : "" }));
     });
   } catch (e) {
     if (seq !== dlgSeq) return;
@@ -3088,9 +3106,10 @@ async function openAlbum(a) {
 }
 // Total playing time in seconds of track <item>s (duration attribute).
 const totalSecs = (tracks) => tracks.reduce((t, i) => t + (+attr(i, "duration") || 0), 0);
-// One row of the popup's track list: number, title (with a second line: the track artist as links, then
-// `album`), duration in seconds; a click on the row plays `url`.
-function trackItem(num, title, artist, album, secs, url) {
+// One row of the popup's track list for the track <item> i: number, title (with a second line: the track artist as
+// links, then `album`), duration; a click on the row plays the track (autoplayURL, else playURL).
+function trackItem(i, { num, title, artist = "", album = "" }) {
+  const secs = +attr(i, "duration"), url = attr(i, "autoplayURL") || attr(i, "playURL");
   const t = el("span", { className: "tt" }, title);
   if (artist || album) t.append(el("small", { className: "ta" }, ...(artist ? artistLinks(artist, "al", true) : []), artist && album ? " • " : "", album));
   return el("li", { className: "tr" },
@@ -3177,7 +3196,7 @@ async function loadPlaylists() {
     playlists = list;
     renderLib();
     renderPlChip();
-    if (changed && activeKey === "__pl" && !searching) showPlaylists(); // clearing a search shows them as well
+    if (changed && activeKey === VIEW.pl && !searching) showPlaylists(); // clearing a search shows them as well
   } catch (e) {
     if (seq === plSeq) apiFail("Loading the playlists did not succeed", e);
   }
@@ -3189,11 +3208,11 @@ function renderPlChip() {
   plBtn?.remove();
   if (!playlists.length) return;
   plBtn ||= chip({ className: "sp plc", textContent: "Playlists", title: "BluOS and library playlists" }, (b) => {
-    selectView("__pl", b);
+    selectView(VIEW.pl, b);
     showPlaylists();
     loadPlaylists();
   });
-  plBtn.setAttribute("aria-pressed", activeKey === "__pl");
+  plBtn.setAttribute("aria-pressed", activeKey === VIEW.pl);
   const nw = nav.querySelector(".nw");
   if (nw) nw.after(plBtn);
   else nav.prepend(plBtn);
@@ -3239,7 +3258,7 @@ async function playlistTracks(p, seq) {
     // text2 = "track artist • album"
     tr.forEach((i, k) => {
       const [artist, ...album] = attr(i, "text2").split(" • ");
-      ol.append(trackItem(String(k + 1), attr(i, "text"), artist, album.join(" • "), +attr(i, "duration"), attr(i, "autoplayURL") || attr(i, "playURL")));
+      ol.append(trackItem(i, { num: String(k + 1), title: attr(i, "text"), artist, album: album.join(" • ") }));
     });
   } catch (e) {
     if (seq !== dlgSeq) return;
@@ -3661,14 +3680,13 @@ function ambient(img) {
 /* ---------- Search ---------- */
 // The player's own search.
 
-// Collects albums from a search result list, split into sections or not (then its answer is used directly).
+// Collects albums from a search result list, split into sections (3 read in parallel, like All) or not (then its
+// answer is used directly).
 async function searchAlbums(key) {
   const d = await browse(key);
   const secs = items(d).filter((i) => attr(i, "type") === "section" && attr(i, "text2") !== "0");
   if (!secs.length) return fetchAlbums(key, d);
-  const out = [];
-  for (const x of secs) out.push(...await fetchAlbums(attr(x, "browseKey")));
-  return out;
+  return (await mapLimit(secs, 3, (x) => fetchAlbums(attr(x, "browseKey")))).flat();
 }
 // Albums with songs of the composers a search found: composers list (paged) -> each composer's browse menu ->
 // its link to the albums (2 requests per composer). The player's albums list of a search does not match
@@ -3727,7 +3745,7 @@ async function search() {
     const held = viewHeld;
     endSearch();
     btns.forEach((b) => b.setAttribute("aria-pressed", b === activeBtn));
-    if (activeKey === "__pl") return showPlaylists();
+    if (activeKey === VIEW.pl) return showPlaylists();
     render(shown);
     msg(shown.length ? nAlb(shown.length) : "Select a genre.");
     if (held) held();
