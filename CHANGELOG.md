@@ -7,6 +7,9 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 - Sort order: sorted by album artist or year, the tiles show the year in front of the artist.
 - Search: faster with many results (the player's result sections load in parallel).
 - Search: the lines of the result groups read better, e.g. "3 albums with “Bernard Herrmann” as a track artist".
+- Filter chips: a filter button in the header shows or hides the chip row for a clean album view.
+- Filter chips: all chips have the same grey border, a separator sets the quality chips apart; the search, filter and queue buttons are highlighted while active.
+- Status line: a genre chip shows its genre, e.g. "12 albums in the genre Jazz"; after a search the status line of the view comes back in full.
 - Artist links: the track artists in the album and playlist popups, the queue and the player bar are links that search that artist in the search area Artist only.
 
 ## 0.12.0

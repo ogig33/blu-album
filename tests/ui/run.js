@@ -1013,6 +1013,10 @@ test(
       "special chips, Playlists after New",
     );
     eq(c.slice(4 + lead.length), TD.GEN, "genres of both sources, A-Z");
+    const groups = await t.page.$$eval("#az > *", (x) =>
+      x.map((e) => (e.matches(".gap") ? "|" : e.matches(".qc") ? "Q" : e.matches(".sp") ? "S" : "G")).join(""),
+    );
+    eq(groups.replace(/(.)\1+/g, "$1"), "S|Q|G", "separators: special chips | quality | genres");
     eq(await t.page.getAttribute("#az .plc", "title"), "BluOS and library playlists", "tooltip");
     ok(!(await t.page.$("#az .plc svg")), "no icon");
   },
@@ -1285,8 +1289,10 @@ test(
   "CHP-09 CHP-10 CHP-11 genre: one request, the albums and URLs of /Browse, only its sources, cached",
   async (t) => {
     await t.chip(TD.GEN_ONE);
-    await t.waitMsg(/^\d+ albums?$/);
+    await t.waitMsg(" in the genre " + TD.GEN_ONE);
     ok((await t.tiles()).length > 0, "albums shown");
+    const n = await t.page.evaluate(() => shown.length);
+    eq(await t.msg(), nAlb(n) + " in the genre " + TD.GEN_ONE, "status line with the genre");
     const reqs = t.player.state.requests.filter((r) => /[?&]genre=/.test(r));
     const par = TD.GENRE_KEYS[TD.LIB][TD.GEN_LIB.indexOf(TD.GEN_ONE)].match(/[?&](genre=[^&]*)/)[1];
     eq(reqs, [`/library/v1/Albums?service=${TD.LIB}&${par}&section=all`], "one request, to the library only");
@@ -1301,7 +1307,7 @@ test(
     await t.all();
     const m = lists();
     await t.chip(TD.GEN_ONE);
-    await t.waitMsg(/^\d+ albums?$/);
+    await t.waitMsg(" in the genre " + TD.GEN_ONE);
     eq(lists(), m, "second click from the session cache");
   },
   R,
@@ -1362,10 +1368,10 @@ test("CHP-18 outdated genre failure is dropped: another chip, another source sel
   await late.asked();
   await t.page.evaluate(() => openSources());
   await t.chip(TD.GEN_ONE);
-  await t.waitMsg(/^\d+ albums?$/);
+  await t.waitMsg(/ in the genre /);
   await late.release();
   await t.settle(300);
-  ok(/^\d+ albums?$/.test(await t.msg()), "status line of the genre");
+  ok(/ in the genre /.test(await t.msg()), "status line of the genre");
   eq(await t.page.$("#apidlg[open]"), null, "no error popup over the new selection");
 });
 
@@ -1974,7 +1980,7 @@ test(
     eq(t.reqs(/[?&]q=Brian Eno(&|$)/).length, TD.SRC.length, "one search per source");
     // Album popup: the same links; a link closes the popup and searches only the Artist area again
     await t.page.press("#q", "Escape");
-    await t.waitMsg(/^\d+ albums?$/);
+    await t.waitMsg(/^\d+ albums?/);
     await t.openSearch();
     await t.page.click('#sin button:text-is("Album")');
     await t.page.click('#sin button:text-is("Composer")');
@@ -2869,11 +2875,14 @@ test(
     const lists = () => t.reqs(/^\/(Browse|library)/).length;
     ok(!(await shown()), "search field hidden at the start");
     eq(await t.page.getAttribute("#sbtn", "aria-expanded"), "false", "search button collapsed");
+    const bg = () => t.page.$eval("#sbtn", (b) => getComputedStyle(b).backgroundColor);
+    eq(await bg(), "rgba(0, 0, 0, 0)", "search button not highlighted");
     const left = (sel) => t.page.$eval(sel, (e) => e.getBoundingClientRect().left);
-    ok((await left("#sbtn")) < (await left("#qbtn")), "search button left of the queue button");
+    ok((await left("#sbtn")) < (await left("#fbtn")) && (await left("#fbtn")) < (await left("#qbtn")), "search, filter, queue button");
     await t.page.click("#sbtn");
     ok((await shown()) && (await t.page.isVisible("#sin")), "field and search areas shown");
     eq(await t.page.getAttribute("#sbtn", "aria-expanded"), "true", "search button expanded");
+    ok((await bg()) !== "rgba(0, 0, 0, 0)", "search button highlighted while the field is shown");
     eq(await focus(), "q", "focus in the field");
     await t.page.fill("#q", TD.TERM);
     await t.page.press("#q", "Enter");
@@ -2881,6 +2890,7 @@ test(
     let n = lists();
     await t.page.press("#q", "Escape");
     await t.waitMsg(nAlb(TD.FAV.length));
+    eq(await t.msg(), nAlb(TD.FAV.length) + " in favourites", "status line of the view restored");
     ok(!(await shown()), "Esc hides the field");
     eq(await focus(), "sbtn", "focus back on the search button");
     eq(await t.page.getAttribute('#az button[aria-label="Favourites"]', "aria-pressed"), "true", "view restored");
@@ -2928,7 +2938,7 @@ test("SRH-13 a view that finishes during a search waits until the search is clea
   const failed = "Loading failed: Player responded with 500";
   const views = [
     { match: /CM\/LocalMusic-Album/, start: byArtist, msg: / by /, status: 500, popup: "Reading the favourite state" },
-    { match: /[?&]genre=/, start: () => t.chip(TD.GEN_ONE), msg: /^\d+ albums?$/ },
+    { match: /[?&]genre=/, start: () => t.chip(TD.GEN_ONE), msg: / in the genre / },
     { match: /quality=cd/, start: () => t.chip("CD"), msg: /in CD quality/ },
     { match: /:S:Album\//, start: () => t.chip("All"), msg: /^\d+ albums?$/ },
     { match: /recent=1/, start: () => t.chip("New"), msg: /recently added/ },
@@ -3607,6 +3617,7 @@ test(
   async (t) => {
     await t.openQueue();
     eq(await t.page.getAttribute("#qbtn", "aria-label"), "Unpin queue", "button label");
+    ok((await t.page.$eval("#qbtn", (b) => getComputedStyle(b).backgroundColor)) !== "rgba(0, 0, 0, 0)", "highlighted");
     eq(await t.page.evaluate(() => localStorage.getItem("qpin")), "1", "pin stored");
     ok(t.player.state.requests.includes("/Playlist?start=0&end=199"), "first page of the queue");
     await t.page.waitForFunction((n) => document.querySelectorAll("#qlist li").length === n, TD.QUEUE.length);
@@ -4410,7 +4421,7 @@ test(
 );
 
 test(
-  "SET-02 SET-03 chip switches hide genres / quality, stored, on again; Playlists chip always shown",
+  "SET-02 SET-03 chip switches hide genres / quality, stored, on again; Playlists chip always shown; filter button hides the chip row",
   async (t) => {
     await t.page.click("#gear");
     const visible = () =>
@@ -4422,6 +4433,7 @@ test(
     await t.page.click("#gsw");
     await t.page.click("#qsw");
     eq(await visible(), ["All", "Favourites", "New", "Playlists"], "only special chips and Playlists left");
+    eq(await t.page.$$eval("#az .gap", (x) => x.filter((e) => e.offsetParent).length), 0, "no separator left");
     await t.reload();
     await t.settle(200);
     for (const s of ["#gsw", "#qsw"]) eq(await t.page.getAttribute(s, "aria-checked"), "false", s + " remembered");
@@ -4430,6 +4442,21 @@ test(
     await t.page.click("#gsw");
     await t.page.click("#qsw");
     eq(await visible(), before, "all chips back");
+    // Filter button in the header: hides / shows the whole chip row, the status line stays; highlighted while shown
+    await t.page.click("#sclose");
+    const fbtn = () =>
+      t.page.$eval("#fbtn", (b) => [b.getAttribute("aria-expanded"), getComputedStyle(b).backgroundColor]);
+    const [on, accent] = await fbtn();
+    ok(on === "true" && accent !== "rgba(0, 0, 0, 0)", "chip row shown by default, button highlighted");
+    await t.page.click("#fbtn");
+    ok(!(await t.page.isVisible("#az")) && (await t.page.isVisible("#stl")), "chip row hidden, status line stays");
+    eq(await fbtn(), ["false", "rgba(0, 0, 0, 0)"], "button not highlighted");
+    await t.reload();
+    await t.settle(200);
+    await t.connect();
+    ok(!(await t.page.isVisible("#az")), "hidden chip row remembered");
+    await t.page.click("#fbtn");
+    ok(await t.page.isVisible("#az"), "chip row back");
   },
   R,
 );
@@ -5005,7 +5032,7 @@ test(
         () =>
           [...document.querySelectorAll("#az button")].every((b) => b.hasAttribute("aria-pressed")) &&
           [...document.querySelectorAll("#side .sw")].every((b) => b.hasAttribute("aria-checked")) &&
-          ["#gear", "#qbtn"].every((s) => document.querySelector(s).hasAttribute("aria-expanded")),
+          ["#gear", "#fbtn", "#qbtn"].every((s) => document.querySelector(s).hasAttribute("aria-expanded")),
       ),
       "state attributes",
     );

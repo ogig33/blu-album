@@ -111,7 +111,7 @@ Do not build these; when asked, point to the alternative.
 - **Outdated async results** are dropped: `ctx()` (player + source selection), `activeKey` (current view) and counters `plSeq`, `qSeq`, `dlgSeq`, `searchSeq`, `lazyTok`. View loaders show results and errors only through `viewOut()` (also holds them back during a search).
 - **Elements** are built with `el(tag, props, ...children)`, chips with `chip(props, load)`, line icons with `strokeIcon()`; texts of XML elements are read with `textOf(e, sel)`.
 - **Covers** are read with `fetch()` and shown as blob URLs (`showImg()`), not as `<img src="http://…">` (Firefox upgrades those to https on a `file://` page).
-- **Settings switches / segments:** `bindSwitch()` (also the search area chips), `bindSegment()`; localStorage only for conveniences (IP, design, cover size, chip groups, search areas, sort order, pinned queue, disabled sources).
+- **Settings switches / segments:** `bindSwitch()` (also the search area chips), `bindSegment()`; localStorage only for conveniences (IP, design, cover size, chip groups, chip row, search areas, sort order, pinned queue, disabled sources).
 - **Configuration constants:** `APP`, `SVC_LIBRARY`, `VIEW` (view and cache keys), `QUALITIES`, `SORTS`, `FORMATS`, `LOSSY`, `REPEAT`, icons (`ICON_*`, `HEART`).
 
 ## Decisions

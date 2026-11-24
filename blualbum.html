@@ -122,8 +122,9 @@ header .logo {
   flex: none;
   fill: var(--ink);
 }
-/* Search and queue button at the right end of the header */
+/* Search, filter and queue button at the right end of the header */
 #sbtn,
+#fbtn,
 #qbtn {
   width: 38px;
   height: 38px;
@@ -145,13 +146,31 @@ header .logo {
   height: 28px;
   display: block;
 }
-#sbtn svg {
+#sbtn svg,
+#fbtn svg {
   width: 26px;
   height: 26px;
 }
 #sbtn:hover,
+#fbtn:hover,
 #qbtn:hover {
   filter: brightness(1.2);
+}
+/* Search field shown / chip row shown / queue pinned: background only around the symbol, the button keeps its size */
+#sbtn[aria-expanded=true],
+#fbtn[aria-expanded=true],
+#qbtn[aria-expanded=true] {
+  background: var(--acc);
+  color: var(--accink);
+  padding: 4px;
+  background-clip: content-box;
+  border-radius: 10px;
+}
+#sbtn[aria-expanded=true] svg,
+#fbtn[aria-expanded=true] svg,
+#qbtn[aria-expanded=true] svg {
+  width: 24px;
+  height: 24px;
 }
 #qbtn:active {
   transform: scale(.92);
@@ -1202,36 +1221,36 @@ nav button[aria-pressed=true] {
   color: var(--accink);
   border-color: var(--acc);
 }
-nav button.sp {
-  font-weight: 700;
-  border-color: var(--acc);
-  color: var(--acc);
-}
 nav button svg {
   display: block;
   margin: 3px 0;
 }
-nav button.sp[aria-pressed=true] svg {
+nav button[aria-pressed=true] svg {
   fill: currentColor;
-}
-nav button.sp[aria-pressed=true] {
-  color: var(--accink);
 }
 /* Chip groups switched off in the settings (quality, decades, genres) */
 body.noqc .qc,
+body.noqc .qcg,
 body.nodc .dc,
 body.nodc .dcg {
   display: none;
 }
 nav.nog button:not(.sp),
-nav.nog .gap:not(.dcg) {
+nav.nog .gap:not(.dcg):not(.qcg) {
   display: none;
 }
-/* Separator between chip groups: thin line in the icon colour */
+/* Whole chip row hidden with the filter button in the header; the status line stays */
+body.nochips #az {
+  display: none;
+}
+body.nochips #stl {
+  margin-top: 8px;
+}
+/* Separator between chip groups: thin line in the colour of the chip borders */
 nav .gap {
   flex: 0 0 1px;
   align-self: stretch;
-  background: var(--acc);
+  background: var(--line);
   margin: 0 4px;
 }
 /* ---------- Status line and album grid ---------- */
@@ -1836,6 +1855,7 @@ dialog * {
     </div>
   </div>
   <button id="sbtn" aria-label="Search" aria-expanded="false" aria-controls="qbox"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5.5 5.5"/></svg></button>
+  <button id="fbtn" aria-label="Filter chips" aria-expanded="true" aria-controls="az"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h18l-7 8.5v6.5l-4 1.5v-8z"/></svg></button>
   <button id="qbtn" aria-label="Queue" aria-expanded="false" aria-controls="qside"></button>
 </header>
 <!-- Genre chips (filled by openSources) -->
@@ -2510,6 +2530,7 @@ async function openSources() {
         chip({ className: "sp", textContent: "All" }, loadAllAlbums),
         chip({ className: "sp", innerHTML: strokeIcon(HEART, 2, ' width="16" height="16"'), title: "Favourites", "aria-label": "Favourites" }, loadFavourites),
         chip({ className: "sp nw", textContent: "New", title: "Recently added albums" }, loadNew),
+        el("span", { className: "gap qcg" }),
         ...QUALITIES.map(([q, name, title]) => chip({ className: "sp qc", textContent: name, title }, (b) => loadQuality(b, q, name))),
         el("span", { className: "gap" })
       );
@@ -2543,7 +2564,7 @@ async function decadeChips() {
       const d = await api("/library/v1/Albums?service=" + encodeURIComponent(x.svc) + "&section=all&length=1&sort=decade");
       return [...d.querySelectorAll("sections > section")].map((s) => attr(s, "name")).filter((k) => /^\d{4}$/.test(k));
     }));
-    const gap = $("#az .gap");
+    const gap = $("#az .gap:not(.qcg):not(.dcg)");
     if (mine !== ctx() || !gap) return;
     const keys = [...new Set(lists.flat())].sort();
     gap.before(el("span", { className: "gap dcg" }), ...keys.map((k) => chip({ className: "sp dc", textContent: decLabel(k, keys), title: "Albums from the " + k + "s" }, (b) => loadDecade(k, b))));
@@ -2770,7 +2791,7 @@ async function loadGenre(name, btn) {
       msg("Loading albums \u2026");
       cache[name] = await genreAlbumsAll(name);
     }
-    viewOut(name, mine, () => showView(cache[name], nAlb(cache[name].length)));
+    viewOut(name, mine, () => showView(cache[name], nAlb(cache[name].length) + " in the genre " + name));
   } catch (e) {
     viewFailed(name, mine, e);
   }
@@ -3864,7 +3885,7 @@ async function search() {
     btns.forEach((b) => b.setAttribute("aria-pressed", b === activeBtn));
     if (activeKey === VIEW.pl) return showPlaylists();
     render(shown, false, tileYears());
-    msg(shown.length ? nAlb(shown.length) : "Select a genre.");
+    msg(shown.length ? viewText : "Select a genre.");
     showSort();
     if (held) held();
     return;
@@ -4092,6 +4113,15 @@ function bindSwitch(sel, key, apply, def = true) {
   const v = store.get(key);
   set(v === null ? def : v !== "0");
 }
+// Shows / hides the whole chip row (filter button in the header, stored, shown by default); the status line stays.
+function chipRow(on) {
+  store.set("chiprow", on ? "1" : "0");
+  document.body.classList.toggle("nochips", !on);
+  const b = $("#fbtn");
+  b.setAttribute("aria-expanded", on);
+  b.title = on ? "Hide filter chips" : "Show filter chips";
+  b.setAttribute("aria-label", b.title);
+}
 // Segmented control (buttons with data-<name>): apply(value) applies it and returns the valid value.
 function bindSegment(sel, name, key, apply) {
   const btns = document.querySelectorAll(sel + " button");
@@ -4274,6 +4304,9 @@ $("#sort").onchange = (e) => {
 };
 bindSegment("#themes", "theme", "theme", applyTheme);
 bindSegment("#sizes", "size", "tile", applySize);
+// Filter button in the header: the whole chip row (restored, shown by default)
+chipRow(store.get("chiprow") !== "0");
+$("#fbtn").onclick = () => chipRow(document.body.classList.contains("nochips"));
 // Genre, quality and decade chips: off by default. Decade chips switched on are loaded for the open sources
 // (1 request per source).
 bindSwitch("#gsw", "genrechips", (on) => $("#az").classList.toggle("nog", !on), false);
