@@ -3,7 +3,8 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
-- Sort order: a menu in the status line sorts the albums of every chip except New by album title, album artist or year (each ascending or descending) or randomly; random is the default, the choice is remembered. Sorted by album artist or year, the tiles show the year in front of the artist.
+- Sort order: the albums of a chip can be sorted by album title, album artist, year or randomly (the default).
+- Sort order: sorted by album artist or year, the tiles show the year in front of the artist.
 - Search: faster with many results (the player's result sections load in parallel).
 - Search: the lines of the result groups read better, e.g. "3 albums with “Bernard Herrmann” as a track artist".
 - Artist links: the track artists in the album and playlist popups, the queue and the player bar are links that search that artist in the search area Artist only.
