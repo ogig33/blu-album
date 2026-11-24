@@ -17,6 +17,17 @@ const fx = (n) =>
     ),
     "utf8",
   );
+// A recorded context menu with the favourite state fav, whatever state the recording had
+const favMenu = (xml, fav) =>
+  fav
+    ? xml
+        .replace("/AddFavourite", "/DeleteFavourite")
+        .replace("favourite-add", "favourite-delete")
+        .replace('text="Favourite"', 'text="Remove favourite"')
+    : xml
+        .replace("/DeleteFavourite", "/AddFavourite")
+        .replace("favourite-delete", "favourite-add")
+        .replace('text="Remove favourite"', 'text="Favourite"');
 // 1x1 PNG for all artwork requests, the source icons and the listening mode icons
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
@@ -170,15 +181,7 @@ function createPlayer(opts = {}) {
       // Library albums: favourite state follows the isFavourite flag of the key, whatever state the fixture recorded;
       // USB albums: no favourites
       if (key.startsWith(USB)) return fx("09").replace(/\s*<item[^>]*favourite-(delete|add)[^>]*><\/item>/, "");
-      return key.includes("isFavourite=1")
-        ? fx("09")
-            .replace("/AddFavourite", "/DeleteFavourite")
-            .replace("favourite-add", "favourite-delete")
-            .replace('text="Favourite"', 'text="Remove favourite"')
-        : fx("09")
-            .replace("/DeleteFavourite", "/AddFavourite")
-            .replace("favourite-delete", "favourite-add")
-            .replace("Remove favourite", "Favourite");
+      return favMenu(fx("09"), key.includes("isFavourite=1"));
     }
     // Search: composers of the term (none here; tests override the list), a composer's browse menu with the
     // link to the albums with his songs (like the real player, Bruno E38) and that album list (library: the
@@ -218,24 +221,21 @@ function createPlayer(opts = {}) {
         );
       return `<browse serviceIcon="/images/BluOSIcon.png" serviceName="BluOS" type="tracks" playURL="/Load?service=BluOS&amp;name=${pl2}">${tracks.join("")}</browse>`;
     }
-    // Library playlists (Bruno A29 / A30): the library has the recorded ones, the USB drive none (like the real
-    // player); the track list of every library playlist is the recorded one, all tracks in one answer.
+    // Library playlists (Bruno A29 / A30): the library has the recorded ones, no favourite whatever the recording
+    // had, the USB drive none (like the real player); the track list of every library playlist is the recorded
+    // one, all tracks in one answer.
     if (/:Playlist\/%2Flibrary%2Fv1%2FPlaylists%3F/.test(key))
       return key.startsWith(USB)
         ? '<browse serviceIcon="/images/USBIcon.png" serviceName="USB" type="playlists"></browse>'
-        : fx("29");
+        : favMenu(fx("29"), false)
+            .replace(/ isFavourite="true"/g, "")
+            .replace(/\?isFavourite=1&amp;/g, "?");
     if (/MG\/LocalMusic-Playlist\?/.test(key)) return fx("30");
     // Context menu of a library playlist (Bruno W38): the recorded one, with the favourite state of the key's
     // isFavourite flag
     if (/CM\/LocalMusic-Playlist\?/.test(key)) {
       const menu = (fx("29").match(/<contextMenu>([\s\S]*?)<\/contextMenu>/) || [])[1] || "";
-      const fav = /[?&]isFavourite=1(&|$)/.test(key)
-        ? menu
-            .replace("/AddFavourite", "/DeleteFavourite")
-            .replace("favourite-add", "favourite-delete")
-            .replace('text="Favourite"', 'text="Remove favourite"')
-        : menu;
-      return `<browse type="contextMenu">${fav}</browse>`;
+      return `<browse type="contextMenu">${favMenu(menu, /[?&]isFavourite=1(&|$)/.test(key))}</browse>`;
     }
     // Search menu: like the real player, the USB drive links to lists with its own keys
     if (/:Search$/.test(key)) return key.startsWith(USB) ? fx("18").replace(/LocalMusic/g, USB) : fx("18");

@@ -1117,7 +1117,13 @@ test(
       [0, 0],
       "no scrolling without hover",
     );
-    const short = await tileLines(t.page, i === 2 ? 3 : 2);
+    // the tile whose longer line (title or artist) is the shortest of the grid
+    const s =
+      (await t.page.$$eval("#grid .item", (x) => {
+        const len = (e) => Math.max(...[...e.querySelectorAll(":scope > .card > *")].map((y) => y.textContent.length), 0);
+        return x.reduce((m, e, k) => (len(e) < len(x[m]) ? k : m), 0);
+      })) + 1;
+    const short = await tileLines(t.page, s);
     eq(
       short.map((x) => x.cut),
       [false, false],
@@ -3444,9 +3450,13 @@ test(
 test(
   "FUL-08 year follows the track; none for a stream outside the queue",
   async (t) => {
+    // the year of the playing track from the recording; queue entry 2 answers 1999 (override)
+    const song = t.st("song"),
+      year = stOf(await t.player.get(`/Playlist?start=${song}&end=${song}`))("date");
+    ok(song !== "2" && year && year !== "1999", "the playing track is not entry 2 and has a year other than 1999");
     await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
     await t.page.click("#cvb");
-    await t.page.waitForFunction(() => document.querySelector("#fy").textContent === "1983");
+    await t.page.waitForFunction((y) => document.querySelector("#fy").textContent === y, year);
     t.player.state.statusPatch.song = "2";
     await t.page.waitForFunction(() => document.querySelector("#fy").textContent === "1999");
     ok(t.player.state.requests.includes("/Playlist?start=2&end=2"), "queue entry of the new track");
@@ -3749,15 +3759,17 @@ const qStill = (t) =>
     null,
     { polling: 100 },
   );
-// Drags queue row `from` (0-based) with the mouse to `frac` of the height of row `over` (0 = its top edge)
+// Drags queue row `from` (0-based) by its number (never a link, which would not start a drag) with the mouse to
+// `frac` of the height of row `over` (0 = its top edge)
 const dragRow = async (t, from, over, frac) => {
   await qStill(t);
-  const box = async (i) => (await t.page.$(`#qlist li:nth-child(${i + 1})`)).boundingBox();
-  const a = await box(from),
-    b = await box(over);
-  await t.page.mouse.move(a.x + a.width / 3, a.y + a.height / 2);
+  const box = async (sel) => (await t.page.$(sel)).boundingBox();
+  const a = await box(`#qlist li:nth-child(${from + 1}) .qn`),
+    b = await box(`#qlist li:nth-child(${over + 1})`),
+    x = a.x + a.width / 2;
+  await t.page.mouse.move(x, a.y + a.height / 2);
   await t.page.mouse.down();
-  await t.page.mouse.move(a.x + a.width / 3, b.y + b.height * frac, { steps: 12 });
+  await t.page.mouse.move(x, b.y + b.height * frac, { steps: 12 });
   const during = await t.page.evaluate(() => ({
     drag: document.querySelectorAll("#qlist li.drag").length,
     line: [...document.querySelectorAll("#qlist li")].findIndex((l) => l.matches(".dropb, .dropa")),
