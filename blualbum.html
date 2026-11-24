@@ -16,7 +16,8 @@
 <style>
 /* ---------- Colour tokens ----------
    Dark is the default. "System" (no data-theme attribute) follows prefers-color-scheme;
-   the toggle in the settings panel forces data-theme="light" or "dark". */
+   the toggle in the settings panel forces data-theme="light" or "dark" (dark: the defaults, as the
+   system block applies only without data-theme). */
 :root {
   --bar:#18191b;
   --bg:#212225;
@@ -51,17 +52,6 @@
   --acc:#b8860b;
   --accink:#fff;
   --plicon:invert(1);
-}
-:root[data-theme="dark"] {
-  --bar:#18191b;
-  --bg:#212225;
-  --panel:#2c2d31;
-  --line:#3c3d42;
-  --ink:#dddad3;
-  --dim:#9c9ca2;
-  --acc:#d3b062;
-  --accink:#1c1709;
-  --plicon:none;
 }
 /* ---------- Base ---------- */
 * {
@@ -928,9 +918,6 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.q[hidden] {
-  display: none !important;
-}
 /* Listening mode of the player (TV / Music / Movie) before the volume controls: icon of the player
    (white, inverted in the light design by --plicon), display only. Grey and in a square frame, so it
    reads as a status tag, not as one of the round or bare-symbol buttons next to it; no hover effect
@@ -1154,13 +1141,13 @@ button {
   place-items: center;
 }
 /* Previous / next and volume buttons: just the symbol, no round background */
-#bk,
-#sk,
-#vd,
-#vu {
-  background: none !important;
-  box-shadow: none !important;
-  color: var(--acc) !important;
+#ctl #bk,
+#ctl #sk,
+#ctl #vd,
+#ctl #vu {
+  background: none;
+  box-shadow: none;
+  color: var(--acc);
 }
 #ctl #bk,
 #ctl #sk {
@@ -1466,7 +1453,7 @@ button.card.ar:hover span,
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 8px;
-  margin-top: 6px !important;
+  margin-top: 6px;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
@@ -2376,9 +2363,9 @@ async function connect() {
     reached = true;
     $("#iphelp").hidden = true;
     showConnected(true);
-    sources = topItems.filter((i) => attr(i, "type") === "link" && (/USBIcon|LibraryIcon/.test(attr(i, "image")) || /^(USB|Library|Bibliothek)$/i.test(attr(i, "text")))).map((i) => ({ key: attr(i, "browseKey"), name: attr(i, "text"), icon: attr(i, "image") }));
-    // BluOS playlists ("Playlists" / "Wiedergabelisten", icon ci_myplaylists) for the Playlists chip
-    const plItem = topItems.find((i) => /myplaylists/i.test(attr(i, "image")) || /^(playlists|wiedergabelisten)$/i.test(attr(i, "text")));
+    sources = topItems.filter((i) => attr(i, "type") === "link" && (/USBIcon|LibraryIcon/.test(attr(i, "image")) || /^(USB|Library)$/i.test(attr(i, "text")))).map((i) => ({ key: attr(i, "browseKey"), name: attr(i, "text"), icon: attr(i, "image") }));
+    // BluOS playlists ("Playlists", icon ci_myplaylists) for the Playlists chip
+    const plItem = topItems.find((i) => /myplaylists/i.test(attr(i, "image")) || /^playlists$/i.test(attr(i, "text")));
     playlistsKey = plItem ? attr(plItem, "browseKey") : "";
     // The playlists are loaded with the sources (openSources()); without a source only the BluOS playlists
     if (!sources.length) {
@@ -2426,7 +2413,7 @@ async function openSources() {
     const opened = await Promise.all(on.map(async (src) => {
       const md = await browse(src.key), menu = items(md);
       const gi = menu.find((i) => /GG\/Genres/.test(attr(i, "browseKey")) || attr(i, "text") === "Genres");
-      const alb = menu.find((i) => /bySection:Album/.test(attr(i, "browseKey"))) || menu.find((i) => /^(Alben|Albums)$/.test(attr(i, "text")));
+      const alb = menu.find((i) => /bySection:Album/.test(attr(i, "browseKey"))) || menu.find((i) => attr(i, "text") === "Albums");
       const pli = menu.find((i) => /:Playlist\//.test(attr(i, "browseKey")));
       const genresKey = gi ? attr(gi, "browseKey") : "";
       const genres = genresKey ? items(await browse(genresKey)).filter((x) => attr(x, "type") === "genre") : [];
@@ -2654,43 +2641,38 @@ async function loadGenre(name, btn) {
     viewFailed(name, mine, e);
   }
 }
-// Loads every album of the source into cache.__all (3 sections in parallel).
-// Stops and returns false when the user switched to another view (activeKey !== tag) or source.
-async function ensureAll(tag, label) {
-  if (cache.__all) return true;
-  const mine = ctx();
-  msg(label + " \u2026");
-  // Sections of all sources (each source's albums come A-Z, the sources are joined and re-sorted)
-  const lists = await Promise.all(srcs.filter((x) => x.albumsKey).map(filledSections));
-  const secs = lists.flat(), parts = [], q = secs.map((x, i) => i);
-  let n = 0, failed = false;
-  const worker = async () => {
-    while (q.length && mine === ctx() && activeKey === tag) {
-      const i = q.shift();
-      parts[i] = await fetchAlbums(attr(secs[i], "browseKey"));
-      n++;
-      const text = label + " \u2026 " + n + "/" + secs.length;
-      if (!failed) viewOut(tag, mine, () => msg(text));
-    }
-  };
-  await Promise.all([worker(), worker(), worker()]).catch((e) => {
-    failed = true;
-    q.length = 0; // no further sections, no progress over the error
-    throw e;
-  });
-  if (mine !== ctx() || activeKey !== tag) return false;
-  cache.__all = joinSources(parts, srcs.length > 1);
-  return true;
-}
-// "All" chip.
+// "All" chip: every album of the enabled sources, read once into cache.__all (3 sections in parallel, progress in
+// the status line). Stops when the user switched to another view or source.
 async function loadAllAlbums(btn) {
-  const mine = ctx();
-  selectView("__all", btn);
+  const key = "__all", label = "Loading all albums", mine = ctx();
+  selectView(key, btn);
   try {
-    if (!await ensureAll("__all", "Loading all albums")) return;
-    viewOut("__all", mine, () => showView(cache.__all, nAlb(cache.__all.length)));
+    if (!cache.__all) {
+      msg(label + " \u2026");
+      // Sections of all sources (each source's albums come A-Z, the sources are joined and re-sorted)
+      const lists = await Promise.all(srcs.filter((x) => x.albumsKey).map(filledSections));
+      const secs = lists.flat(), parts = [], q = secs.map((x, i) => i);
+      let n = 0, failed = false;
+      const worker = async () => {
+        while (q.length && mine === ctx() && activeKey === key) {
+          const i = q.shift();
+          parts[i] = await fetchAlbums(attr(secs[i], "browseKey"));
+          n++;
+          const text = label + " \u2026 " + n + "/" + secs.length;
+          if (!failed) viewOut(key, mine, () => msg(text));
+        }
+      };
+      await Promise.all([worker(), worker(), worker()]).catch((e) => {
+        failed = true;
+        q.length = 0; // no further sections, no progress over the error
+        throw e;
+      });
+      if (mine !== ctx() || activeKey !== key) return;
+      cache.__all = joinSources(parts, srcs.length > 1);
+    }
+    viewOut(key, mine, () => showView(cache.__all, nAlb(cache.__all.length)));
   } catch (e) {
-    viewFailed("__all", mine, e);
+    viewFailed(key, mine, e);
   }
 }
 // Shared loader for the "New", "Favourites" and quality chips. sectioned = use libSectionAlbums.
@@ -2867,31 +2849,27 @@ function render(list, noRandom) {
     list.slice(at, at + STEP).forEach(add);
     at += STEP;
     if (at >= list.length) {
-      lazyObs?.disconnect();
+      lazyObs.disconnect();
       lazyObs = null;
       sentinel.remove();
     } else {
       g.append(sentinel);
-      if (lazyObs) {
-        lazyObs.unobserve(sentinel);
-        lazyObs.observe(sentinel);
-      }
+      lazyObs.unobserve(sentinel);
+      lazyObs.observe(sentinel);
     }
   };
   // "Random album" tile first, but not for search results.
   if (!noRandom && list.length) g.append(randomTile(list.filter((a) => !a.line)));
-  if ("IntersectionObserver" in window) {
-    lazyObs = new IntersectionObserver((e) => {
-      if (e.some((x) => x.isIntersecting)) more();
-    }, { rootMargin: "800px 0px" });
-    // Covers are loaded when they come near the visible area (showImg() fetches, so <img loading="lazy"> does not apply)
-    coverObs = new IntersectionObserver((e) => e.forEach((x) => {
-      if (!x.isIntersecting) return;
-      coverObs.unobserve(x.target);
-      showImg(x.target, x.target.dataset.url);
-    }), { rootMargin: "800px 0px" });
-    more();
-  } else list.forEach(add);
+  lazyObs = new IntersectionObserver((e) => {
+    if (e.some((x) => x.isIntersecting)) more();
+  }, { rootMargin: "800px 0px" });
+  // Covers are loaded when they come near the visible area (showImg() fetches, so <img loading="lazy"> does not apply)
+  coverObs = new IntersectionObserver((e) => e.forEach((x) => {
+    if (!x.isIntersecting) return;
+    coverObs.unobserve(x.target);
+    showImg(x.target, x.target.dataset.url);
+  }), { rootMargin: "800px 0px" });
+  more();
 }
 // Tile of the grid: the cover (or the random tile's dice) with its round buttons, then the title and second line.
 const tile = (cover, buttons, ...lines) => el("div", { className: "item" }, el("div", { className: "cw" }, cover, ...buttons), ...lines);
@@ -2906,8 +2884,7 @@ function albumTile(a) {
     const im = el("img", { alt: "", onerror: () => im.remove() });
     im.dataset.url = isrc;
     cov.append(im);
-    if (coverObs) coverObs.observe(im);
-    else showImg(im, isrc);
+    coverObs.observe(im);
   }
   const buttons = [playBtn("Play " + a.t, () => a.pl ? playPlaylist(a) : cmd(a.play, "Playing: " + a.t))];
   // Add to the end of the queue: addAll-last of an album, add-last of a playlist
@@ -3498,10 +3475,7 @@ function stopPoll() {
   pollId++;
   pos = { secs: 0, total: 0, t: 0, playing: false, canSeek: false };
   tickProg();
-  try {
-    if (pollCtl) pollCtl.abort();
-  } catch { // nothing to abort
-  }
+  pollCtl?.abort();
   $("#nt1").textContent = "";
   $("#nt2").textContent = $("#nt2").dataset.k = "";
   $("#nq").hidden = true;
@@ -3584,8 +3558,8 @@ function showNow(d) {
   if (upd.length) showImg(upd, src);
   // Full-screen view: title1-3 are the three now-playing lines the API asks UIs to use
   $("#ft1").textContent = t1;
-  $("#ft2").textContent = t1 ? g("title2") : "";
-  $("#ft3").textContent = t1 ? g("title3") : "";
+  $("#ft2").textContent = t2;
+  $("#ft3").textContent = t3;
   // Year: only for a track of the queue (no streamUrl); read again when the track or the queue changes
   const yk = t1 && song !== "" && !g("streamUrl") ? pid + ":" + song : "";
   if (yk !== fyWant) {
@@ -3645,8 +3619,10 @@ async function loadYear() {
 // Opens / closes the full-screen view (only while something is playing).
 function showFull(open) {
   if (open && !$("#ft1").textContent) return;
-  if (open) setBars();
-  if (open) loadYear();
+  if (open) {
+    setBars();
+    loadYear();
+  }
   $("#full").hidden = !open;
   document.body.classList.toggle("full", open);
   document.body.classList.remove("fullbar");
@@ -3781,7 +3757,7 @@ async function search() {
       const its = items(await browse(x.searchKey, v));
       const direct = its.filter((i) => attr(i, "type") === "album").map(toAlbum);
       if (direct.length) return [direct, []];
-      const link = (title || artist) && its.find((i) => /Album/i.test(attr(i, "browseKey")) || /^(Alben?|Albums?)$/i.test(attr(i, "text")));
+      const link = (title || artist) && its.find((i) => /Album/i.test(attr(i, "browseKey")) || /^Albums?$/i.test(attr(i, "text")));
       const comp = composer && its.find((i) => /:Composer\//.test(attr(i, "browseKey")));
       return Promise.all([link ? searchAlbums(attr(link, "browseKey")) : [], comp ? composerAlbums(attr(comp, "browseKey")) : []]);
     })), artist ? libAllAlbums() : []]);
@@ -3822,7 +3798,7 @@ function setTitle(n) {
   playerName = n || "";
   if (!$("#cline").hidden) $("#cname").textContent = playerName || "Connected";
   document.title = playerName || APP.name;
-  if ($("#info")) renderLib();
+  renderLib();
 }
 // Renders the player info and library statistics (about popup) and the library settings (settings panel).
 function renderLib() {
@@ -3889,7 +3865,7 @@ async function loadInfo() {
     };
     const sh = st("sharecfg");
     libRows = [
-      ["Network shares", sh ? /^\s*$|no shares|keine/i.test(attr(sh, "description")) ? "None" : attr(sh, "description") : ""],
+      ["Network shares", sh ? /^\s*$|no shares/i.test(attr(sh, "description")) ? "None" : attr(sh, "description") : ""],
       ["Optimize artwork", onoff("resizeall")],
       ["Server mode", onoff("server")]
     ].filter((x) => x[1]);
