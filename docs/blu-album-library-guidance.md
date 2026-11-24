@@ -43,7 +43,7 @@ BluOS reads the following tags. The last column says what BluAlbum does with the
 | `TITLE` | Name of the track | Track list of the album popup. Not searched: the search finds albums, and the player matches their title and artists only. |
 | `TRACK` | Number of the track on the album (or disc) | Order of the track list. |
 | `DISCNUMBER` | Disc of the track on albums with several discs | Disc headers in the album popup. Without it all discs run on in one list. |
-| `YEAR` (date) | Release date | Year next to the album, decade chips, sorting by year. Albums without a year are missing from the decade chips and come last when sorted by year. BluOS keeps one year per album: use the same date on every track. |
+| `YEAR` (date) | Release date | Year next to the album, decade chips, sorting by year (shown on the tiles). Albums without a year are missing from the decade chips and come last when sorted by year. BluOS keeps one year per album: use the same date on every track. |
 | `GENRE` | Genre of the track | Genre chips: every genre of the library becomes a chip, and a genre chip shows the albums with songs of that genre. Use one genre per album, the same on every track, and keep the list of genres short. |
 | `COVER` | Cover embedded in the file | Not recommended, see [Cover art](#cover-art). |
 | `COMPOSER` | Composer of the track | Search: a composer's name finds the albums with songs of that composer. |

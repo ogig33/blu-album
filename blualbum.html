@@ -2711,6 +2711,8 @@ function showSort() {
   s.value = fixed ? "new" : sortBy;
   s.title = fixed ? "New albums are always sorted by date added" : "Sort albums";
 }
+// Album artist and year sort orders: the tiles show the year in front of the artist (albums with a year).
+const tileYears = () => viewSort === "sort" && /^(artist|year)/.test(sortBy);
 // The albums of `list` in the sort order `by` (SORTS) as a new array. Equal values are ordered by album title; an album
 // artist's albums by year (oldest first); albums without a year come last in every year order.
 function sortAlbums(list, by) {
@@ -2735,19 +2737,19 @@ function sortAlbums(list, by) {
   return l.sort((x, y) => cmp(x, y) || title(x, y));
 }
 // Shows the albums of the album view in the sort order (Random mixes them anew on every call), with its status line.
-// The year orders need the year of every album: the lists of All, Favourites and an artist have none, it is taken from
-// every album of the enabled sources (libAllAlbums(): 1 request per source, cached; shared with the decade chips and
-// the album artist search). Meanwhile the grid is empty.
+// The album artist and year orders need the year of every album (sort order, tiles): the lists of All, Favourites and an
+// artist have none, it is taken from every album of the enabled sources (libAllAlbums(): 1 request per source, cached;
+// shared with the decade chips and the album artist search). Meanwhile the grid is empty.
 function sortView() {
   const key = activeKey, mine = ctx(), seq = ++sortSeq, list = viewList, sorted = viewSort === "sort";
   const show = () => {
     if (seq !== sortSeq) return;
     shown = sorted ? sortAlbums(list, sortBy) : list;
-    render(shown);
+    render(shown, false, tileYears());
     msg(viewText);
     showSort();
   };
-  if (!sorted || !sortBy.startsWith("year") || !list.some((a) => a.y === undefined)) return show();
+  if (!tileYears() || !list.some((a) => a.y === undefined)) return show();
   clearGrid();
   $("#sort").hidden = true;
   libAllAlbums().then((all) => {
@@ -2961,8 +2963,8 @@ function fitLines(item) {
 }
 
 // Renders the tiles of `list` into the grid (lazy, STEP tiles at a time as the end comes near); a {line} entry is a
-// group line. noRandom: without the random album tile (search results).
-function render(list, noRandom) {
+// group line. noRandom: without the random album tile (search results), years: the year in front of the artist.
+function render(list, noRandom, years = false) {
   const g = $("#grid");
   g.innerHTML = "";
   [cutObs, lazyObs, coverObs].forEach((o) => o?.disconnect());
@@ -2973,7 +2975,7 @@ function render(list, noRandom) {
   const sentinel = document.createElement("div");
   sentinel.style.cssText = "grid-column:1/-1;height:1px";
   // A tile or group line; new ones go before the sentinel while it is in the grid
-  const add = (a) => g.insertBefore(a.line ? el("div", { className: "gl" }, a.line) : albumTile(a), sentinel.parentNode === g ? sentinel : null);
+  const add = (a) => g.insertBefore(a.line ? el("div", { className: "gl" }, a.line) : albumTile(a, years), sentinel.parentNode === g ? sentinel : null);
   const more = () => {
     if (tok !== lazyTok) return;
     list.slice(at, at + STEP).forEach(add);
@@ -3008,7 +3010,8 @@ const playBtn = (label, onclick) => el("button", { className: "play", innerHTML:
 const addBtn = (label, title, onclick) => el("button", { className: "play addq", innerHTML: ICON_ADD, "aria-label": label, title, onclick });
 // One grid tile: cover (opens details) with play / add-to-queue buttons and the heart, title, artist link
 // (a BluOS playlist: delete button instead of the heart; a playlist: the line "Playlist" instead of the artist).
-function albumTile(a) {
+// year: the album's year in front of the artist.
+function albumTile(a, year) {
   const cov = el("div", { className: "cov" }), isrc = imgUrl(a.img);
   if (isrc) {
     const im = el("img", { alt: "", onerror: () => im.remove() });
@@ -3037,10 +3040,12 @@ function albumTile(a) {
     return e;
   };
   let ab;
+  // Year in front of the artist (year: album artist and year sort orders, see tileYears()), in the line's grey
+  const pre = year && a.y ? [a.y + " · "] : [];
   if (a.pl) ab = el("div", { className: "card static" }, line("span", "Playlist"));
   // Several artists: one link each in the artist line
-  else if (artistNames(a.a).length > 1) ab = el("div", { className: "card static ar" }, line("span", ...artistLinks(a.a, "al")));
-  else ab = el("button", { className: "card ar", "aria-label": "Albums by " + a.a, onclick: () => showArtist(a.a) }, line("span", a.a));
+  else if (artistNames(a.a).length > 1) ab = el("div", { className: "card static ar" }, line("span", ...pre, ...artistLinks(a.a, "al")));
+  else ab = el("button", { className: "card ar", "aria-label": "Albums by " + a.a, onclick: () => showArtist(a.a) }, line("span", ...pre, a.a));
   const item = tile(
     el("button", { className: "card", "aria-label": a.t + " \u2013 Details", onclick: () => openAlbum(a) }, cov),
     buttons,
@@ -3858,7 +3863,7 @@ async function search() {
     endSearch();
     btns.forEach((b) => b.setAttribute("aria-pressed", b === activeBtn));
     if (activeKey === VIEW.pl) return showPlaylists();
-    render(shown);
+    render(shown, false, tileYears());
     msg(shown.length ? nAlb(shown.length) : "Select a genre.");
     showSort();
     if (held) held();

@@ -1537,6 +1537,14 @@ test(
       await t.page.selectOption("#sort", v);
       await t.page.waitForFunction(() => shown.length === viewList.length);
     };
+    // Artist line of the rendered tiles: "<year> · <artist>" (years: album artist and year orders), else the artist
+    const artistLines = async (years) => {
+      const got = await t.page.$$eval("#grid .item:not(:first-child) > :last-child", (x) =>
+        x.map((e) => e.textContent),
+      );
+      const want = (await albums()).slice(0, got.length).map((a) => (years && a.y ? a.y + " \u00b7 " : "") + a.a);
+      return [got, want];
+    };
     // Default view Favourites: random, every order of SORTS, status line unchanged
     await t.waitMsg(/in favourites/);
     ok(await t.page.isVisible("#sort"), "sort order shown");
@@ -1550,19 +1558,24 @@ test(
     const text = await t.msg();
     await pick("title");
     ok(sorted(await albums(), by("t", 1)), "album title A-Z");
+    let [got, want] = await artistLines(false);
+    eq(got, want, "title order: no year on the tiles");
     await pick("title-desc");
     ok(sorted(await albums(), by("t", -1)), "album title Z-A");
+    // Favourites have no years: looked up once from every album of the enabled sources (1 request per source)
     await pick("artist");
-    ok(sorted(await albums(), by("a", 1)), "album artist A-Z");
+    eq(yearReqs(t).length, albumSvcs().length, "years: one request per source");
+    const artistYear = (dir) => (x, y) => by("a", dir)(x, y) || year(1)(x, y);
+    ok(sorted(await albums(), artistYear(1)), "album artist A-Z, an artist's albums by year");
+    [got, want] = await artistLines(true);
+    eq(got, want, "artist order: year in front of the artist");
     await pick("artist-desc");
-    ok(sorted(await albums(), by("a", -1)), "album artist Z-A");
+    ok(sorted(await albums(), artistYear(-1)), "album artist Z-A");
     eq(await t.msg(), text, "status line unchanged");
     eq(await t.page.evaluate(() => localStorage.getItem("sort")), "artist-desc", "stored");
-    // All has no years: looked up once from every album of the enabled sources (1 request per source)
+    // All has no years either: taken from the cached list
     await t.all();
-    const before = yearReqs(t).length;
     await pick("year-desc");
-    eq(yearReqs(t).length - before, albumSvcs().length, "years: one request per source");
     let l = await albums();
     ok(sorted(l, year(-1)), "year, newest first; without a year last");
     // the year of every album of All that has one (by title; titles with two years are left out)
@@ -1577,9 +1590,12 @@ test(
       known.map((a) => ys.get(a.t)),
       "years of All",
     );
+    [got, want] = await artistLines(true);
+    eq(got, want, "year order: year in front of the artist");
+    ok(got[0].includes("\u00b7"), "newest album with its year");
     await pick("year");
     ok(sorted(await albums(), year(1)), "year, oldest first");
-    eq(yearReqs(t).length - before, albumSvcs().length, "years asked once");
+    eq(yearReqs(t).length, albumSvcs().length, "years asked once");
     // New: the player's order, the sort order disabled
     await t.chip("New");
     await t.waitMsg(/recently added, newest first/);
