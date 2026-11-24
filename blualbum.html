@@ -1795,11 +1795,12 @@ dialog * {
 </style>
 </head>
 <body>
+<!-- App logo (header, about popup): the favicon's double note knocked out of a circle, in the text colour -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><mask id="logomask"><rect width="32" height="32" fill="white"/><g fill="black"><ellipse cx="8.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 8.3 26.5)"/><ellipse cx="22.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 22.3 26.5)"/><rect x="10.5" y="11" width="2.6" height="15"/><rect x="24.5" y="9" width="2.6" height="17"/><path d="M10.5 10 27.1 8v4.6L10.5 14.6z"/></g></mask><symbol id="logo" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" mask="url(#logomask)"/></symbol></defs></svg>
 <!-- Header: settings button, logo, title, search, queue button -->
 <header>
   <button id="gear" aria-label="Menu" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-  <!-- App logo: the favicon's double note knocked out of a circle, in the text colour -->
-  <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><mask id="hdrlogo"><rect width="32" height="32" fill="white"/><g fill="black"><ellipse cx="8.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 8.3 26.5)"/><ellipse cx="22.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 22.3 26.5)"/><rect x="10.5" y="11" width="2.6" height="15"/><rect x="24.5" y="9" width="2.6" height="17"/><path d="M10.5 10 27.1 8v4.6L10.5 14.6z"/></g></mask><circle cx="16" cy="16" r="15" mask="url(#hdrlogo)"/></svg>
+  <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><use href="#logo"/></svg>
   <h1 id="ttl">BluAlbum</h1>
   <!-- Search field with the search areas (chips, only Album on by default, stored); hidden until the search button -->
   <div id="qbox" hidden>
@@ -1834,8 +1835,7 @@ dialog * {
 <dialog id="infodlg">
   <form method="dialog"><button id="infoclose" aria-label="Close">✕</button></form>
   <div class="abt">
-    <!-- App logo: the favicon's double note knocked out of a circle, in the text colour -->
-    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><mask id="abtlogo"><rect width="32" height="32" fill="white"/><g fill="black"><ellipse cx="8.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 8.3 26.5)"/><ellipse cx="22.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 22.3 26.5)"/><rect x="10.5" y="11" width="2.6" height="15"/><rect x="24.5" y="9" width="2.6" height="17"/><path d="M10.5 10 27.1 8v4.6L10.5 14.6z"/></g></mask><circle cx="16" cy="16" r="15" mask="url(#abtlogo)"/></svg>
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><use href="#logo"/></svg>
     <h2>BluAlbum</h2>
     <p>Album player for BluOS devices</p>
     <p>Version <span id="ver2"></span></p>
@@ -1942,7 +1942,8 @@ dialog * {
  *
  * Modules (in this order):
  *   1. Configuration                   Fixed values: texts, quality filters, search timing, cover sizes, icons.
- *   2. Helpers                         DOM shorthand, safe localStorage, XML attributes, formatting, status line and toast.
+ *   2. Helpers                         DOM shorthand and element builder, safe localStorage, XML attributes and texts,
+ *                                      formatting, status line and toast.
  *   3. State                           All mutable state of the app, declared in one place.
  *   4. Player API                      Requests to the player (HTTP GET on port 11000, XML answers).
  *   5. Connection & sources            Connecting to the player, music sources (USB / library) and their switches, decade chips.
@@ -1994,27 +1995,33 @@ const FORMATS = { flc: "FLAC", mp3: "MP3", alac: "ALAC", aac: "AAC", m4a: "AAC",
 const LOSSY = ["MP3", "AAC", "OGG", "Opus", "WMA"];
 // Display names for On/Off values from /Settings.
 const ONOFF = { ON: "On", OFF: "Off" };
+// Quality tag -> class of its metal finish (silver by default, gold for HD, bronze for MQA, copper for MP3).
+const Q_CLASS = { HD: "q-hd", MQA: "q-mqa", MP3: "q-mp3" };
+// Line icon (24 x 24, round line ends) from its SVG elements: stroke width w, more attributes of the <svg> in `more`.
+const strokeIcon = (body, w = 1.8, more = "") => '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"' + more + ">" + body + "</svg>";
 // Play / pause. The triangle sits slightly right of the middle so that it looks centred in a round button.
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5v13l10.5-6.5z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg>';
 // Repeat states of the player (<repeat> in /Status, /Repeat?state=): icon and label.
-const ICON_REPEAT_PATH = '<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>';
+const REPEAT_PATH = '<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>';
 const REPEAT = {
-  2: { label: "off", icon: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICON_REPEAT_PATH + "</svg>" },
-  0: { label: "queue", icon: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICON_REPEAT_PATH + "</svg>" },
-  1: { label: "track", icon: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICON_REPEAT_PATH + '<path d="M11 10.5l1.5-1V15" stroke-width="1.6"/></svg>' }
+  2: { label: "off", icon: strokeIcon(REPEAT_PATH) },
+  0: { label: "queue", icon: strokeIcon(REPEAT_PATH) },
+  1: { label: "track", icon: strokeIcon(REPEAT_PATH + '<path d="M11 10.5l1.5-1V15" stroke-width="1.6"/>') }
 };
-// Trash icon (delete button on a playlist tile).
-const ICON_TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+// Add to the end of the queue (plus), remove from the queue (crossed circle), delete a playlist (trash).
+const ICON_ADD = strokeIcon('<path d="M12 5v14M5 12h14"/>', 2);
+const ICON_REMOVE = strokeIcon('<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>');
+const ICON_TRASH = strokeIcon('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>');
 // Playlist icon (queue button): list with a music note.
-const ICON_PLAYLIST = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h12M3 8.75h12M3 13.5h8.5M3 18.25h5" stroke-width="2.4"/><ellipse cx="15.6" cy="18.3" rx="3.9" ry="3.2" transform="rotate(-22 15.6 18.3)" fill="currentColor" stroke="none"/><path d="M18.6 17.5V5.2" stroke-width="2.2"/><path d="M17.5 4.6 21.9 2.7c.5-.2 1 .1 1 .7v3.7c0 .5-.3.8-.8.9-1.4.3-2.6.9-3.4 1.7L17.5 9z" fill="currentColor" stroke="none"/></svg>';
-// Source icons (USB stick / library = folder with music notes).
-// Favourites are managed only by the player: state and actions come from the album's context menu
-// (favourite-add / favourite-delete). Albums without these actions (e.g. on USB) have no heart.
+const ICON_PLAYLIST = strokeIcon('<path d="M3 4h12M3 8.75h12M3 13.5h8.5M3 18.25h5" stroke-width="2.4"/><ellipse cx="15.6" cy="18.3" rx="3.9" ry="3.2" transform="rotate(-22 15.6 18.3)" fill="currentColor" stroke="none"/><path d="M18.6 17.5V5.2" stroke-width="2.2"/><path d="M17.5 4.6 21.9 2.7c.5-.2 1 .1 1 .7v3.7c0 .5-.3.8-.8.9-1.4.3-2.6.9-3.4 1.7L17.5 9z" fill="currentColor" stroke="none"/>');
+// Heart (favourite button on a cover, Favourites chip). Favourites are managed only by the player: state and actions
+// come from the album's context menu (favourite-add / favourite-delete). Albums without these actions (e.g. on USB) have no heart.
 const HEART = '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>';
+const ICON_HEART = strokeIcon(HEART, 2);
 
 /* ---------- Helpers ---------- */
-// DOM shorthand, safe localStorage, XML attributes, formatting, status line and toast.
+// DOM shorthand and element builder, safe localStorage, XML attributes and texts, formatting, status line and toast.
 
 // Shorthand for querySelector.
 const $ = (s) => document.querySelector(s);
@@ -2034,8 +2041,22 @@ const store = {
     }
   }
 };
+// Creates an element: `props` are set as properties (className, textContent, innerHTML, title, onclick …), names with
+// "-" (aria-*) and role as attributes, undefined values are left out; `children` (nodes or texts) are appended.
+function el(tag, props = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (v === undefined) continue;
+    if (k.includes("-") || k === "role") e.setAttribute(k, v);
+    else e[k] = v;
+  }
+  e.append(...children);
+  return e;
+}
 // Reads an XML attribute; returns "" instead of null.
 const attr = (e, n) => e.getAttribute(n) || "";
+// Trimmed text of the first element below `e` that matches `sel`; "" if there is none.
+const textOf = (e, sel) => e.querySelector(sel)?.textContent.trim() || "";
 // All <item> elements of a Browse response (top level or inside a <category>).
 const items = (d) => [...d.documentElement.querySelectorAll(":scope > item, :scope > category > item")];
 // Seconds -> "m:ss" or "h:mm:ss".
@@ -2044,11 +2065,11 @@ const fmtTime = (n) => {
   const h = Math.floor(n / 3600), m = Math.floor(n % 3600 / 60), sec = n % 60;
   return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(sec).padStart(2, "0");
 };
-// "1 album" / "5 albums".
-const nAlb = (n) => n + (n === 1 ? " album" : " albums");
-// "1 playlist" / "3 playlists" (kind: "3 BluOS playlists"), "1 track" / "12 tracks".
-const nPl = (n, kind) => n + (kind ? " " + kind : "") + (n === 1 ? " playlist" : " playlists");
-const nTr = (n) => n + (n === 1 ? " track" : " tracks");
+// "1 album" / "5 albums", "1 playlist" / "3 playlists" (kind: "3 BluOS playlists"), "1 track" / "12 tracks".
+const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
+const nAlb = (n) => plural(n, "album");
+const nPl = (n, kind) => plural(n, (kind ? kind + " " : "") + "playlist");
+const nTr = (n) => plural(n, "track");
 const errMsg = (prefix, e) => e.name === "TimeoutError" ? NO_REPLY_MSG : e instanceof TypeError && /fetch|load failed|network/i.test(e.message) ? LAN_MSG : prefix + e.message;
 // Status line below the genre chips.
 const msg = (t, err) => {
@@ -2088,9 +2109,9 @@ function imgUrl(p, size) {
 // (mixed content) and the player has no https; fetch() is not upgraded and the player allows it
 // (Access-Control-Allow-Origin: *, Bruno E24). URLs of other hosts (now playing) are set directly.
 // The blob URL is released once the image is decoded. A failed load fires the element's "error" event.
-// `el` may be an array: the image is fetched once for all of them (now playing: footer and full screen).
-async function showImg(el, url) {
-  const els = [].concat(el);
+// `img` may be an array: the image is fetched once for all of them (now playing: footer and full screen).
+async function showImg(img, url) {
+  const els = [].concat(img);
   els.forEach((e) => e.dataset.src = url);
   if (!url) {
     els.forEach((e) => e.removeAttribute("src"));
@@ -2263,12 +2284,18 @@ const xml = async (path) => {
     return null;
   }
 };
+// Player command through apiRaw(): returns the answer when `ok(answer)` (default: HTTP 200), otherwise the API
+// response popup shows the request under `title` and it returns null.
+async function rawCmd(path, title, ok = (r) => r.ok) {
+  const r = await apiRaw(path);
+  if (ok(r)) return r;
+  showApiResponse(title, base + path, r.status, r.body);
+  return null;
+}
 // Sends a player command (play, add to queue ...) and shows `label` as feedback; on failure the API
 // response popup shows the request. The new play state arrives through the /Status long polling (pollStatus).
 async function cmd(url, label) {
-  const r = await apiRaw(url);
-  if (!r.ok) return showApiResponse("The player command did not succeed", base + url, r.status, r.body);
-  toast(label);
+  if (await rawCmd(url, "The player command did not succeed")) toast(label);
 }
 
 /* ---------- Connection & sources ---------- */
@@ -2284,35 +2311,21 @@ const disabledSources = () => {
   }
 };
 const sourceOn = (sr) => !disabledSources().has(sr.key);
-// Name of the source (as the player names it, e.g. "USB" / "Bibliothek") from a browse key or a service name.
-// Album keys start with the service, e.g. "4AB9_C242:MG/LocalMusic-Album?...".
-const sourceName = (keyOrSvc) => {
+// Source of a browse key or service name ({key, name, icon}: name as the player names it, e.g. "USB", icon of the
+// top menu, e.g. /images/USBIcon.png). Album keys start with the service, e.g. "4AB9_C242:MG/LocalMusic-Album?...".
+const sourceOf = (keyOrSvc) => {
   const svc = (keyOrSvc || "").split(":")[0];
-  return sources.find((x) => x.key.split(":")[0] === svc)?.name || "";
+  return sources.find((x) => x.key.split(":")[0] === svc);
 };
-// Icon of a source (by service name or browse key): the image of the top menu, e.g. /images/USBIcon.png.
-const sourceIcon = (keyOrSvc) => {
-  const svc = (keyOrSvc || "").split(":")[0];
-  return sources.find((x) => x.key.split(":")[0] === svc)?.icon || "";
-};
-// Joins album lists of several sources; with more than one source the result is re-sorted A-Z by title.
-const joinSources = (lists) => lists.length > 1 ? lists.flat().sort((x, y) => x.t.localeCompare(y.t)) : lists.flat();
+// Joins album lists (A-Z each); re-sorted A-Z by title when `sort` (default: more than one list, e.g. several sources).
+const joinSources = (lists, sort = lists.length > 1) => sort ? lists.flat().sort((x, y) => x.t.localeCompare(y.t)) : lists.flat();
 // One on/off switch per available source (USB / Library) in the settings panel.
 function renderSources() {
   const l = $("#srcl");
   l.innerHTML = "";
   sources.forEach((sr) => {
-    const row = document.createElement("div");
-    row.className = "srow";
-    const dup = sources.filter((x) => x.name === sr.name).length > 1;
-    const t = document.createElement("span");
-    t.textContent = sr.name + (dup ? " (" + sr.key.replace(/:$/, "") + ")" : "");
-    const sw = document.createElement("button");
-    sw.type = "button";
-    sw.className = "sw";
-    sw.setAttribute("role", "switch");
-    sw.setAttribute("aria-checked", sourceOn(sr));
-    sw.setAttribute("aria-label", "Use " + t.textContent);
+    const dup = sources.filter((x) => x.name === sr.name).length > 1, name = sr.name + (dup ? " (" + sr.key.replace(/:$/, "") + ")" : "");
+    const sw = el("button", { type: "button", className: "sw", role: "switch", "aria-checked": sourceOn(sr), "aria-label": "Use " + name });
     sw.onclick = () => {
       const off = disabledSources();
       off.has(sr.key) ? off.delete(sr.key) : off.add(sr.key);
@@ -2320,8 +2333,7 @@ function renderSources() {
       renderSources();
       openSources();
     };
-    row.append(t, sw);
-    l.append(row);
+    l.append(el("div", { className: "srow" }, el("span", {}, name), sw));
   });
 }
 // Settings panel top: compact "room · IP · Change" line when connected, otherwise the IP form.
@@ -2352,9 +2364,7 @@ async function connect() {
   renderSources();
   $("#qlist").innerHTML = "";
   $("#qcount").textContent = "";
-  $("#az").innerHTML = "";
-  $("#grid").innerHTML = "";
-  $("#q").value = "";
+  clearView();
   panel(false);
   msg("Connecting \u2026");
   let reached = false;
@@ -2389,6 +2399,12 @@ async function connect() {
     panel(true, true);
   }
 }
+// A chip of the chip row, not pressed (props as in el()); a click calls load(chip).
+function chip(props, load) {
+  const b = el("button", { "aria-pressed": "false", ...props });
+  b.onclick = () => load(b);
+  return b;
+}
 // Opens all enabled sources: reads their menus, builds the chips (genres of all sources combined)
 // and selects the default view.
 async function openSources() {
@@ -2397,9 +2413,7 @@ async function openSources() {
   libStats = {};
   renderLib();
   resetLibrary();
-  $("#az").innerHTML = "";
-  $("#grid").innerHTML = "";
-  $("#q").value = "";
+  clearView();
   const on = sources.filter(sourceOn);
   if (!on.length) {
     renderPlChip(); // the BluOS playlists known already, at once
@@ -2436,47 +2450,15 @@ async function openSources() {
     if (!names.length) throw new Error("No genres found. Has the library finished indexing?");
     const nav = $("#az"), hasAlbums = srcs.some((x) => x.albumsKey);
     if (hasAlbums) {
-      const ba = document.createElement("button");
-      ba.setAttribute("aria-pressed", "false");
-      ba.textContent = "All";
-      ba.className = "sp";
-      ba.onclick = () => loadAllAlbums(ba);
-      nav.append(ba);
-      const bf = document.createElement("button");
-      bf.setAttribute("aria-pressed", "false");
-      bf.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
-      bf.title = "Favourites";
-      bf.setAttribute("aria-label", "Favourites");
-      bf.className = "sp";
-      bf.onclick = () => loadFavourites(bf);
-      nav.append(bf);
-      const bn = document.createElement("button");
-      bn.setAttribute("aria-pressed", "false");
-      bn.textContent = "New";
-      bn.title = "Recently added albums";
-      bn.className = "sp nw";
-      bn.onclick = () => loadNew(bn);
-      nav.append(bn);
-      QUALITIES.forEach(([q, name, title]) => {
-        const b = document.createElement("button");
-        b.setAttribute("aria-pressed", "false");
-        b.textContent = name;
-        b.title = title;
-        b.className = "sp qc";
-        b.onclick = () => loadQuality(b, q, name);
-        nav.append(b);
-      });
-      const gp = document.createElement("span");
-      gp.className = "gap";
-      nav.append(gp);
+      nav.append(
+        chip({ className: "sp", textContent: "All" }, loadAllAlbums),
+        chip({ className: "sp", innerHTML: strokeIcon(HEART, 2, ' width="16" height="16"'), title: "Favourites", "aria-label": "Favourites" }, loadFavourites),
+        chip({ className: "sp nw", textContent: "New", title: "Recently added albums" }, loadNew),
+        ...QUALITIES.map(([q, name, title]) => chip({ className: "sp qc", textContent: name, title }, (b) => loadQuality(b, q, name))),
+        el("span", { className: "gap" })
+      );
     }
-    names.forEach((name) => {
-      const b = document.createElement("button");
-      b.setAttribute("aria-pressed", "false");
-      b.textContent = name;
-      b.onclick = () => loadGenre(name, b);
-      nav.append(b);
-    });
+    nav.append(...names.map((name) => chip({ textContent: name }, (b) => loadGenre(name, b))));
     msg("Select a genre.");
     // Add the Playlists chip after New (with the BluOS playlists known from before; loadPlaylists() adds it again).
     renderPlChip();
@@ -2508,17 +2490,7 @@ async function decadeChips() {
     const gap = $("#az .gap");
     if (mine !== ctx() || !gap) return;
     const keys = [...new Set(lists.flat())].sort();
-    const dg = document.createElement("span");
-    dg.className = "gap dcg";
-    gap.before(dg, ...keys.map((k) => {
-      const b = document.createElement("button");
-      b.setAttribute("aria-pressed", "false");
-      b.textContent = decLabel(k, keys);
-      b.title = "Albums from the " + k + "s";
-      b.className = "sp dc";
-      b.onclick = () => loadDecade(k, b);
-      return b;
-    }));
+    gap.before(el("span", { className: "gap dcg" }), ...keys.map((k) => chip({ className: "sp dc", textContent: decLabel(k, keys), title: "Albums from the " + k + "s" }, (b) => loadDecade(k, b))));
   } catch (e) {
     if (mine !== ctx()) return;
     dcCtx = "";
@@ -2546,15 +2518,15 @@ function toAlbum(i) {
     menu
   };
 }
-// Loads all <item>s of one type of a list, following nextKey paging. first: answer of `key` when it was read already,
-// menus: with the context menus of the items.
+// Loads all <item>s of a list (only those of `type` when given), following nextKey paging. first: answer of `key`
+// when it was read already, menus: with the context menus of the items.
 async function fetchItems(key, type, first, menus = true) {
   const all = [], seen = new Set();
   let k = key, d = first;
   while (k && !seen.has(k)) {
     seen.add(k);
     if (!d) d = await browse(k, "", menus);
-    all.push(...items(d).filter((i) => attr(i, "type") === type));
+    all.push(...items(d).filter((i) => !type || attr(i, "type") === type));
     const nx = d.querySelector("[nextKey]");
     k = nx ? attr(nx, "nextKey") : "";
     d = null;
@@ -2581,16 +2553,16 @@ const filledSections = async (x) => (await albumSections(x)).filter((i) => attr(
 
 // /library/v1/Albums returns only album + artist (+ isFavourite). Everything else the app needs
 // (cover, play URL, track list, context menu) follows fixed patterns of the player's Browse results.
-function libAlbum(el, svc) {
+function libAlbum(e, svc) {
   // Title is <alb> in plain lists and <title> in sectioned lists
-  const t = (el.querySelector("alb") || el.querySelector("title"))?.textContent || "", ar = el.querySelector("art")?.textContent || "";
-  const q = "album=" + formEnc(t) + "&artist=" + formEnc(ar), fav = el.getAttribute("isFavourite") === "1";
+  const t = (e.querySelector("alb") || e.querySelector("title"))?.textContent || "", ar = e.querySelector("art")?.textContent || "";
+  const q = "album=" + formEnc(t) + "&artist=" + formEnc(ar), fav = e.getAttribute("isFavourite") === "1";
   return {
     t,
     a: ar,
-    n: el.getAttribute("tracks") || "",
+    n: attr(e, "tracks"),
     // Year of the album (sectioned lists only, Bruno E34; "" without a year tag)
-    y: el.getAttribute("date") || "",
+    y: attr(e, "date"),
     img: "/Artwork?service=" + svc + "&" + q,
     key: svc + ":MG/LocalMusic-Album?" + q,
     cm: svc + ":CM/LocalMusic-Album?" + q + (fav ? "&isFavourite=1" : ""),
@@ -2610,8 +2582,8 @@ async function libAlbums(svc, filter, max) {
   while (path && !seen.has(path) && out.length < max) {
     seen.add(path);
     const d = await api(path);
-    out.push(...[...d.querySelectorAll("albums > album")].map((el) => libAlbum(el, svc)));
-    path = d.querySelector("albums > nextlink")?.textContent.trim() || "";
+    out.push(...[...d.querySelectorAll("albums > album")].map((e) => libAlbum(e, svc)));
+    path = textOf(d, "albums > nextlink");
   }
   return out.slice(0, max);
 }
@@ -2621,7 +2593,7 @@ async function libAlbums(svc, filter, max) {
 async function libSectionAlbums(x, filter) {
   if (!x.albumsKey) return [];
   const d = await api("/library/v1/Albums?service=" + encodeURIComponent(x.svc) + (filter ? "&" + filter : "") + "&section=all");
-  return [...d.querySelectorAll("section > album")].map((el) => libAlbum(el, x.svc));
+  return [...d.querySelectorAll("section > album")].map((e) => libAlbum(e, x.svc));
 }
 // All albums of a genre name across the enabled sources. The genre= value is the player's, from the browse key
 // of the genre (e.g. genre=R%26B). Without one the source is left out: an empty filter would list every album.
@@ -2641,6 +2613,17 @@ function selectView(key, btn) {
   activeBtn = btn;
   $("#q").value = "";
   endSearch();
+}
+// Empties the album grid (a view that loads first).
+function clearGrid() {
+  $("#grid").innerHTML = "";
+  shown = [];
+}
+// Empties the chip row, the grid and the search field (connect, source change).
+function clearView() {
+  $("#az").innerHTML = "";
+  $("#q").value = "";
+  clearGrid();
 }
 // Everything a view shows after a request goes through viewOut(): dropped when the view or the source selection
 // changed (key, mine = ctx() at its start), held back while search results are shown (search() shows it on clearing).
@@ -2696,7 +2679,7 @@ async function ensureAll(tag, label) {
     throw e;
   });
   if (mine !== ctx() || activeKey !== tag) return false;
-  cache.__all = srcs.length > 1 ? [].concat(...parts).sort((x, y) => x.t.localeCompare(y.t)) : [].concat(...parts);
+  cache.__all = joinSources(parts, srcs.length > 1);
   return true;
 }
 // "All" chip.
@@ -2713,8 +2696,7 @@ async function loadAllAlbums(btn) {
 // Shared loader for the "New", "Favourites" and quality chips. sectioned = use libSectionAlbums.
 async function loadLibView(key, btn, filter, max, label, done, empty, sectioned) {
   selectView(key, btn);
-  $("#grid").innerHTML = "";
-  shown = [];
+  clearGrid();
   const mine = ctx();
   msg("Loading " + label + " \u2026");
   try {
@@ -2750,8 +2732,7 @@ function libAllAlbums() {
 async function loadDecade(dec, btn) {
   const key = "__d:" + dec, mine = ctx();
   selectView(key, btn);
-  $("#grid").innerHTML = "";
-  shown = [];
+  clearGrid();
   msg("Loading albums from the " + dec + "s …");
   try {
     const all = await libAllAlbums();
@@ -2811,11 +2792,7 @@ const artistNames = (s) => s.split(",").map((p) => p.trim()).filter(Boolean);
 function artistLinks(name, cls = "", search = false) {
   const names = artistNames(name), one = !search && names.length < 2;
   return (one ? [name] : names).flatMap((n, i) => {
-    const b = document.createElement("button");
-    b.className = cls;
-    b.textContent = n;
-    b.title = one ? "Show albums by " + n : "Search for " + n + " in the artists";
-    b.onclick = () => one ? showArtist(n) : searchArtist(n);
+    const b = el("button", { className: cls, title: one ? "Show albums by " + n : "Search for " + n + " in the artists", onclick: () => one ? showArtist(n) : searchArtist(n) }, n);
     return i ? [", ", b] : [b];
   });
 }
@@ -2871,32 +2848,27 @@ function fitLines(item) {
   item.addEventListener("focusout", stop);
 }
 
+// Renders the tiles of `list` into the grid (lazy, STEP tiles at a time as the end comes near); a {line} entry is a
+// group line. noRandom: without the random album tile (search results).
 function render(list, noRandom) {
   const g = $("#grid");
   g.innerHTML = "";
-  if (cutObs) cutObs.disconnect();
+  [cutObs, lazyObs, coverObs].forEach((o) => o?.disconnect());
+  lazyObs = coverObs = null;
   cutObs = new ResizeObserver((e) => e.forEach(({ target: x }) => x.classList.toggle("cut", x.scrollWidth > x.clientWidth)));
-  if (lazyObs) {
-    lazyObs.disconnect();
-    lazyObs = null;
-  }
-  if (coverObs) {
-    coverObs.disconnect();
-    coverObs = null;
-  }
   const tok = ++lazyTok, STEP = 60;
   let at = 0;
   const sentinel = document.createElement("div");
   sentinel.style.cssText = "grid-column:1/-1;height:1px";
+  // A tile or group line; new ones go before the sentinel while it is in the grid
+  const add = (a) => g.insertBefore(a.line ? el("div", { className: "gl" }, a.line) : albumTile(a), sentinel.parentNode === g ? sentinel : null);
   const more = () => {
     if (tok !== lazyTok) return;
-    list.slice(at, at + STEP).forEach(addItem);
+    list.slice(at, at + STEP).forEach(add);
     at += STEP;
     if (at >= list.length) {
-      if (lazyObs) {
-        lazyObs.disconnect();
-        lazyObs = null;
-      }
+      lazyObs?.disconnect();
+      lazyObs = null;
       sentinel.remove();
     } else {
       g.append(sentinel);
@@ -2919,110 +2891,57 @@ function render(list, noRandom) {
       showImg(x.target, x.target.dataset.url);
     }), { rootMargin: "800px 0px" });
     more();
-  } else list.forEach(addItem);
-  // One grid tile: cover (opens details) with play / add-to-queue buttons and the heart, title, artist link
-  // (a BluOS playlist: delete button instead of the heart; a playlist: the line "Playlist" instead of the artist).
-  function addItem(a) {
-    if (a.line) {
-      const l = document.createElement("div");
-      l.className = "gl";
-      l.textContent = a.line;
-      if (sentinel.parentNode === g) g.insertBefore(l, sentinel);
-      else g.append(l);
-      return;
-    }
-    const item = document.createElement("div");
-    item.className = "item";
-    const cw = document.createElement("div");
-    cw.className = "cw";
-    const cb = document.createElement("button");
-    cb.className = "card";
-    cb.setAttribute("aria-label", a.t + " \u2013 Details");
-    const cov = document.createElement("div");
-    cov.className = "cov";
-    const im = document.createElement("img");
-    im.alt = "";
-    const isrc = imgUrl(a.img);
-    if (isrc) {
-      im.dataset.url = isrc;
-      im.onerror = () => im.remove();
-      cov.append(im);
-      if (coverObs) coverObs.observe(im);
-      else showImg(im, isrc);
-    }
-    cb.append(cov);
-    cb.onclick = () => openAlbum(a);
-    const pl = document.createElement("button");
-    pl.className = "play";
-    pl.innerHTML = ICON_PLAY;
-    pl.setAttribute("aria-label", "Play " + a.t);
-    pl.onclick = () => a.pl ? playPlaylist(a) : cmd(a.play, "Playing: " + a.t);
-    cw.append(cb, pl);
-    // Add to the end of the queue: addAll-last of an album, add-last of a playlist
-    const addUrl = a.menu["addAll-last"] || a.menu["add-last"];
-    if (addUrl) {
-      const aq = document.createElement("button");
-      aq.className = "play addq";
-      aq.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
-      aq.setAttribute("aria-label", "Add " + a.t + " to end of queue");
-      aq.title = "Add to end of queue";
-      aq.onclick = () => cmd(addUrl, "Added to queue: " + a.t);
-      cw.append(aq);
-    }
-    if (a.pl && a.menu.delete) {
-      // Delete button of a BluOS playlist (its player menu offers "delete", no favourite)
-      const db = document.createElement("button");
-      db.className = "play delp";
-      db.innerHTML = ICON_TRASH;
-      db.title = "Delete playlist";
-      db.setAttribute("aria-label", "Delete playlist " + a.t);
-      db.onclick = () => deletePlaylist(a);
-      cw.append(db);
-    } else {
-      // Favourite heart (only for albums and library playlists whose player menu offers favourites)
-      const fh = document.createElement("button");
-      fh.className = "play favc";
-      fh.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + HEART + "</svg>";
-      fh.onclick = () => toggleFav(a);
-      coverHearts.set(a, fh);
-      paintHeart(fh, a);
-      cw.append(fh);
-    }
-    const tb = document.createElement("button");
-    tb.className = "card";
-    // Title and artist: one line each, text (or the artist links) in a .mq span that fitLines() scrolls
-    const line = (tag, ...content) => {
-      const e = document.createElement(tag), m = document.createElement("span");
-      m.className = "mq";
-      m.append(...content);
-      e.append(m);
-      cutObs.observe(e);
-      return e;
-    };
-    tb.append(line("b", a.t));
-    tb.onclick = () => openAlbum(a);
-    let ab;
-    if (a.pl) {
-      ab = document.createElement("div");
-      ab.className = "card static";
-      ab.append(line("span", "Playlist"));
-    } else if (artistNames(a.a).length > 1) {
-      // Several artists: one link each in the artist line
-      ab = document.createElement("div");
-      ab.className = "card static ar";
-      ab.append(line("span", ...artistLinks(a.a, "al")));
-    } else {
-      ab = document.createElement("button");
-      ab.className = "card ar";
-      ab.setAttribute("aria-label", "Albums by " + a.a);
-      ab.append(line("span", a.a));
-      ab.onclick = () => showArtist(a.a);
-    }
-    item.append(cw, tb, ab);
-    fitLines(item);
-    if (sentinel.parentNode === g) g.insertBefore(item, sentinel);
-    else g.append(item);
+  } else list.forEach(add);
+}
+// Tile of the grid: the cover (or the random tile's dice) with its round buttons, then the title and second line.
+const tile = (cover, buttons, ...lines) => el("div", { className: "item" }, el("div", { className: "cw" }, cover, ...buttons), ...lines);
+// Round buttons on a cover: play, add to the end of the queue.
+const playBtn = (label, onclick) => el("button", { className: "play", innerHTML: ICON_PLAY, "aria-label": label, onclick });
+const addBtn = (label, title, onclick) => el("button", { className: "play addq", innerHTML: ICON_ADD, "aria-label": label, title, onclick });
+// One grid tile: cover (opens details) with play / add-to-queue buttons and the heart, title, artist link
+// (a BluOS playlist: delete button instead of the heart; a playlist: the line "Playlist" instead of the artist).
+function albumTile(a) {
+  const cov = el("div", { className: "cov" }), isrc = imgUrl(a.img);
+  if (isrc) {
+    const im = el("img", { alt: "", onerror: () => im.remove() });
+    im.dataset.url = isrc;
+    cov.append(im);
+    if (coverObs) coverObs.observe(im);
+    else showImg(im, isrc);
   }
+  const buttons = [playBtn("Play " + a.t, () => a.pl ? playPlaylist(a) : cmd(a.play, "Playing: " + a.t))];
+  // Add to the end of the queue: addAll-last of an album, add-last of a playlist
+  const addUrl = a.menu["addAll-last"] || a.menu["add-last"];
+  if (addUrl) buttons.push(addBtn("Add " + a.t + " to end of queue", "Add to end of queue", () => cmd(addUrl, "Added to queue: " + a.t)));
+  if (a.pl && a.menu.delete) {
+    // Delete button of a BluOS playlist (its player menu offers "delete", no favourite)
+    buttons.push(el("button", { className: "play delp", innerHTML: ICON_TRASH, title: "Delete playlist", "aria-label": "Delete playlist " + a.t, onclick: () => deletePlaylist(a) }));
+  } else {
+    // Favourite heart (only for albums and library playlists whose player menu offers favourites)
+    const fh = el("button", { className: "play favc", innerHTML: ICON_HEART, onclick: () => toggleFav(a) });
+    coverHearts.set(a, fh);
+    paintHeart(fh, a);
+    buttons.push(fh);
+  }
+  // Title and artist: one line each, text (or the artist links) in a .mq span that fitLines() scrolls
+  const line = (tag, ...content) => {
+    const e = el(tag, {}, el("span", { className: "mq" }, ...content));
+    cutObs.observe(e);
+    return e;
+  };
+  let ab;
+  if (a.pl) ab = el("div", { className: "card static" }, line("span", "Playlist"));
+  // Several artists: one link each in the artist line
+  else if (artistNames(a.a).length > 1) ab = el("div", { className: "card static ar" }, line("span", ...artistLinks(a.a, "al")));
+  else ab = el("button", { className: "card ar", "aria-label": "Albums by " + a.a, onclick: () => showArtist(a.a) }, line("span", a.a));
+  const item = tile(
+    el("button", { className: "card", "aria-label": a.t + " \u2013 Details", onclick: () => openAlbum(a) }, cov),
+    buttons,
+    el("button", { className: "card", onclick: () => openAlbum(a) }, line("b", a.t)),
+    ab
+  );
+  fitLines(item);
+  return item;
 }
 // Picks a random album (or playlist) from `list` (the tiles of the selected chip / view).
 const randomAlbum = (list) => list[Math.floor(Math.random() * list.length)];
@@ -3031,56 +2950,31 @@ const randomAlbum = (list) => list[Math.floor(Math.random() * list.length)];
 // In the Playlists view the same for a random playlist (BluOS or library).
 function randomTile(list) {
   const isPl = !!list[0].pl, kind = isPl ? "playlist" : "album", name = (a) => isPl ? a.t : a.t + " \u2013 " + a.a;
-  const item = document.createElement("div");
-  item.className = "item";
-  const cw = document.createElement("div");
-  cw.className = "cw";
-  const cb = document.createElement("div");
-  cb.className = "card static";
-  const cov = document.createElement("div");
-  cov.className = "cov rnd";
+  const play = () => {
+    const a = randomAlbum(list);
+    if (isPl) playPlaylist(a);
+    else cmd(a.play, "Playing: " + name(a));
+  };
+  const add = () => {
+    const a = randomAlbum(list), url = a.menu["addAll-last"] || a.menu["add-last"];
+    if (url) cmd(url, "Added to queue: " + name(a));
+    else toast("Could not add " + a.t);
+  };
   // Dice icon as cover art (isometric 3D cube, three shaded faces)
-  cov.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" stroke-width="1" stroke-linejoin="round">'
+  const dice = '<svg viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" stroke-width="1" stroke-linejoin="round">'
     + '<path d="M12 2.5 20 7 12 11.5 4 7z" fill="currentColor" fill-opacity=".35"/>'
     + '<path d="M4 7 12 11.5V21.5L4 17z" fill="currentColor" fill-opacity=".62"/>'
     + '<path d="M20 7 12 11.5V21.5L20 17z" fill="currentColor" fill-opacity=".9"/>'
     + '<g stroke="none" fill="var(--panel)"><ellipse cx="12" cy="7" rx="1.5" ry=".85"/>'
     + '<circle cx="6.4" cy="11.6" r="1"/><circle cx="9.6" cy="17" r="1"/>'
     + '<circle cx="14" cy="13" r="1"/><circle cx="16" cy="14.3" r="1"/><circle cx="18" cy="15.6" r="1"/></g></svg>';
-  cb.append(cov);
-  const play = () => {
-    const a = randomAlbum(list);
-    if (isPl) playPlaylist(a);
-    else cmd(a.play, "Playing: " + name(a));
-  };
-  const pl = document.createElement("button");
-  pl.className = "play";
-  pl.innerHTML = ICON_PLAY;
-  pl.setAttribute("aria-label", "Play a random " + kind);
-  pl.onclick = play;
-  const aq = document.createElement("button");
-  aq.className = "play addq";
-  aq.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
-  aq.setAttribute("aria-label", "Add a random " + kind + " to end of queue");
-  aq.title = "Add a random " + kind + " to end of queue";
-  aq.onclick = () => {
-    const a = randomAlbum(list), url = a.menu["addAll-last"] || a.menu["add-last"];
-    if (url) cmd(url, "Added to queue: " + name(a));
-    else toast("Could not add " + a.t);
-  };
-  cw.append(cb, pl, aq);
-  const tb = document.createElement("div");
-  tb.className = "card static";
-  const t = document.createElement("b");
-  t.textContent = "Random " + kind;
-  tb.append(t);
-  const sb = document.createElement("div");
-  sb.className = "card static";
-  const sp = document.createElement("span");
-  sp.textContent = "from " + (isPl ? nPl : nAlb)(list.length);
-  sb.append(sp);
-  item.append(cw, tb, sb);
-  return item;
+  const addText = "Add a random " + kind + " to end of queue";
+  return tile(
+    el("div", { className: "card static" }, el("div", { className: "cov rnd", innerHTML: dice })),
+    [playBtn("Play a random " + kind, play), addBtn(addText, addText, add)],
+    el("div", { className: "card static" }, el("b", {}, "Random " + kind)),
+    el("div", { className: "card static" }, el("span", {}, "from " + (isPl ? nPl : nAlb)(list.length)))
+  );
 }
 
 /* ---------- Favourites ---------- */
@@ -3101,6 +2995,11 @@ const repaintCoverHeart = (a) => {
   const b = coverHearts.get(a);
   if (b) paintHeart(b, a);
 };
+// Forgets the favourite action of the album's menu before the new one is set.
+const dropFav = (a) => {
+  delete a.menu["favourite-add"];
+  delete a.menu["favourite-delete"];
+};
 // Fetches the context menu of the album or library playlist again (current state + URL for the opposite action); report: shows a failure.
 async function refreshFav(a, report = apiFail) {
   if (!a.cm) return false;
@@ -3110,8 +3009,7 @@ async function refreshFav(a, report = apiFail) {
       if (attr(x, "actionURL")) m[attr(x, "type")] = attr(x, "actionURL");
     });
     if (!Object.keys(m).length) return false;
-    delete a.menu["favourite-add"];
-    delete a.menu["favourite-delete"];
+    dropFav(a);
     Object.assign(a.menu, m);
     repaintCoverHeart(a);
     return true;
@@ -3129,8 +3027,7 @@ async function toggleFav(a) {
   toast(f.on ? "Removed from favourites" : "Added to favourites");
   const k = a.cm.replace(/([?&])isFavourite=1(&|$)/, (m, p, q) => q ? p : "");
   a.cm = f.on ? k : k + "&isFavourite=1";
-  delete a.menu["favourite-add"];
-  delete a.menu["favourite-delete"];
+  dropFav(a);
   // Until the menu is read again, the opposite action follows from the one just used
   a.menu[f.on ? "favourite-add" : "favourite-delete"] = f.on ? f.url.replace("/DeleteFavourite", "/AddFavourite") : f.url.replace("/AddFavourite", "/DeleteFavourite");
   repaintCoverHeart(a);
@@ -3153,17 +3050,15 @@ async function openAlbum(a) {
   $("#dlen").textContent = "";
   albumDetails([]);
   // Source (USB / library) with the icon of the player, set apart from the album metadata
-  const sn = sourceName(a.key), si = imgUrl(sourceIcon(a.key)), ds = $("#ds");
+  const src = sourceOf(a.key), si = imgUrl(src?.icon), ds = $("#ds");
   ds.textContent = "";
-  if (sn) {
+  if (src?.name) {
     if (si) {
-      const ic = document.createElement("img");
-      ic.alt = "";
-      ic.onerror = () => ic.remove();
+      const ic = el("img", { alt: "", onerror: () => ic.remove() });
       ds.append(ic);
       showImg(ic, si);
     }
-    ds.append(document.createTextNode(sn));
+    ds.append(src.name);
   }
   const ol = $("#tracks");
   ol.innerHTML = "<li style='padding:10px;color:var(--dim)'>Loading tracks \u2026</li>";
@@ -3193,25 +3088,19 @@ async function openAlbum(a) {
     albumDetails(songs);
     // Song details per track by position: the track list comes in the order of the songs (disc, track),
     // titles may repeat on other discs (Bruno E32). The disc of a track is the discno of its song.
-    const txt = (e, t) => e.querySelector(t)?.textContent || "";
     const sgs = songs.length === tr.length ? songs : [];
-    const discs = new Set(sgs.map((x) => txt(x, "discno")).filter(Boolean)).size;
-    const secs = tr.reduce((t, i) => t + (+attr(i, "duration") || 0), 0);
+    const discs = new Set(sgs.map((x) => textOf(x, "discno")).filter(Boolean)).size;
+    const secs = totalSecs(tr);
     $("#dlen").textContent = [discs > 1 && discs + " discs", secs && fmtTime(secs)].filter(Boolean).join(" · ");
     // "N. Title" -> number column (without dot, as wide as the highest number) and title
     const parts = tr.map((i) => attr(i, "text").match(/^(?:(\d+)\.\s*)?(.*)$/s));
     ol.style.setProperty("--tnw", Math.max(...parts.map((p) => (p[1] || "").length), 1) + "ch");
     let disc = "";
     tr.forEach((i, k) => {
-      const sg = sgs[k], dn = sg ? txt(sg, "discno") : "";
-      if (discs > 1 && dn && dn !== disc) {
-        const h = document.createElement("li");
-        h.className = "disc";
-        h.textContent = "Disc " + dn;
-        ol.append(h);
-      }
+      const sg = sgs[k], dn = sg ? textOf(sg, "discno") : "";
+      if (discs > 1 && dn && dn !== disc) ol.append(el("li", { className: "disc" }, "Disc " + dn));
       disc = dn || disc;
-      const ar = sg ? txt(sg, "art") : "";
+      const ar = sg ? textOf(sg, "art") : "";
       ol.append(trackItem(parts[k][1] || "", parts[k][2], ar !== a.a ? ar : "", "", +attr(i, "duration"), attr(i, "autoplayURL") || attr(i, "playURL")));
     });
   } catch (e) {
@@ -3220,29 +3109,16 @@ async function openAlbum(a) {
     apiFail("Loading the tracks did not succeed", e);
   }
 }
+// Total playing time in seconds of track <item>s (duration attribute).
+const totalSecs = (tracks) => tracks.reduce((t, i) => t + (+attr(i, "duration") || 0), 0);
 // One row of the popup's track list: number, title (with a second line: the track artist as links, then
 // `album`), duration in seconds; a click on the row plays `url`.
 function trackItem(num, title, artist, album, secs, url) {
-  const li = document.createElement("li"), b = document.createElement("button");
-  const n = document.createElement("span"), t = document.createElement("span");
-  li.className = "tr";
-  b.className = "tp";
-  b.setAttribute("aria-label", "Play " + title);
-  b.onclick = () => cmd(url, "Track started");
-  n.className = "tn";
-  n.textContent = num;
-  t.className = "tt";
-  t.textContent = title;
-  if (artist || album) {
-    const ta = document.createElement("small");
-    ta.className = "ta";
-    ta.append(...(artist ? artistLinks(artist, "al", true) : []), artist && album ? " • " : "", album);
-    t.append(ta);
-  }
-  const d = document.createElement("i");
-  d.textContent = secs ? fmtTime(secs) : "";
-  li.append(b, n, t, d);
-  return li;
+  const t = el("span", { className: "tt" }, title);
+  if (artist || album) t.append(el("small", { className: "ta" }, ...(artist ? artistLinks(artist, "al", true) : []), artist && album ? " • " : "", album));
+  return el("li", { className: "tr" },
+    el("button", { className: "tp", "aria-label": "Play " + title, onclick: () => cmd(url, "Track started") }),
+    el("span", { className: "tn" }, num), t, el("i", {}, secs ? fmtTime(secs) : ""));
 }
 // Year, quality tag and technical data of the album from its songs (/library/v1/Songs):
 // e.g. "1977" and "[CD] FLAC · 16 bit / 44.1 kHz · Stereo · Ø 850 kbit/s". Differing values are
@@ -3257,17 +3133,12 @@ function albumDetails(songs) {
     const n = vals.map(Number).filter((v) => v > 0).sort((p, q) => p - q);
     return !n.length ? "" : n[0] === n[n.length - 1] ? f(n[0]) : f(n[0]) + "\u2013" + f(n[n.length - 1]);
   };
-  const years = uniq((x) => x.querySelector("date")?.textContent.trim() || "");
+  const years = uniq((x) => textOf(x, "date"));
   if (years.length) dy.textContent = range(years, String);
   // Quality: cd / hd / hr / mqa; MP3 files report their bitrate as quality
   const fmts = uniq(at("atype")).map((f) => FORMATS[f] || f.toUpperCase());
-  const labels = uniq((x) => at("atype")(x) === "mp3" ? "MP3" : qLabel(x.querySelector("quality")?.textContent || ""));
-  labels.forEach((l) => {
-    const t = document.createElement("span");
-    t.className = "q" + ({ HD: " q-hd", MQA: " q-mqa", MP3: " q-mp3" }[l] || "");
-    t.textContent = l;
-    dt.append(t);
-  });
+  const labels = uniq((x) => at("atype")(x) === "mp3" ? "MP3" : qLabel(textOf(x, "quality")));
+  dt.append(...labels.map((l) => el("span", { className: Q_CLASS[l] ? "q " + Q_CLASS[l] : "q" }, l)));
   const lossy = fmts.every((f) => LOSSY.includes(f));
   const bits = lossy ? "" : range(uniq(at("samplebits")), (v) => v + "");
   const rate = range(uniq(at("samplerate")), (v) => +(v / 1000).toFixed(1) + "");
@@ -3275,9 +3146,7 @@ function albumDetails(songs) {
   const br = songs.map((x) => +at("bitrate")(x)).filter((v) => v > 0);
   const avg = br.length ? "\u00D8 " + Math.round(br.reduce((p, q) => p + q, 0) / br.length / 1000) + " kbit/s" : "";
   const res = [bits && bits + " bit", rate && rate + " kHz"].filter(Boolean).join(" / ");
-  const info = document.createElement("span");
-  info.textContent = [fmts.join(" / "), res, ch, avg].filter(Boolean).join(" \u00B7 ");
-  dt.append(info);
+  dt.append(el("span", {}, [fmts.join(" / "), res, ch, avg].filter(Boolean).join(" \u00B7 ")));
 }
 // Shows a request, its HTTP status and the raw response body (used when a player request did not succeed).
 // While the popup is open, it keeps the first failure (parallel requests often fail together).
@@ -3307,22 +3176,11 @@ function loadFailed(prefix, title, e) {
 
 // Tiles of one playlist list (following nextKey paging) like albums: name, cover (the first track's), browse key of
 // the tracks, play URL and the actions of the context menu (add-last for the add button, delete for BluOS playlists).
-async function playlistTiles(key, lib) {
-  const list = [];
-  for (let i = 0; key && i < 20; i++) {
-    const d = await browse(key);
-    // Play URL: playURL, or else a "play" action from the item's context menu.
-    items(d).forEach((it) => {
-      const p = toAlbum(it), pm = Object.keys(p.menu).find((m) => /^play/i.test(m));
-      p.play = p.play || (pm ? p.menu[pm] : "");
-      p.pl = true;
-      if (lib) p.lib = true;
-      if (p.play) list.push(p);
-    });
-    key = attr(d.documentElement, "nextKey");
-  }
-  return list;
-}
+const playlistTiles = async (key, lib) => (await fetchItems(key)).map((it) => {
+  // Play URL: playURL, or else a "play" action from the item's context menu.
+  const p = toAlbum(it), pm = Object.keys(p.menu).find((m) => /^play/i.test(m));
+  return Object.assign(p, { play: p.play || (pm ? p.menu[pm] : ""), pl: true }, lib ? { lib: true } : {});
+}).filter((p) => p.play);
 // Loads the BluOS playlists (top menu) and the library playlists of every enabled source (link "Playlists" of its
 // menu). Called after opening the sources, after saving / deleting a playlist and on every click of the Playlists
 // chip; an open Playlists view is drawn again when the list has changed.
@@ -3353,17 +3211,11 @@ function renderPlChip() {
   const nav = $("#az");
   plBtn?.remove();
   if (!playlists.length) return;
-  if (!plBtn) {
-    plBtn = document.createElement("button");
-    plBtn.className = "sp plc";
-    plBtn.textContent = "Playlists";
-    plBtn.title = "BluOS and library playlists";
-    plBtn.onclick = () => {
-      selectView("__pl", plBtn);
-      showPlaylists();
-      loadPlaylists();
-    };
-  }
+  plBtn ||= chip({ className: "sp plc", textContent: "Playlists", title: "BluOS and library playlists" }, (b) => {
+    selectView("__pl", b);
+    showPlaylists();
+    loadPlaylists();
+  });
   plBtn.setAttribute("aria-pressed", activeKey === "__pl");
   const nw = nav.querySelector(".nw");
   if (nw) nw.after(plBtn);
@@ -3383,13 +3235,9 @@ function showPlaylists() {
 // (/Delete?name=…&service=BluOS); the queue stays. Success: toast and the playlists read again (its tile goes).
 async function deletePlaylist(p) {
   if (!confirm("Delete the playlist \u201C" + p.t + "\u201D from the player?\nThe current queue is not changed.")) return;
-  const r = await apiRaw(p.menu.delete);
-  if (r.ok && !/<error/i.test(r.body)) {
-    toast("Deleted playlist \u201C" + p.t + "\u201D");
-    loadPlaylists();
-    return;
-  }
-  showApiResponse("Deleting the playlist did not succeed", base + p.menu.delete, r.status, r.body);
+  if (!await rawCmd(p.menu.delete, "Deleting the playlist did not succeed", (r) => r.ok && !/<error/i.test(r.body))) return;
+  toast("Deleted playlist \u201C" + p.t + "\u201D");
+  loadPlaylists();
 }
 // Plays a playlist (replaces the queue).
 function playPlaylist(p) {
@@ -3408,7 +3256,7 @@ async function playlistTracks(p, seq) {
     const tr = await fetchItems(p.key, "track", null, false); // no context menus (a library playlist: 40 instead of 18 KB)
     if (seq !== dlgSeq) return;
     ol.innerHTML = "";
-    const secs = tr.reduce((t, i) => t + (+attr(i, "duration") || 0), 0);
+    const secs = totalSecs(tr);
     $("#dlen").textContent = [nTr(tr.length), secs && fmtTime(secs)].filter(Boolean).join(" \u00B7 ");
     ol.style.setProperty("--tnw", String(tr.length).length + "ch");
     // text2 = "track artist • album"
@@ -3463,35 +3311,15 @@ async function loadQueue() {
     if (seq !== qSeq) return;
     ol.innerHTML = "";
     songs.forEach((sg) => {
-      const id = attr(sg, "id"), li = document.createElement("li");
+      const id = attr(sg, "id"), title = textOf(sg, "title"), art = textOf(sg, "art"), alb = textOf(sg, "alb"), li = el("li");
       li.dataset.id = id;
-      const q = (tag) => {
-        const e = sg.querySelector(tag);
-        return e ? e.textContent.trim() : "";
-      };
-      const it = document.createElement("button");
-      it.className = "it";
-      it.setAttribute("aria-label", "Play " + q("title"));
-      const n = document.createElement("span");
-      n.className = "qn";
-      n.textContent = +id + 1;
-      const t = document.createElement("div");
-      t.className = "qt";
-      const b = document.createElement("b"), sp = document.createElement("span");
-      b.textContent = q("title");
-      sp.append(...(q("art") ? artistLinks(q("art"), "al", true) : []), q("art") && q("alb") ? " \u2013 " : "", q("alb"));
-      t.append(b, sp);
-      li.append(it, n, t);
-      // Track length (<time> is in seconds; not every source provides it)
-      const secs = +q("time");
-      if (secs > 0) {
-        const d = document.createElement("span");
-        d.className = "qd";
-        d.textContent = fmtTime(secs);
-        li.append(d);
-      }
       // Position from the row, not from this answer: a move renumbers the rows before the queue is reloaded
-      it.onclick = () => Date.now() - qDragEnd > 300 && xml("/Play?id=" + li.dataset.id);
+      const it = el("button", { className: "it", "aria-label": "Play " + title, onclick: () => Date.now() - qDragEnd > 300 && xml("/Play?id=" + li.dataset.id) });
+      li.append(it, el("span", { className: "qn" }, String(+id + 1)),
+        el("div", { className: "qt" }, el("b", {}, title), el("span", {}, ...(art ? artistLinks(art, "al", true) : []), art && alb ? " \u2013 " : "", alb)));
+      // Track length (<time> is in seconds; not every source provides it)
+      const secs = +textOf(sg, "time");
+      if (secs > 0) li.append(el("span", { className: "qd" }, fmtTime(secs)));
       // Keyboard: Alt + arrow up / down moves the entry by one place
       it.onkeydown = (e) => {
         if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
@@ -3501,20 +3329,15 @@ async function loadQueue() {
         moveEntry(from, to);
         it.focus();
       };
-      const rm = document.createElement("button");
-      rm.className = "rm";
-      rm.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>';
-      rm.setAttribute("aria-label", "Remove from queue");
       // The changed playlist id in /Status reloads the queue (checked in Bruno, 2 Write #25).
-      rm.onclick = () => xml("/Delete?id=" + li.dataset.id);
-      li.append(rm);
+      li.append(el("button", { className: "rm", innerHTML: ICON_REMOVE, "aria-label": "Remove from queue", onclick: () => xml("/Delete?id=" + li.dataset.id) }));
       qDrag(li);
       ol.append(li);
     });
-    const totalSecs = songs.reduce((n, sg) => n + (+(sg.querySelector("time") || {}).textContent || 0), 0);
+    const secs = songs.reduce((n, sg) => n + (+textOf(sg, "time") || 0), 0);
     $("#qsave").disabled = $("#qclear").disabled = $("#qshuf").disabled = $("#qrep").disabled = !total;
     // Two lines: number of tracks, total playing time
-    $("#qcount").textContent = total ? total + (total === 1 ? " track" : " tracks") + (totalSecs ? "\n" + fmtTime(totalSecs) : "") : "";
+    $("#qcount").textContent = total ? nTr(total) + (secs ? "\n" + fmtTime(secs) : "") : "";
     markCur(true);
   } catch (e) {
     if (seq === qSeq) {
@@ -3625,7 +3448,6 @@ function qpanel(open) {
 /* ---------- Player footer & full screen ---------- */
 // Now playing, progress, transport, volume, status polling, full-screen view.
 
-const fmtT = (s) => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
 const curPos = () => pos.secs + (pos.playing ? (Date.now() - pos.t) / 1e3 : 0);
 const canSeek = () => pos.canSeek && pos.total > 0;
 // Updates the thin progress strip on top of the footer (4x per second).
@@ -3644,8 +3466,7 @@ async function seekTo(sec) {
   pos.secs = sec;
   pos.t = Date.now();
   tickProg();
-  const d = await xml("/Play?seek=" + sec), s = d && d.querySelector("state");
-  if (s) setState(s.textContent);
+  stateFrom(await xml("/Play?seek=" + sec));
 }
 // Play/pause button and position clock from a player state ("play", "stream", "pause", "stop").
 const setState = (s) => {
@@ -3654,6 +3475,11 @@ const setState = (s) => {
   pos.t = Date.now();
   pos.playing = !paused;
   $("#pp").innerHTML = paused ? ICON_PLAY : ICON_PAUSE;
+};
+// setState() from the <state> of a command's answer (null: no answer).
+const stateFrom = (d) => {
+  const s = d && textOf(d, "state");
+  if (s) setState(s);
 };
 const paintVol = (v) => $("#vs").style.setProperty("--p", v + "%");
 // Applies a volume response; a volume of -1 means fixed volume, so the controls are disabled.
@@ -3696,7 +3522,7 @@ function qLabel(q) {
 // as alt text and in the tooltip (with the setting's displayName). Players without listening modes do not
 // answer it, and an icon that does not load is hidden too.
 async function loadListeningMode() {
-  const seq = ++lmSeq, mine = base, el = $("#lm");
+  const seq = ++lmSeq, mine = base, img = $("#lm");
   let d = null;
   try {
     d = await api("/audioPreset");
@@ -3708,19 +3534,15 @@ async function loadListeningMode() {
   const name = cur ? cur.getAttribute("displayName") || "" : "", icon = cur ? imgUrl(cur.getAttribute("iconActive")) : "";
   const label = set ? set.getAttribute("displayName") || "" : "";
   // The frame (#lmf) is shown and hidden together with the icon
-  el.hidden = el.parentElement.hidden = !icon;
-  el.alt = icon ? name : "";
-  el.title = icon ? (label ? label + ": " : "") + name : "";
-  el.onerror = () => el.hidden = el.parentElement.hidden = true;
-  showImg(el, icon);
+  img.hidden = img.parentElement.hidden = !icon;
+  img.alt = icon ? name : "";
+  img.title = icon ? (label ? label + ": " : "") + name : "";
+  img.onerror = () => img.hidden = img.parentElement.hidden = true;
+  showImg(img, icon);
 }
 // Renders a /Status response: now playing, cover, quality, position, volume, current queue entry.
 function showNow(d) {
-  const root = d.documentElement;
-  const g = (n) => {
-    const e = root.querySelector(":scope > " + n);
-    return e ? e.textContent.trim() : "";
-  };
+  const root = d.documentElement, g = (n) => textOf(root, ":scope > " + n);
   const state = g("state");
   if (state) setState(state);
   setVol(d);
@@ -3777,10 +3599,8 @@ function showNow(d) {
   q.hidden = !ql;
   q.textContent = ql;
   q.title = g("streamFormat");
-  // Metal finish per quality: silver (default), gold for HD, bronze for MQA, copper for MP3
-  q.classList.toggle("q-hd", ql === "HD");
-  q.classList.toggle("q-mqa", ql === "MQA");
-  q.classList.toggle("q-mp3", ql === "MP3");
+  // Metal finish per quality (Q_CLASS)
+  Object.entries(Q_CLASS).forEach(([l, c]) => q.classList.toggle(c, ql === l));
 }
 // Long-poll loop: /Status?timeout=100&etag=... returns as soon as something changes.
 // Waits at least 1 s between requests and 5 s after an error.
@@ -3820,8 +3640,7 @@ async function loadYear() {
     }
   }
   if (seq !== fySeq || mine !== base || k !== fyWant || !d) return;
-  const e = d.querySelector("song > date");
-  $("#fy").textContent = e ? e.textContent.trim() : "";
+  $("#fy").textContent = textOf(d, "song > date");
 }
 // Opens / closes the full-screen view (only while something is playing).
 function showFull(open) {
@@ -4013,18 +3832,7 @@ function renderLib() {
   const stats = ["Albums", "Artists", "Songs", "Genres", "Composers"].filter((k) => k in libStats).map((k) => [k, fmt(libStats[k])]);
   if (plCount !== null) stats.push(["Playlists", fmt(plCount)]);
   const section = (box, title, rows) => {
-    if (!rows.length) return;
-    const h = document.createElement("h3");
-    h.textContent = title;
-    const dl = document.createElement("dl");
-    dl.className = "kv";
-    rows.forEach(([k, v]) => {
-      const dt = document.createElement("dt"), dd = document.createElement("dd");
-      dt.textContent = k;
-      dd.textContent = v;
-      dl.append(dt, dd);
-    });
-    box.append(h, dl);
+    if (rows.length) box.append(el("h3", {}, title), el("dl", { className: "kv" }, ...rows.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)])));
   };
   section($("#info"), "Player", [["Room", playerName], ...playerRows].filter((x) => x[1]));
   section($("#info"), "Music Library Stats", stats);
@@ -4107,7 +3915,7 @@ async function loadVersions() {
   const mine = base;
   const ver = async (path) => {
     try {
-      return (await api(path)).querySelector("version")?.textContent.trim() || "";
+      return textOf(await api(path), "version");
     } catch (e) {
       if (mine === base) apiFail("Loading the player version did not succeed", e);
       return "";
@@ -4136,12 +3944,7 @@ async function checkUpdate() {
     if (!rel.tag_name) throw new Error("no release");
     if (newer(num(rel.tag_name), num(APP.version))) {
       msg.textContent = "Update available: ";
-      const a = document.createElement("a");
-      a.href = rel.html_url;
-      a.target = "_blank";
-      a.rel = "noopener";
-      a.textContent = rel.tag_name;
-      msg.append(a);
+      msg.append(el("a", { href: rel.html_url, target: "_blank", rel: "noopener" }, rel.tag_name));
     } else {
       msg.textContent = "You have the latest version.";
     }
@@ -4217,7 +4020,7 @@ $("#prog").addEventListener("click", (e) => {
 });
 $("#prog").addEventListener("pointermove", (e) => {
   const r = $("#prog").getBoundingClientRect();
-  $("#prog").title = pos.total > 0 ? fmtT(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * pos.total) + " / " + fmtT(pos.total) : "";
+  $("#prog").title = pos.total > 0 ? fmtTime(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * pos.total) + " / " + fmtTime(pos.total) : "";
 });
 $("#prog").addEventListener("keydown", (e) => {
   if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
@@ -4229,21 +4032,19 @@ $("#cov").onerror = () => {
   $("#cov").hidden = true;
 };
 // Transport buttons.
-$("#pp").onclick = async () => {
-  const d = await xml("/Pause?toggle=1");
-  const s = d && d.querySelector("state");
-  if (s) setState(s.textContent);
-};
+$("#pp").onclick = async () => stateFrom(await xml("/Pause?toggle=1"));
 // Back / skip: the new track arrives through the /Status long polling.
 $("#bk").onclick = () => xml("/Back");
 $("#sk").onclick = () => xml("/Skip");
 // Volume slider and +/- buttons.
 {
   const sl = $("#vs");
-  const flush = () => {
+  // Sends a volume level; a pending rate-limited request is dropped.
+  const send = (v) => {
+    clearTimeout(vTimer);
     vTimer = 0;
     vLast = Date.now();
-    xml("/Volume?level=" + vWant);
+    return xml("/Volume?level=" + v);
   };
   sl.addEventListener("pointerdown", () => {
     dragging = true;
@@ -4257,16 +4058,13 @@ $("#sk").onclick = () => xml("/Skip");
   sl.addEventListener("input", () => {
     vWant = +sl.value;
     paintVol(vWant);
-    if (!vTimer) vTimer = setTimeout(flush, Math.max(0, 150 - (Date.now() - vLast)));
+    if (!vTimer) vTimer = setTimeout(() => send(vWant), Math.max(0, 150 - (Date.now() - vLast)));
   });
   $("#vd").onclick = async () => setVol(await xml("/Volume?db=-2"));
   $("#vu").onclick = async () => setVol(await xml("/Volume?db=2"));
   sl.addEventListener("change", async () => {
-    clearTimeout(vTimer);
-    vTimer = 0;
-    vLast = Date.now();
     dragging = false;
-    setVol(await xml("/Volume?level=" + sl.value));
+    setVol(await send(sl.value));
   });
 }
 addEventListener("resize", () => {
@@ -4284,14 +4082,14 @@ $("#qsave").onclick = async () => {
   const def = "Queue " + d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
   const name = (prompt("Save the queue as BluOS playlist:", def) || "").trim();
   if (!name) return;
-  const path = "/Save?name=" + encodeURIComponent(name), r = await apiRaw(path);
-  const e = r.ok && new DOMParser().parseFromString(r.body, "text/xml").querySelector("saved > entries"), n = e ? +e.textContent : 0;
-  if (n > 0) {
-    toast("Saved BluOS playlist \u201C" + name + "\u201D (" + n + (n === 1 ? " track)" : " tracks)"));
-    loadPlaylists();
-    return;
-  }
-  showApiResponse("Saving the playlist did not succeed", base + path, r.status, r.body);
+  let n = 0;
+  const saved = (r) => {
+    n = r.ok ? +textOf(new DOMParser().parseFromString(r.body, "text/xml"), "saved > entries") || 0 : 0;
+    return n > 0;
+  };
+  if (!await rawCmd("/Save?name=" + encodeURIComponent(name), "Saving the playlist did not succeed", saved)) return;
+  toast("Saved BluOS playlist \u201C" + name + "\u201D (" + nTr(n) + ")");
+  loadPlaylists();
 };
 // Switches shuffle on / off: /Shuffle?state=1|0. The player reorders the queue (and restores the
 // original order when switched off); the button state follows the <shuffle> value of /Status,
