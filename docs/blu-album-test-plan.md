@@ -17,7 +17,7 @@ Every function of the app (`blualbum.html`) as a test case, grouped into test bl
 |---|---|---|---|---|---|
 | CON | 4.1 Connection & start | Start page, IP form, connect, errors, time limit, compact connection line, changing the player | 14 | 10 | 9 |
 | SRC | 4.2 Music sources | Source detection, one switch per source, stored per player | 6 | 3 | 5 |
-| CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results | 20 | 13 | 19 |
+| CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results, sort order | 21 | 14 | 19 |
 | GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons, status line | 11 | 8 | 8 |
 | FAV | 4.5 Favourites | Heart on the cover, toggling via the player, no local favourites | 6 | 5 | 6 |
 | ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache, artist links (several artists, track artists) | 5 | 4 | 5 |
@@ -33,7 +33,7 @@ Every function of the app (`blualbum.html`) as a test case, grouped into test bl
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 4 | 3 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 2 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **187** | **127** | **150** |
+| | | **Total** | **188** | **128** | **150** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -45,9 +45,9 @@ The test cases of chapter 4 are the same in every environment; the environments 
 
 | ID | Environment | Execution | Platform (OS, browsers) | Scope (window sizes, cases) | Player / data | Run |
 |---|---|---|---|---|---|---|
-| ENV-1 | Browsers, local, mock data | Automated | macOS: Chrome (installed app), Safari (Playwright's WebKit) | 1200x800 (other sizes with `--viewport`); the 50 local core tests, about 30 seconds; all 187 cases with `--all`, about 2.5 minutes | Mock player, fixtures | `npm test` in `tests/ui`; all: `npm run test:all` |
-| ENV-2 | Browsers, remote (GitHub Actions), mock data | Automated | macOS: Safari (WebKit), Chrome · Windows: Edge, Chrome, Firefox · Linux: Chrome, Firefox | 1280x800, 1440x900@2, 1920x1080; all 187 cases; screenshots of the main views as artifact | Mock player, fixtures | `.github/workflows/ui-tests.yml`: push, pull request, Mondays, on demand |
-| ENV-3 | Browsers, local, real player | Automated | macOS (home network): Chrome, Safari (WebKit) | 1200x800; the cases marked read (with `--write` also write): 127 of 187 (98 read, 29 write), one at a time | Owner's player, live answers | `node run.js --player <ip>` (read) or `--player <ip> --write` |
+| ENV-1 | Browsers, local, mock data | Automated | macOS: Chrome (installed app), Safari (Playwright's WebKit) | 1200x800 (other sizes with `--viewport`); the 50 local core tests, about 30 seconds; all 188 cases with `--all`, about 2.5 minutes | Mock player, fixtures | `npm test` in `tests/ui`; all: `npm run test:all` |
+| ENV-2 | Browsers, remote (GitHub Actions), mock data | Automated | macOS: Safari (WebKit), Chrome · Windows: Edge, Chrome, Firefox · Linux: Chrome, Firefox | 1280x800, 1440x900@2, 1920x1080; all 188 cases; screenshots of the main views as artifact | Mock player, fixtures | `.github/workflows/ui-tests.yml`: push, pull request, Mondays, on demand |
+| ENV-3 | Browsers, local, real player | Automated | macOS (home network): Chrome, Safari (WebKit) | 1200x800; the cases marked read (with `--write` also write): 128 of 188 (99 read, 29 write), one at a time | Owner's player, live answers | `node run.js --player <ip>` (read) or `--player <ip> --write` |
 | ENV-4 | Safari app, real player | Manual, before a release | macOS: the Safari app (Playwright's WebKit is its engine, not the app) | Main views; the Safari pitfalls of `CLAUDE.md` (popup track list of a long album, old cached file) | Owner's player | By hand |
 
 In the automated environments the app runs as a `file://` page in a fresh browser profile per case. The mock player `tests/ui/mock-player.js` answers from the fixtures at a documentation address (`IP`, a second mock player `IP2`) and records every request and command; with `--player` the requests of the real player are recorded the same way. Options of the mock and of the start per test: `tests/ui/README.md`.
@@ -165,6 +165,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | CHP-18 | Outdated genre failure | Delayed HTTP 500 for a genre; meanwhile click New, or open the sources again and click the genre again | Current view and status line stay; no error popup | – | yes |
 | CHP-19 | Outdated failure of All or an artist | Delayed HTTP 500 for All (sections, albums) or the favourite state of an artist; meanwhile click New. All failing while selected | New stays, no error popup. Selected All: the error stays in the status line | – | yes |
 | CHP-20 | Outdated source selection | Delayed failure of Favourites or delayed answer of CD; meanwhile open the sources again | No error over the new selection; old list not in its cache | – | local |
+| CHP-21 | Sort order of the album views | App defaults; default view Favourites; choose every sort order; All with "Year, newest first" and "Year, oldest first"; New; search and clear; Playlists; reload + connect | Select at the right of the status line, options of `SORTS`, default "Random" (every album of the view); album title A–Z / Z–A, album artist A–Z / Z–A (an artist's albums by year), year newest / oldest first (albums without a year last), equal values by album title; status line unchanged; stored (`sort`). All: years from `/library/v1/Albums?service=<svc>&section=all` (1 request per source, once), years = TD-YEARS. New: newest first, select disabled with "Newest added". Hidden in the search results and in Playlists, shown again after clearing the search; after reload + connect the stored order | read | – |
 
 ### 4.4 Album grid (GRD)
 
@@ -180,7 +181,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | GRD-08 | Play an album | Click play on a tile | The album's play URL (`/Add?playnow=1…`); toast "Playing: <title>" | write | local |
 | GRD-09 | Add an album last | Click add on a tile | `addAll-last` URL with `where=last`; toast "Added to queue: <title>" | write | yes |
 | GRD-10 | Long title and artist | Mock favourites with a title and an artist longer than a tile; hover the tile, leave it; again with reduced motion | Title and artist one line each, cut lines fade out (`.cut`), short lines not cut; hover (after 300 ms) scrolls both cut lines, leaving stops it; reduced motion: no scrolling, full text as tooltip | – | – |
-| GRD-11 | Status line with a fine line | Favourites view; pin the queue (window 800 px or wider) | A fine line under the status line, from the left to the right edge of the grid's tiles; with the pinned queue it ends where the grid ends, with space to the queue | – | – |
+| GRD-11 | Status line with a fine line | Favourites view; pin the queue (window 800 px or wider) | A fine line under the status line (with the sort order), from the left to the right edge of the grid's tiles; with the pinned queue it ends where the grid ends, with space to the queue | – | – |
 
 ### 4.5 Favourites (FAV)
 

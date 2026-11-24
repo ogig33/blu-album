@@ -111,8 +111,8 @@ Do not build these; when asked, point to the alternative.
 - **Outdated async results** are dropped: `ctx()` (player + source selection), `activeKey` (current view) and counters `plSeq`, `qSeq`, `dlgSeq`, `searchSeq`, `lazyTok`. View loaders show results and errors only through `viewOut()` (also holds them back during a search).
 - **Elements** are built with `el(tag, props, ...children)`, chips with `chip(props, load)`, line icons with `strokeIcon()`; texts of XML elements are read with `textOf(e, sel)`.
 - **Covers** are read with `fetch()` and shown as blob URLs (`showImg()`), not as `<img src="http://…">` (Firefox upgrades those to https on a `file://` page).
-- **Settings switches / segments:** `bindSwitch()` (also the search area chips), `bindSegment()`; localStorage only for conveniences (IP, design, cover size, chip groups, search areas, pinned queue, disabled sources).
-- **Configuration constants:** `APP`, `SVC_LIBRARY`, `VIEW` (view and cache keys), `QUALITIES`, `FORMATS`, `LOSSY`, `REPEAT`, icons (`ICON_*`, `HEART`).
+- **Settings switches / segments:** `bindSwitch()` (also the search area chips), `bindSegment()`; localStorage only for conveniences (IP, design, cover size, chip groups, search areas, sort order, pinned queue, disabled sources).
+- **Configuration constants:** `APP`, `SVC_LIBRARY`, `VIEW` (view and cache keys), `QUALITIES`, `SORTS`, `FORMATS`, `LOSSY`, `REPEAT`, icons (`ICON_*`, `HEART`).
 
 ## Decisions
 
@@ -133,6 +133,7 @@ Do not build these; when asked, point to the alternative.
 - **Album artist search in the app:** the player's search does not match the album artist (see pitfalls); the Artist search area also matches the album artist of every album of the library (`section=all` without a filter, 1 request per source, shared with the decade chips) in the app, with the player's rules (`atWordStart()`); result group "as an album artist" before "as a track artist", one chip for both.
 - **No song favourites:** no heart per track in the album popup and no "Favourite songs" chip, although the API supports both (`/AddFavourite?fn=`, `autoplayURL` with `category=FAVOURITES`); BluAlbum keeps to album favourites and the favourites of library playlists (heart on their tile; BluOS playlists have none).
 - **No playlist search:** the player offers none (see `/Playlists` in `docs/bluos-api.md`); a name filter in the app would be possible, but is not wanted.
+- **Sort order of the album views:** a select in the status line (grey like its text), sorted in the app; album title, album artist (an artist's albums by year), year (each A–Z / Z–A or newest / oldest first) and Random, the default; New keeps its newest-first order (select disabled); no group lines; search results and the Playlists view are not sorted.
 - **The Playlists view:** BluOS playlists, then library playlists of the enabled sources, grouped like the search results, each group in the player's order; no "Date added" sort (`/Playlists?sort=recent`) and no warning when the queue is saved under an existing playlist name.
 
 ## Known pitfalls

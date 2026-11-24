@@ -500,13 +500,18 @@ async function start(browser, opts = {}) {
     );
   if (opts.storage)
     await page.addInitScript((s) => Object.entries(s).forEach(([k, v]) => localStorage.setItem(k, v)), opts.storage);
-  // Most tests use the genre and quality chips and search every area, which are off by default: switched on in
-  // the fresh profile (only when not stored yet, so a switch changed by the test stays changed after a reload)
+  // Most tests use the genre and quality chips and search every area, which are off by default, and expect the album
+  // views sorted by title (default: random): set in the fresh profile (only when not stored yet, so a setting changed
+  // by the test stays changed after a reload)
   if (!opts.appDefaults && !opts.blockStorage)
     await page.addInitScript(() =>
-      ["genrechips", "qchips", "searchin:artist", "searchin:composer"].forEach(
-        (k) => localStorage.getItem(k) === null && localStorage.setItem(k, "1"),
-      ),
+      Object.entries({
+        genrechips: "1",
+        qchips: "1",
+        "searchin:artist": "1",
+        "searchin:composer": "1",
+        sort: "title",
+      }).forEach(([k, v]) => localStorage.getItem(k) === null && localStorage.setItem(k, v)),
     );
   await page.goto(APP);
   const ready = async () => {
@@ -563,7 +568,10 @@ async function start(browser, opts = {}) {
     );
   const all = async () => {
     await chip("All");
-    await page.waitForFunction(() => activeKey === "__all" && cache.__all && shown === cache.__all, null, {
+    // All shown: its albums in the grid (a sorted copy of the cached list)
+    const done = () =>
+      activeKey === "__all" && cache.__all && viewList === cache.__all && shown.length === viewList.length;
+    await page.waitForFunction(done, null, {
       timeout: REAL ? 120000 : 30000,
     });
   };
@@ -1064,7 +1072,7 @@ test("GRD-11 status line underlined with a fine line as wide as the grid, also w
   // left / right of the status line's fine line and of the grid's content box (inside its side padding)
   const edges = () =>
     t.page.evaluate(() => {
-      const m = document.querySelector("#msg"),
+      const m = document.querySelector("#stl"),
         g = document.querySelector("#grid");
       const ms = getComputedStyle(m),
         gs = getComputedStyle(g),
@@ -1502,6 +1510,110 @@ test(
     eq(await t.page.evaluate(() => shown.length), of(last).length, "albums of the other decade");
   },
   { ...R, storage: { decadechips: "1" } },
+);
+
+// Every album of the library (section=all without a filter) for the year sort of All (CHP-21): the mock's albums of
+// All (fixture 07) with a year, the last one without; the real player answers its own list (TD-YEARS).
+const ALL_YEARS = [...fx("07").matchAll(/<item [^>]*type="album">/g)].map(([it], i, l) => {
+  const val = (n) => (it.match(new RegExp(` ${n}="([^"]*)"`)) || [])[1] || "";
+  return { t: val("text"), a: val("text2"), y: i === l.length - 1 ? "" : String(1960 + ((i * 7) % 60)) };
+});
+const allYears = () => {
+  const albums = ALL_YEARS.map(
+    (x) => `<album tracks="9"${x.y ? ` date="${x.y}"` : ""}><title>${x.t}</title><art>${x.a}</art></album>`,
+  );
+  return `<albums section="all" service="LocalMusic"><sections><section name="#">${albums.join("")}</section></sections></albums>`;
+};
+
+test(
+  "CHP-21 sort order: default random, every order, years for All, New keeps its order, stored, hidden in search",
+  async (t) => {
+    const albums = () => t.page.evaluate(() => shown.map((a) => ({ t: a.t, a: a.a, y: a.y })));
+    const sorted = (l, cmp) => l.every((x, i) => !i || cmp(l[i - 1], x) <= 0);
+    const by = (k, dir) => (x, y) => dir * x[k].localeCompare(y[k]);
+    const yr = (a) => +a.y || 0;
+    const year = (dir) => (x, y) => !yr(x) - !yr(y) || dir * (yr(x) - yr(y));
+    const pick = async (v) => {
+      await t.page.selectOption("#sort", v);
+      await t.page.waitForFunction(() => shown.length === viewList.length);
+    };
+    // Default view Favourites: random, every order of SORTS, status line unchanged
+    await t.waitMsg(/in favourites/);
+    ok(await t.page.isVisible("#sort"), "sort order shown");
+    eq(await t.page.inputValue("#sort"), "random", "default random");
+    eq(
+      await t.page.$$eval("#sort option", (x) => x.map((o) => o.textContent)),
+      await t.page.evaluate(() => SORTS.map((s) => s[1])),
+      "options",
+    );
+    eq((await albums()).map((a) => a.t).sort(), TD.FAV.map((f) => f.t).sort(), "random: every favourite");
+    const text = await t.msg();
+    await pick("title");
+    ok(sorted(await albums(), by("t", 1)), "album title A-Z");
+    await pick("title-desc");
+    ok(sorted(await albums(), by("t", -1)), "album title Z-A");
+    await pick("artist");
+    ok(sorted(await albums(), by("a", 1)), "album artist A-Z");
+    await pick("artist-desc");
+    ok(sorted(await albums(), by("a", -1)), "album artist Z-A");
+    eq(await t.msg(), text, "status line unchanged");
+    eq(await t.page.evaluate(() => localStorage.getItem("sort")), "artist-desc", "stored");
+    // All has no years: looked up once from every album of the enabled sources (1 request per source)
+    await t.all();
+    const before = yearReqs(t).length;
+    await pick("year-desc");
+    eq(yearReqs(t).length - before, albumSvcs().length, "years: one request per source");
+    let l = await albums();
+    ok(sorted(l, year(-1)), "year, newest first; without a year last");
+    // the year of every album of All that has one (by title; titles with two years are left out)
+    const ys = new Map(),
+      twice = new Set();
+    const years = REAL ? TD.YEARS : ALL_YEARS.filter((a) => a.y).map((a) => ({ t: ent(a.t), y: a.y }));
+    years.forEach((a) => (ys.has(a.t) && ys.get(a.t) !== a.y ? twice.add(a.t) : ys.set(a.t, a.y)));
+    const known = l.filter((a) => ys.has(a.t) && !twice.has(a.t));
+    ok(known.length > 0, "albums of All with a year");
+    eq(
+      known.map((a) => a.y),
+      known.map((a) => ys.get(a.t)),
+      "years of All",
+    );
+    await pick("year");
+    ok(sorted(await albums(), year(1)), "year, oldest first");
+    eq(yearReqs(t).length - before, albumSvcs().length, "years asked once");
+    // New: the player's order, the sort order disabled
+    await t.chip("New");
+    await t.waitMsg(/recently added, newest first/);
+    eq(await t.page.evaluate(() => shown.map((a) => a.t)), [...TD.NEW_LIB, ...TD.NEW_USB], "New: newest first");
+    ok(await t.page.isDisabled("#sort"), "disabled in New");
+    eq(await t.page.$eval("#sort", (s) => s.selectedOptions[0].textContent), "Newest added", "New: newest added");
+    // Search results and Playlists: no sort order; clearing the search shows it again
+    await t.chip("Favourites");
+    await t.waitMsg(/in favourites/);
+    await t.openSearch();
+    await t.page.fill("#q", TD.TERM);
+    await t.page.press("#q", "Enter");
+    await t.waitMsg(/ with “/);
+    ok(!(await t.page.isVisible("#sort")), "hidden in the search results");
+    await t.page.fill("#q", "");
+    await t.page.press("#q", "Enter");
+    await t.page.waitForSelector("#sort:not([hidden])");
+    eq(await t.page.inputValue("#sort"), "year", "shown again after the search");
+    await t.chip("Playlists");
+    await t.settle(200);
+    ok(!(await t.page.isVisible("#sort")), "hidden in Playlists");
+    // Stored: restored after reload + connect
+    await t.reload();
+    await t.connect();
+    await t.waitMsg(/in favourites/);
+    eq(await t.page.inputValue("#sort"), "year", "remembered");
+    l = await albums();
+    ok(sorted(l, year(1)), "favourites by year after reconnecting");
+  },
+  {
+    ...R,
+    appDefaults: true,
+    overrides: [{ match: /^\/library\/v1\/Albums\?service=LocalMusic&section=all$/, body: allYears() }],
+  },
 );
 
 // ---------- 4.4 Album grid (GRD) ----------
@@ -2634,7 +2746,7 @@ test(
             getComputedStyle(e).borderBottomStyle === "solid" && parseFloat(getComputedStyle(e).borderBottomWidth) > 0,
         ),
       );
-    eq((await ruled("#msg, #grid .gl")).join(), "true,true,true,true", "fine line under every group line");
+    eq((await ruled("#stl, #grid .gl")).join(), "true,true,true,true", "fine line under every group line");
     eq(
       (await searchGrid(t)).join(" / "),
       [

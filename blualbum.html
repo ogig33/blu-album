@@ -188,7 +188,7 @@ header .logo {
     margin-right: 360px;
   }
   /* the status line keeps the grid's side padding as its margin: its fine line ends where the grid's lines end */
-  body.qpin #msg {
+  body.qpin #stl {
     margin-right: 374px;
   }
 }
@@ -1235,12 +1235,49 @@ nav .gap {
   margin: 0 4px;
 }
 /* ---------- Status line and album grid ---------- */
-/* Status line: underlined with a fine line as wide as the grid (inside its 14px side padding) */
-#msg {
+/* Status line: text of the view, the sort order of an album view at the right; underlined with a fine line as
+   wide as the grid (inside its 14px side padding) */
+#stl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 0 14px 4px;
-  padding: 6px 0 5px;
   border-bottom: 1px solid var(--line);
+}
+#msg {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0 5px;
   color: var(--dim);
+}
+/* Sort order: unobtrusive, border and text in the grey of the status line, with a chevron drawn in the text colour */
+#sort {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--dim);
+  background-color: transparent;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  border: 1px solid var(--dim);
+  border-radius: 8px;
+  padding: 2px 26px 2px 10px;
+  margin: 3px 0;
+  cursor: pointer;
+}
+/* the open list (Chrome, Firefox; Safari uses the system menu) in the colours of the design */
+#sort option {
+  color: var(--ink);
+  background: var(--panel);
+}
+#sort:disabled {
+  border-color: var(--line);
+  background-image: none;
+  padding-right: 10px;
+  cursor: default;
 }
 #msg.err {
   color: #ff8f8f;
@@ -1803,7 +1840,11 @@ dialog * {
 </header>
 <!-- Genre chips (filled by openSources) -->
 <nav id="az" aria-label="Genre filter"></nav>
-<div id="msg">Open the menu, enter your player's IP address and tap Connect.</div>
+<!-- Status line: text of the view; sort order of an album view (options from SORTS, hidden in other views) -->
+<div id="stl">
+  <div id="msg">Open the menu, enter your player's IP address and tap Connect.</div>
+  <select id="sort" aria-label="Sort albums" hidden></select>
+</div>
 <main id="grid"></main>
 <!-- Album popup -->
 <dialog id="dlg">
@@ -1936,7 +1977,7 @@ dialog * {
  *   5. Connection & sources            Connecting to the player, music sources (USB / library) and their switches, decade chips.
  *   6. Albums from /Browse             Album lists (All, genres) from the player's browse menus.
  *   7. Albums from /library/v1/Albums  New, favourites, quality and year lists from the library endpoint.
- *   8. Views                           What the chips show: genre, All, New, Favourites, quality, decade, artist.
+ *   8. Views                           What the chips show: genre, All, New, Favourites, quality, decade, artist; their sort order.
  *   9. Album grid                      Lazy rendering of the album tiles and the random album tile.
  *  10. Favourites                      Favourite state and toggling for the heart on the cover.
  *  11. Popups                          Album popup and the popup for unsuccessful player answers.
@@ -1970,6 +2011,8 @@ const NO_REPLY_MSG = "The player did not answer. Please check the IP address and
 const VIEW = { all: "__all", new: "__new", fav: "__fav", pl: "__pl", lib: "__lib", quality: (q) => "__q:" + q, decade: (d) => "__d:" + d, artist: (name) => "artist:" + name };
 // Quality chips: filter values of the library ("Filter by quality" in /Services).
 const QUALITIES = [["hr", "HD", "High resolution albums"], ["cd", "CD", "CD quality albums"], ["mqa", "MQA", "MQA albums"]];
+// Sort orders of the album views (select in the status line, stored): value, label. Random is the default.
+const SORTS = [["title", "Album title A–Z"], ["title-desc", "Album title Z–A"], ["artist", "Album artist A–Z"], ["artist-desc", "Album artist Z–A"], ["year-desc", "Year, newest first"], ["year", "Year, oldest first"], ["random", "Random"]];
 // Search: only from SEARCH_MIN characters (each search costs several player requests, a shorter term
 // finds most of the library); while typing it starts after a pause of SEARCH_DELAY ms, Enter at once.
 const SEARCH_MIN = 3, SEARCH_DELAY = 800;
@@ -2157,6 +2200,10 @@ async function showImg(img, url) {
 // shown: albums currently rendered, activeKey: id of the selected view (drops outdated async results),
 // activeBtn: selected chip.
 let base = "", cache = {}, shown = [], activeKey = "", activeBtn = null;
+// Album view: its albums in the order loaded (viewList; the grid shows them in the sort order) and its status line
+// (viewText); viewSort: "sort" = sorted, "new" = New keeps the player's order, "" = no album view (loading, playlists).
+// sortBy: the chosen sort order (SORTS, stored), sortSeq: counter of the year lookup (see sortView()).
+let viewList = [], viewText = "", viewSort = "", sortBy = store.get("sort") || "random", sortSeq = 0;
 // sources: music sources found on the player (USB drive, library).
 // srcs: the enabled sources after opening, each {key, svc, name, searchKey, genresKey, albumsKey, playlistsKey, genres,
 // menu, secs} (playlistsKey: its library playlists, secs: promise of the album sections, see albumSections()).
@@ -2221,6 +2268,8 @@ function resetLibrary() {
   activeBtn = null;
   activeKey = "";
   shown = [];
+  viewList = [];
+  viewSort = "";
   endSearch();
 }
 // Drops a running search and what the view held back during it.
@@ -2568,8 +2617,9 @@ function libAlbum(e, svc) {
     t,
     a: ar,
     n: attr(e, "tracks"),
-    // Year of the album (sectioned lists only, Bruno E34; "" without a year tag)
-    y: attr(e, "date"),
+    // Year of the album (sectioned lists only, Bruno E34; "" without a year tag); undefined in the other lists
+    // (looked up for the year sort orders, see sortView())
+    y: e.closest("section") ? attr(e, "date") : undefined,
     img: "/Artwork?service=" + svc + "&" + q,
     key: svc + ":MG/LocalMusic-Album?" + q,
     cm: svc + ":CM/LocalMusic-Album?" + q + (fav ? "&isFavourite=1" : ""),
@@ -2611,15 +2661,18 @@ const genreAlbumsAll = async (name) => joinSources(await Promise.all(srcs.map((x
 })));
 
 /* ---------- Views ---------- */
-// What the chips show: genre, All, New, Favourites, quality, decade, artist.
+// What the chips show: genre, All, New, Favourites, quality, decade, artist; their sort order.
 
 // Marks `btn` as the selected chip and makes `key` the active view.
 function selectView(key, btn) {
   document.querySelectorAll("#az button").forEach((b) => b.setAttribute("aria-pressed", b === btn));
   activeKey = key;
   activeBtn = btn;
+  viewList = [];
+  viewSort = "";
   $("#q").value = "";
   endSearch();
+  showSort();
 }
 // Empties the album grid (a view that loads first).
 function clearGrid() {
@@ -2639,11 +2692,70 @@ function viewOut(key, mine, show) {
   if (searching) viewHeld = show;
   else show();
 }
-// The result of a view: its albums and the status line.
-function showView(list, text) {
-  shown = list;
-  render(shown);
-  msg(text);
+// The result of an album view: its albums in the sort order and the status line. fixed: New keeps the player's order
+// (newest first; the sort order is shown, but disabled).
+function showView(list, text, fixed = false) {
+  viewList = list;
+  viewText = text;
+  viewSort = fixed ? "new" : "sort";
+  sortView();
+}
+// The sort order in the status line: shown with the albums of an album view, not while loading, searching or in the
+// Playlists view; New shows "Newest added", disabled (the option exists only there).
+function showSort() {
+  const s = $("#sort"), fixed = viewSort === "new";
+  s.querySelector("[value=new]")?.remove();
+  if (fixed) s.append(el("option", { value: "new", textContent: "Newest added" }));
+  s.hidden = !viewSort || !viewList.length || searching;
+  s.disabled = fixed;
+  s.value = fixed ? "new" : sortBy;
+  s.title = fixed ? "New albums are always sorted by date added" : "Sort albums";
+}
+// The albums of `list` in the sort order `by` (SORTS) as a new array. Equal values are ordered by album title; an album
+// artist's albums by year (oldest first); albums without a year come last in every year order.
+function sortAlbums(list, by) {
+  const l = [...list];
+  if (by === "random") {
+    for (let i = l.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [l[i], l[j]] = [l[j], l[i]];
+    }
+    return l;
+  }
+  const yr = (a) => +a.y || 0, title = (x, y) => x.t.localeCompare(y.t);
+  const year = (dir) => (x, y) => !yr(x) - !yr(y) || dir * (yr(x) - yr(y));
+  const cmp = {
+    title,
+    "title-desc": (x, y) => title(y, x),
+    artist: (x, y) => x.a.localeCompare(y.a) || year(1)(x, y),
+    "artist-desc": (x, y) => y.a.localeCompare(x.a) || year(1)(x, y),
+    "year-desc": year(-1),
+    year: year(1)
+  }[by] || title;
+  return l.sort((x, y) => cmp(x, y) || title(x, y));
+}
+// Shows the albums of the album view in the sort order (Random mixes them anew on every call), with its status line.
+// The year orders need the year of every album: the lists of All, Favourites and an artist have none, it is taken from
+// every album of the enabled sources (libAllAlbums(): 1 request per source, cached; shared with the decade chips and
+// the album artist search). Meanwhile the grid is empty.
+function sortView() {
+  const key = activeKey, mine = ctx(), seq = ++sortSeq, list = viewList, sorted = viewSort === "sort";
+  const show = () => {
+    if (seq !== sortSeq) return;
+    shown = sorted ? sortAlbums(list, sortBy) : list;
+    render(shown);
+    msg(viewText);
+    showSort();
+  };
+  if (!sorted || !sortBy.startsWith("year") || !list.some((a) => a.y === undefined)) return show();
+  clearGrid();
+  $("#sort").hidden = true;
+  libAllAlbums().then((all) => {
+    const years = new Map(all.map((a) => [albumId(a), a.y]));
+    list.forEach((a) => a.y ??= years.get(albumId(a)) ?? "");
+  }, (e) => {
+    if (mine === ctx()) apiFail("Loading the years did not succeed", e);
+  }).then(() => viewOut(key, mine, show));
 }
 // A view that could not be loaded.
 const viewFailed = (key, mine, e) => viewOut(key, mine, () => loadFailed("Loading failed: ", "Loading the albums did not succeed", e));
@@ -2706,7 +2818,7 @@ async function loadLibView(key, btn, { filter, max = 0, label, done, empty, sect
     const lists = sectioned && cache[key] ? null : await Promise.all(srcs.map(per));
     if (mine !== ctx()) return; // not into the cache of another source selection
     const list = sectioned ? cache[key] || (cache[key] = joinSources(lists)) : newest ? lists.flat() : joinSources(lists);
-    viewOut(key, mine, () => showView(list, list.length ? nAlb(list.length) + " " + done : empty));
+    viewOut(key, mine, () => showView(list, list.length ? nAlb(list.length) + " " + done : empty, newest));
   } catch (e) {
     viewFailed(key, mine, e);
   }
@@ -3748,6 +3860,7 @@ async function search() {
     if (activeKey === VIEW.pl) return showPlaylists();
     render(shown);
     msg(shown.length ? nAlb(shown.length) : "Select a genre.");
+    showSort();
     if (held) held();
     return;
   }
@@ -3766,6 +3879,7 @@ async function search() {
     return;
   }
   searching = true;
+  showSort();
   btns.forEach((b) => b.setAttribute("aria-pressed", "false"));
   msg("Searching \u2026");
   try {
@@ -4145,6 +4259,14 @@ for (const k of ["title", "artist", "composer"])
     search();
   }, k === "title");
 // Settings panel: design, cover size and the filter chip switches (restored from localStorage)
+// Sort order of the album views (select in the status line, stored; default Random): sorts the shown album view again
+if (!SORTS.some((s) => s[0] === sortBy)) sortBy = "random";
+$("#sort").append(...SORTS.map(([value, textContent]) => el("option", { value, textContent })));
+$("#sort").onchange = (e) => {
+  sortBy = e.target.value;
+  store.set("sort", sortBy);
+  sortView();
+};
 bindSegment("#themes", "theme", "theme", applyTheme);
 bindSegment("#sizes", "size", "tile", applySize);
 // Genre, quality and decade chips: off by default. Decade chips switched on are loaded for the open sources
