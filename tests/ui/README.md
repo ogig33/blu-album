@@ -66,6 +66,8 @@ Chrome and Edge are the apps preinstalled on the runners, WebKit and Firefox are
 Every job keeps the screenshots of the main views (and of failed tests) as an artifact for 14 days (*Actions → run → Artifacts*), for a visual check per system, browser and size.
 
 ## Update the fixtures
+Before recording, at least one favourite album must be in the first album section of the library (e.g. "1" by Peter Gabriel): the mock lists the albums of an artist from that section only, ART-01 and SRH-13 need a favourite among them.
+
 1. Run the Bruno folder "1 Read (safe)" (`tests/api`) with `saveFixtures = true`.
    The answers are stored in `tests/api/fixtures/` (ignored by git, they contain
    details of your network and library).

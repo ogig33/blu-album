@@ -1,0 +1,65 @@
+meta {
+  name: M35 Upgrade notification (check for upgrade, remember the version)
+  type: http
+  seq: 35
+}
+
+get {
+  url: http://{{host}}:11000/update
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Manual requests run only with the environment variable runManual = true
+  if (bru.getEnvVar("runManual") !== "true") { bru.runner.skipRequest(); return; }
+  // Remembers the BluOS version. Without a notification in /update it first sends /upgrade?noheader=1 (Help › Check for upgrade),
+  // which sets the notification when an upgrade is available; needs Developer mode (axios).
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const get = async (p) => String((await axios.get(H + p, { timeout: 30000, responseType: "text", transformResponse: (x) => x })).data || "");
+  const v = (await get("/GitVersion")).match(/<version>([^<]*)</);
+  bru.setVar("upgradeFrom", v ? v[1] : "");
+  bru.setVar("upgradeChecked", "");
+  if (!/<notification\b/.test(await get("/update"))) {
+    bru.setVar("upgradeCheckPage", await get("/upgrade?noheader=1"));
+    bru.setVar("upgradeChecked", "1");
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+}
+
+script:post-response {
+  // <notification>: message and one button per choice (label, url); "I want it now" = /upgrade?upgrade=all, "Delay 24 hours" = /upgrade?upgrade=delay
+  const body = String(res.getBody() || "");
+  const saveFixture = (file, text) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), text);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("verify-upgrade-notification.xml", body);
+  if (bru.getVar("upgradeChecked")) saveFixture("verify-upgrade-check.html", bru.getVar("upgradeCheckPage") || "");
+  const dec = (s) => s.replace(/&amp;/g, "&");
+  const buttons = [...body.matchAll(/<button\b[^>]*>[\s\S]*?<label>([^<]*)<\/label>[\s\S]*?<url>([^<]*)<\/url>[\s\S]*?<\/button>/g)].map((m) => ({ label: dec(m[1]), url: dec(m[2]) }));
+  // The button that is not the delay; only an unambiguous one is used by M36
+  const start = buttons.filter((b) => !/delay/i.test(b.url));
+  bru.setVar("upgradeURI", start.length === 1 ? start[0].url : "");
+  console.log("BluOS version: " + bru.getVar("upgradeFrom") + (bru.getVar("upgradeChecked") ? "\nChecked for upgrade first (/upgrade?noheader=1)" : "") + "\n/update: " + body + "\nButtons: " + (buttons.map((b) => b.label + " = " + b.url).join(", ") || "none") + "\nM36 will send: " + (bru.getVar("upgradeURI") || "nothing (skipped)"));
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("BluOS version read", () => expect(bru.getVar("upgradeFrom")).to.match(/^\d+\.\d+/));
+  test("notification with a message", () => expect(/<notification\b[\s\S]*<message>[^<]+<\/message>/.test(body)).to.equal(true));
+  test("one button that starts the upgrade", () => expect(bru.getVar("upgradeURI")).to.match(/^\/upgrade\?/));
+}

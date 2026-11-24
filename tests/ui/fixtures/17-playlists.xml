@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <playlists service="BluOS">
-  <name image="/Artwork?service=LocalMusic&amp;fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FT%2FTanita+Tikaram%2F1988_Ancient+Heart%2F01-Good+Tradition.flac">IG test</name>
+  <name image="/Artwork?service=LocalMusic&amp;fn=%2Fvar%2Fmnt%2Fmusic%2FCompilations%2FPutumayo%2F2012_African+Blues%2F1-Ni+Koh+Bedy.flac">Queue 2026-11-21 21:16</name>
   <name image="/Artwork?service=LocalMusic&amp;fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FT%2FTanita+Tikaram%2F1988_Ancient+Heart%2F01-Good+Tradition.flac">TTT</name>
+  <name image="/Artwork?service=LocalMusic&amp;fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FLisa+Gerrard%2F2022_Burn+%28Deluxe+Edition%29%2F1-Heleali+%28The+Sea+Will+Rise%29.flac">XY2</name>
 </playlists>

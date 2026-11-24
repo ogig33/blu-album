@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <settings schemaVersion="28">
-	<setting id="alarms" displayName="Alarms" icon="/images/settings/ic_alarms.png" class="alarms" count="0" enabled="0"></setting>
+	<setting id="alarms" displayName="Alarms" icon="/images/settings/ic_alarms.png" class="alarms" count="1" enabled="1" day="6" hour="9" minute="0"></setting>
 	<setting id="sleep" displayName="Sleep timer" icon="/images/settings/ic_sleeptimer.png" class="sleep" sleep=""></setting>
 	<menuGroup id="audio" defaults="false" displayName="Audio" icon="/images/settings/ic_audio.png" url="http://192.0.2.10:11000/audiomodes"></menuGroup>
 	<menuGroup id="zone" displayName="Home Theatre Group" icon="/images/players/ic_fixed_group_surround.png" inline="true">
 		<setting id="zonename" name="zonename" displayName="Room name" url="/setting" icon="/images/settings/ic_roomname.png" class="text" value="Living Room" pattern=".{1,255}" patternError="Maximum 255 characters."></setting>
 		<setting id="amplifierStandby" name="amplifierStandby" displayName="Amplifier Standby" url="/setting" icon="/images/settings/ic_power.png" class="boolean" value="OFF"></setting>
-		<menuGroup id="player" displayName="WOHNZIMMER" icon="/images/players/N225_nt.png" description="Front"></menuGroup>
-		<menuGroup id="zone_player-17216501111000" displayName="WZ RECHTS" icon="/images/players/P130_nt.png" url="/proxyToSlave?slave=192.0.2.10%3A11000&amp;url=%2Faudiomodes" description="Right Surround"></menuGroup>
+		<menuGroup id="player" displayName="WZ GRUPPE" icon="/images/players/N225_nt.png" description="Front"></menuGroup>
 		<menuGroup id="zone_player-17216501011000" displayName="WZ LINKS" icon="/images/players/P130_nt.png" url="/proxyToSlave?slave=192.0.2.10%3A11000&amp;url=%2Faudiomodes" description="Left Surround"></menuGroup>
+		<menuGroup id="zone_player-17216501111000" displayName="WZ RECHTS" icon="/images/players/P130_nt.png" url="/proxyToSlave?slave=192.0.2.10%3A11000&amp;url=%2Faudiomodes" description="Right Surround"></menuGroup>
 		<setting id="ungroup" name="ungroup" displayName="Delete fixed group" url="/RemoveSlave?slaves=192.0.2.10,192.0.2.10&amp;ports=11000,11000" icon="/images/settings/icon_subwooferunpairing.png" class="button" closeOnInvoke="true">
 			<confirmAction text="Delete fixed group"></confirmAction>
 		</setting>
@@ -18,7 +18,7 @@
 			<webview url="http://192.0.2.10:80/sharecfg?noheader=1"></webview>
 		</setting>
 		<setting id="reindex" name="reindex" displayName="Reindex music collection" url="/Reindex" icon="/images/settings/ic_reindex.png" class="button" description="Reindex your library music collection in case you have recently added or removed music."></setting>
-		<setting id="resizeall" name="resizeall" displayName="Optimize Artwork" url="/setting" icon="/images/settings/ic_optimizeartwork.png" class="boolean" value="ON" description="On" explanation="Optimize Artwork will reduce the size of the artwork database when creating your music library. This will improve performance when using the BluOS Controller. However, it can take up to twice as long to create the music library."></setting>
+		<setting id="resizeall" name="resizeall" displayName="Optimize Artwork" url="/setting" icon="/images/settings/ic_optimizeartwork.png" class="boolean" value="OFF" description="Off" explanation="Optimize Artwork will reduce the size of the artwork database when creating your music library. This will improve performance when using the BluOS Controller. However, it can take up to twice as long to create the music library."></setting>
 		<setting id="server" name="server" displayName="Enable Server Mode" url="/setting" icon="/images/USBIcon.png" class="boolean" value="OFF" description="Off" explanation="Server Mode shares the music on a connected USB storage device across the network with other players."></setting>
 	</menuGroup>
 </settings>

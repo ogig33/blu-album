@@ -1,0 +1,73 @@
+meta {
+  name: M37 Upgrade progress until the player is back
+  type: http
+  seq: 37
+}
+
+get {
+  url: http://{{host}}:11000/SyncStatus
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Manual requests run only with the environment variable runManual = true
+  if (bru.getEnvVar("runManual") !== "true") { bru.runner.skipRequest(); return; }
+  // Every 3 s: /update and /GitVersion. Logs every change (message, player down / up, version) with the seconds since M36.
+  // Ends when the player answers with another version, after 5 minutes without any change (no upgrade started) or after 30 minutes; needs Developer mode (axios).
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const get = async (p) => String((await axios.get(H + p, { timeout: 3000, responseType: "text", transformResponse: (x) => x })).data || "");
+  const from = bru.getVar("upgradeFrom") || "";
+  const at = parseInt(bru.getVar("upgradeAt") || String(Date.now()));
+  const log = [];
+  let last = "", lastChange = Date.now(), version = from;
+  while (Date.now() - at < 1800000) {
+    let state;
+    try {
+      const msg = (await get("/update")).replace(/<\?xml[^>]*>\s*/, "").trim();
+      const v = (await get("/GitVersion")).match(/<version>([^<]*)</);
+      version = v ? v[1] : version;
+      state = "up, version " + version + ", /update " + msg;
+    } catch (e) {
+      state = "down (" + (e.code || e.message) + ")";
+    }
+    if (state !== last) {
+      log.push(Math.round((Date.now() - at) / 1000) + " s: " + state);
+      last = state;
+      lastChange = Date.now();
+    }
+    if (state.startsWith("up") && version !== from) break;
+    if (Date.now() - lastChange > 300000) { log.push("no change for 5 minutes: stopped"); break; }
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  bru.setVar("upgradeTo", version);
+  bru.setVar("upgradeSeconds", String(Math.round((Date.now() - at) / 1000)));
+  bru.setVar("upgradeLog", log.join("\n"));
+}
+
+script:post-response {
+  const log = bru.getVar("upgradeLog") || "";
+  const saveFixture = (file, text) => {
+    if (bru.getEnvVar("saveFixtures") !== "true") return;
+    try {
+      const fs = require("fs"), path = require("path");
+      const dir = path.join(bru.cwd(), "fixtures");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), text);
+    } catch (e) {
+      console.log("Fixture not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+    }
+  };
+  saveFixture("verify-upgrade-progress.txt", log + "\n");
+  console.log("Upgrade " + bru.getVar("upgradeFrom") + " -> " + bru.getVar("upgradeTo") + " in " + bru.getVar("upgradeSeconds") + " s\n" + log);
+}
+
+tests {
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("new BluOS version", () => expect(bru.getVar("upgradeTo")).to.not.equal(bru.getVar("upgradeFrom")));
+}

@@ -1,20 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<albums category="FAVOURITES" id="327701" service="LocalMusic">
+<albums category="FAVOURITES" id="458791" service="LocalMusic">
 	<album isFavourite="1">
 		<alb>1</alb>
 		<art>Peter Gabriel</art>
+	</album>
+	<album isFavourite="1">
+		<alb>Autumn (20th Anniversary)</alb>
+		<art>George Winston</art>
 	</album>
 	<album isFavourite="1">
 		<alb>Brothers In Arms</alb>
 		<art>Dire Straits</art>
 	</album>
 	<album isFavourite="1">
-		<alb>Buddha and Bonsai Vol. 2</alb>
-		<art>Oliver Shanti</art>
+		<alb>Cielo e Terra</alb>
+		<art>Al Di Meola</art>
 	</album>
 	<album isFavourite="1">
-		<alb>Tears Roll Down</alb>
-		<art>Tears For Fears</art>
+		<alb>Night (HiRes)</alb>
+		<art>George Winston</art>
+	</album>
+	<album isFavourite="1">
+		<alb>Star Trek - Strange New Worlds - Season 2 - Subspace Rhapsody</alb>
+		<art>The Strange New Worlds Cast</art>
+	</album>
+	<album isFavourite="1">
+		<alb>The Dark Side Of The Moon (50th Anniversary) HiRes</alb>
+		<art>Pink Floyd</art>
 	</album>
 	<album isFavourite="1">
 		<alb>The Wall HiRes</alb>

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <browse serviceIcon="/images/BluOSIcon.png" serviceName="BluOS" type="playlists">
-  <item browseKey="BluOS:MG/BluOS-Playlist?playlist=IG+test" contextMenuKey="BluOS:CM/BluOS-Playlist?playlist=IG+test" playURL="/Load?service=BluOS&amp;name=IG+test" text="IG test" image="/Artwork?service=LocalMusic&amp;fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FT%2FTanita+Tikaram%2F1988_Ancient+Heart%2F01-Good+Tradition.flac" type="playlist">
+  <item browseKey="BluOS:MG/BluOS-Playlist?playlist=Queue+2026-11-21+21%3A16" contextMenuKey="BluOS:CM/BluOS-Playlist?playlist=Queue+2026-11-21+21%3A16" playURL="/Load?service=BluOS&amp;name=Queue+2026-11-21+21%3A16" text="Queue 2026-11-21 21:16" image="/Artwork?service=LocalMusic&amp;fn=%2Fvar%2Fmnt%2Fmusic%2FCompilations%2FPutumayo%2F2012_African+Blues%2F1-Ni+Koh+Bedy.flac" type="playlist">
     <contextMenu>
-      <item actionURL="/Add?clear=0&amp;playlist=IG+test&amp;playnow=1&amp;service=BluOS&amp;shuffle=0" text="Play now" type="add-now"></item>
-      <item actionURL="/Add?playlist=IG+test&amp;playnow=1&amp;service=BluOS&amp;shuffle=1" text="Shuffle" type="add-shuffle"></item>
-      <item actionURL="/Add?playlist=IG+test&amp;playnow=-1&amp;service=BluOS&amp;where=next" text="Add next" type="add-next"></item>
-      <item actionURL="/Add?playlist=IG+test&amp;playnow=-1&amp;service=BluOS&amp;where=last" text="Add last" type="add-last"></item>
-      <item actionURL="/Delete?name=IG+test&amp;service=BluOS" text="Delete" type="delete"></item>
+      <item actionURL="/Add?clear=0&amp;playlist=Queue+2026-11-21+21%3A16&amp;playnow=1&amp;service=BluOS&amp;shuffle=0" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?playlist=Queue+2026-11-21+21%3A16&amp;playnow=1&amp;service=BluOS&amp;shuffle=1" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?playlist=Queue+2026-11-21+21%3A16&amp;playnow=-1&amp;service=BluOS&amp;where=next" text="Add next" type="add-next"></item>
+      <item actionURL="/Add?playlist=Queue+2026-11-21+21%3A16&amp;playnow=-1&amp;service=BluOS&amp;where=last" text="Add last" type="add-last"></item>
+      <item actionURL="/Delete?name=Queue+2026-11-21+21%3A16&amp;service=BluOS" text="Delete" type="delete"></item>
     </contextMenu>
   </item>
   <item browseKey="BluOS:MG/BluOS-Playlist?playlist=TTT" contextMenuKey="BluOS:CM/BluOS-Playlist?playlist=TTT" playURL="/Load?service=BluOS&amp;name=TTT" text="TTT" image="/Artwork?service=LocalMusic&amp;fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FT%2FTanita+Tikaram%2F1988_Ancient+Heart%2F01-Good+Tradition.flac" type="playlist">
@@ -16,6 +16,15 @@
       <item actionURL="/Add?playlist=TTT&amp;playnow=-1&amp;service=BluOS&amp;where=next" text="Add next" type="add-next"></item>
       <item actionURL="/Add?playlist=TTT&amp;playnow=-1&amp;service=BluOS&amp;where=last" text="Add last" type="add-last"></item>
       <item actionURL="/Delete?name=TTT&amp;service=BluOS" text="Delete" type="delete"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="BluOS:MG/BluOS-Playlist?playlist=XY2" contextMenuKey="BluOS:CM/BluOS-Playlist?playlist=XY2" playURL="/Load?service=BluOS&amp;name=XY2" text="XY2" image="/Artwork?service=LocalMusic&amp;fn=%2Fvar%2Fmnt%2Fmusic%2FBy+Artist%2FG%2FLisa+Gerrard%2F2022_Burn+%28Deluxe+Edition%29%2F1-Heleali+%28The+Sea+Will+Rise%29.flac" type="playlist">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;playlist=XY2&amp;playnow=1&amp;service=BluOS&amp;shuffle=0" text="Play now" type="add-now"></item>
+      <item actionURL="/Add?playlist=XY2&amp;playnow=1&amp;service=BluOS&amp;shuffle=1" text="Shuffle" type="add-shuffle"></item>
+      <item actionURL="/Add?playlist=XY2&amp;playnow=-1&amp;service=BluOS&amp;where=next" text="Add next" type="add-next"></item>
+      <item actionURL="/Add?playlist=XY2&amp;playnow=-1&amp;service=BluOS&amp;where=last" text="Add last" type="add-last"></item>
+      <item actionURL="/Delete?name=XY2&amp;service=BluOS" text="Delete" type="delete"></item>
     </contextMenu>
   </item>
 </browse>

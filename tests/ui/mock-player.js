@@ -31,7 +31,7 @@ const LIB = "LocalMusic",
 const USB_GENRES = ["Soundtrack"];
 const USB_SECTIONS = ["A", "S"];
 const USB_YEARS = [{ t: "Soundtrack Classics", a: "Various", y: "1964" }];
-const VERSIONS = { bluos: "4.18.18", api: "v0.5.43" };
+const VERSIONS = { bluos: "4.18.26", api: "v0.5.51" };
 // Tracks on the second page of a BluOS playlist (the first page is fixture 28 with 10 tracks)
 const PL_PAGE2 = 3;
 const COMMANDS =
@@ -167,10 +167,14 @@ function createPlayer(opts = {}) {
         ? discTracks(fx("08"))
         : '<browse serviceIcon="/images/LibraryIcon.png" serviceName="Bibliothek" searchKey="LocalMusic:Search" type="menu"></browse>';
     if (/CM\/LocalMusic-Album/.test(key)) {
-      // Library albums: favourite state follows the isFavourite flag of the key; USB albums: no favourites
-      if (key.startsWith(USB)) return fx("09").replace(/\s*<item[^>]*favourite-delete[^>]*><\/item>/, "");
+      // Library albums: favourite state follows the isFavourite flag of the key, whatever state the fixture recorded;
+      // USB albums: no favourites
+      if (key.startsWith(USB)) return fx("09").replace(/\s*<item[^>]*favourite-(delete|add)[^>]*><\/item>/, "");
       return key.includes("isFavourite=1")
         ? fx("09")
+            .replace("/AddFavourite", "/DeleteFavourite")
+            .replace("favourite-add", "favourite-delete")
+            .replace('text="Favourite"', 'text="Remove favourite"')
         : fx("09")
             .replace("/DeleteFavourite", "/AddFavourite")
             .replace("favourite-delete", "favourite-add")

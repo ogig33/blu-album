@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <browse serviceIcon="/images/LibraryIcon.png" serviceName="Library" searchKey="LocalMusic:Search" type="playlists">
-  <item browseKey="LocalMusic:MG/LocalMusic-Playlist?playlist=Clinton+Shorter+-+The+Expanse+-+Season+2&amp;playlistid=756cf45008180e2a029f54c1153f0bf0" contextMenuKey="LocalMusic:CM/LocalMusic-Playlist?playlist=Clinton+Shorter+-+The+Expanse+-+Season+2&amp;playlistid=756cf45008180e2a029f54c1153f0bf0" playURL="/Load?service=LocalMusic&amp;name=Clinton+Shorter+-+The+Expanse+-+Season+2&amp;id=756cf45008180e2a029f54c1153f0bf0" text="Clinton Shorter - The Expanse - Season 2" image="/Artwork?service=LocalMusic&amp;fn=/var/mnt/music/By Composer/S/Clinton Shorter/2019_The Expanse - Season 2/1-Someday.flac" type="playlist">
+  <item browseKey="LocalMusic:MG/LocalMusic-Playlist?playlist=Clinton+Shorter+-+The+Expanse+-+Season+2&amp;playlistid=756cf45008180e2a029f54c1153f0bf0" contextMenuKey="LocalMusic:CM/LocalMusic-Playlist?isFavourite=1&amp;playlist=Clinton+Shorter+-+The+Expanse+-+Season+2&amp;playlistid=756cf45008180e2a029f54c1153f0bf0" playURL="/Load?service=LocalMusic&amp;name=Clinton+Shorter+-+The+Expanse+-+Season+2&amp;id=756cf45008180e2a029f54c1153f0bf0" text="Clinton Shorter - The Expanse - Season 2" isFavourite="true" image="/Artwork?service=LocalMusic&amp;fn=/var/mnt/music/By Composer/S/Clinton Shorter/2019_The Expanse - Season 2/1-Someday.flac" type="playlist">
     <contextMenu>
       <item actionURL="/Add?clear=0&amp;playlist=Clinton+Shorter+-+The+Expanse+-+Season+2&amp;playlistid=756cf45008180e2a029f54c1153f0bf0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0" text="Play now" type="add-now"></item>
       <item actionURL="/Add?playlistid=756cf45008180e2a029f54c1153f0bf0&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="add-shuffle"></item>
       <item actionURL="/Add?playlistid=756cf45008180e2a029f54c1153f0bf0&amp;playnow=-1&amp;service=LocalMusic&amp;where=next" text="Add next" type="add-next"></item>
       <item actionURL="/Add?playlistid=756cf45008180e2a029f54c1153f0bf0&amp;playnow=-1&amp;service=LocalMusic&amp;where=last" text="Add last" type="add-last"></item>
-      <item actionURL="/AddFavourite?playlistid=756cf45008180e2a029f54c1153f0bf0&amp;service=LocalMusic" text="Favourite" type="favourite-add"></item>
+      <item actionURL="/DeleteFavourite?playlistid=756cf45008180e2a029f54c1153f0bf0&amp;service=LocalMusic" text="Remove favourite" type="favourite-delete"></item>
     </contextMenu>
   </item>
 </browse>

@@ -1,135 +1,135 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<playlist name="__bluos_album_player_test__" shuffle="0" repeat="2" length="12" id="485">
+<playlist id="1075" name="__bluos_verify_add__" modified="1" shuffle="0" repeat="2" length="12">
   <song service="LocalMusic" id="0">
-    <art>Brian Eno</art>
-    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
-    <title>Under Stars</title>
+    <art>Issa Bagayogo</art>
+    <alb>African Groove</alb>
+    <title>Saye Mogo Bana</title>
     <track>1</track>
-    <date>1983</date>
-    <time>270</time>
-    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/01. Under Stars.flac</fn>
+    <date>2003</date>
+    <time>315</time>
+    <fn>/var/mnt/music/Compilations/Putumayo/2003_African Groove/1-Saye Mogo Bana.flac</fn>
     <quality>cd</quality>
-    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+    <image>/Artwork?service=LocalMusic&amp;artist=Issa+Bagayogo&amp;album=African+Groove</image>
   </song>
   <song service="LocalMusic" id="1">
-    <art>Brian Eno</art>
-    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
-    <title>The Secret Place</title>
+    <art>Badenya Les Frères Coulibaly</art>
+    <alb>African Groove</alb>
+    <title>Boroto</title>
     <track>2</track>
-    <date>1983</date>
-    <time>210</time>
-    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/02. The Secret Place.flac</fn>
+    <date>2003</date>
+    <time>276</time>
+    <fn>/var/mnt/music/Compilations/Putumayo/2003_African Groove/2-Boroto.flac</fn>
     <quality>cd</quality>
-    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+    <image>/Artwork?service=LocalMusic&amp;artist=Badenya+Les+Fr%C3%A8res+Coulibaly&amp;album=African+Groove</image>
   </song>
   <song service="LocalMusic" id="2">
-    <art>Brian Eno</art>
-    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
-    <title>Matta</title>
+    <art>Madeka</art>
+    <alb>African Groove</alb>
+    <title>Mokote</title>
     <track>3</track>
-    <date>1983</date>
-    <time>260</time>
-    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/03. Matta.flac</fn>
+    <date>2003</date>
+    <time>229</time>
+    <fn>/var/mnt/music/Compilations/Putumayo/2003_African Groove/3-Mokote.flac</fn>
     <quality>cd</quality>
-    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+    <image>/Artwork?service=LocalMusic&amp;artist=Madeka&amp;album=African+Groove</image>
   </song>
   <song service="LocalMusic" id="3">
-    <art>Brian Eno</art>
-    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
-    <title>Signals</title>
+    <art>Julien Jacob</art>
+    <alb>African Groove</alb>
+    <title>Kalicom</title>
     <track>4</track>
-    <date>1983</date>
-    <time>167</time>
-    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/04. Signals.flac</fn>
+    <date>2003</date>
+    <time>232</time>
+    <fn>/var/mnt/music/Compilations/Putumayo/2003_African Groove/4-Kalicom.flac</fn>
     <quality>cd</quality>
-    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+    <image>/Artwork?service=LocalMusic&amp;artist=Julien+Jacob&amp;album=African+Groove</image>
   </song>
   <song service="LocalMusic" id="4">
-    <art>Brian Eno</art>
-    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
-    <title>An Ending (Ascent)</title>
+    <art>A Peace Of Ebony</art>
+    <alb>African Groove</alb>
+    <title>Vadzimu</title>
     <track>5</track>
-    <date>1983</date>
-    <time>266</time>
-    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/05. An Ending (Ascent).flac</fn>
+    <date>2003</date>
+    <time>213</time>
+    <fn>/var/mnt/music/Compilations/Putumayo/2003_African Groove/5-Vadzimu.flac</fn>
     <quality>cd</quality>
-    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+    <image>/Artwork?service=LocalMusic&amp;artist=A+Peace+Of+Ebony&amp;album=African+Groove</image>
   </song>
   <song service="LocalMusic" id="5">
-    <art>Brian Eno</art>
-    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
-    <title>Under Stars II</title>
+    <art>Hardstone</art>
+    <alb>African Groove</alb>
+    <title>Uhiki (Pinye&#39;s Remix)</title>
     <track>6</track>
-    <date>1983</date>
-    <time>203</time>
-    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/06. Under Stars II.flac</fn>
+    <date>2003</date>
+    <time>266</time>
+    <fn>/var/mnt/music/Compilations/Putumayo/2003_African Groove/6-Uhiki (Pinye&#39;s Remix).flac</fn>
     <quality>cd</quality>
-    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+    <image>/Artwork?service=LocalMusic&amp;artist=Hardstone&amp;album=African+Groove</image>
   </song>
   <song service="LocalMusic" id="6">
-    <art>Brian Eno</art>
-    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
-    <title>Drift</title>
+    <art>Positive Black Soul</art>
+    <alb>African Groove</alb>
+    <title>Wouyouma</title>
     <track>7</track>
-    <date>1983</date>
-    <time>189</time>
-    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/07. Drift.flac</fn>
+    <date>2003</date>
+    <time>238</time>
+    <fn>/var/mnt/music/Compilations/Putumayo/2003_African Groove/7-Wouyouma.flac</fn>
     <quality>cd</quality>
-    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+    <image>/Artwork?service=LocalMusic&amp;artist=Positive+Black+Soul&amp;album=African+Groove</image>
   </song>
   <song service="LocalMusic" id="7">
-    <art>Brian Eno</art>
-    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
-    <title>Silver Morning</title>
+    <art>Dady Mimbo</art>
+    <alb>African Groove</alb>
+    <title>Bouba (Cool)</title>
     <track>8</track>
-    <date>1983</date>
-    <time>159</time>
-    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/08. Silver Morning.flac</fn>
+    <date>2003</date>
+    <time>247</time>
+    <fn>/var/mnt/music/Compilations/Putumayo/2003_African Groove/8-Bouba (Cool).flac</fn>
     <quality>cd</quality>
-    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+    <image>/Artwork?service=LocalMusic&amp;artist=Dady+Mimbo&amp;album=African+Groove</image>
   </song>
   <song service="LocalMusic" id="8">
-    <art>Brian Eno</art>
-    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
-    <title>Deep Blue Day</title>
+    <art>Thievery Corporation</art>
+    <alb>African Groove</alb>
+    <title>The Lagos Communique</title>
     <track>9</track>
-    <date>1983</date>
-    <time>239</time>
-    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/09. Deep Blue Day.flac</fn>
+    <date>2003</date>
+    <time>235</time>
+    <fn>/var/mnt/music/Compilations/Putumayo/2003_African Groove/9-The Lagos Communique.flac</fn>
     <quality>cd</quality>
-    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+    <image>/Artwork?service=LocalMusic&amp;artist=Thievery+Corporation&amp;album=African+Groove</image>
   </song>
   <song service="LocalMusic" id="9">
-    <art>Brian Eno</art>
-    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
-    <title>Weightless</title>
+    <art>The Pleb</art>
+    <alb>African Groove</alb>
+    <title>One For Senegal</title>
     <track>10</track>
-    <date>1983</date>
-    <time>275</time>
-    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/10. Weightless.flac</fn>
+    <date>2003</date>
+    <time>285</time>
+    <fn>/var/mnt/music/Compilations/Putumayo/2003_African Groove/10-One For Senegal.flac</fn>
     <quality>cd</quality>
-    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+    <image>/Artwork?service=LocalMusic&amp;artist=The+Pleb&amp;album=African+Groove</image>
   </song>
   <song service="LocalMusic" id="10">
-    <art>Brian Eno</art>
-    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
-    <title>Always Returning</title>
+    <art>African Rhythm Travellers</art>
+    <alb>African Groove</alb>
+    <title>Khululuma</title>
     <track>11</track>
-    <date>1983</date>
-    <time>244</time>
-    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/11. Always Returning.flac</fn>
+    <date>2003</date>
+    <time>175</time>
+    <fn>/var/mnt/music/Compilations/Putumayo/2003_African Groove/11-Khululuma.flac</fn>
     <quality>cd</quality>
-    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+    <image>/Artwork?service=LocalMusic&amp;artist=African+Rhythm+Travellers&amp;album=African+Groove</image>
   </song>
   <song service="LocalMusic" id="11">
-    <art>Brian Eno</art>
-    <alb>Apollo: Atmospheres &amp; Soundtracks</alb>
-    <title>Stars</title>
+    <art>Ndumiso</art>
+    <alb>African Groove</alb>
+    <title>Mofolo Hall (Akulalwa)</title>
     <track>12</track>
-    <date>1983</date>
-    <time>480</time>
-    <fn>/var/mnt/music/By Artist/E/Brian Eno/1983_Apollo Atmospheres and Soundtracks/12. Stars.flac</fn>
+    <date>2003</date>
+    <time>236</time>
+    <fn>/var/mnt/music/Compilations/Putumayo/2003_African Groove/12-Mofolo Hall (Akulalwa).flac</fn>
     <quality>cd</quality>
-    <image>/Artwork?service=LocalMusic&amp;artist=Brian+Eno&amp;album=Apollo%3A+Atmospheres+%26+Soundtracks</image>
+    <image>/Artwork?service=LocalMusic&amp;artist=Ndumiso&amp;album=African+Groove</image>
   </song>
 </playlist>

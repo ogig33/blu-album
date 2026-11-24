@@ -2781,7 +2781,9 @@ test(
 );
 
 test("SRH-13 a view that finishes during a search waits until the search is cleared", async (t) => {
-  const artist = await t.page.evaluate(() => shown[0].a);
+  // the artist view reads a favourite state only for an artist with a favourite album (TD-ART)
+  ok(TD.ART, "a favourite whose artist has albums");
+  const artist = TD.ART;
   const byArtist = () => t.page.evaluate((a) => void showArtist(a), artist);
   const changedPlaylists = () =>
     t.page.evaluate(() => {

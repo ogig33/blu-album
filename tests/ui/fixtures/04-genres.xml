@@ -1,38 +1,207 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <browse serviceIcon="/images/LibraryIcon.png" serviceName="Library" searchKey="LocalMusic:Search" type="genres">
-  <item browseKey="LocalMusic:MG/Genres?genre=Alternative+Rock" text="Alternative Rock" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Audiobook" text="Audiobook" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Blues" text="Blues" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Blues+Rock" text="Blues Rock" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Christmas" text="Christmas" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Classical" text="Classical" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Contemporary+Rock" text="Contemporary Rock" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Country" text="Country" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Country+Rock" text="Country Rock" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Dance" text="Dance" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Deutsch" text="Deutsch" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Electronic" text="Electronic" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Folk" text="Folk" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Hard+Rock" text="Hard Rock" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Heavy+Metal" text="Heavy Metal" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Indie+Rock" text="Indie Rock" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Industrial" text="Industrial" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=International" text="International" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Jazz" text="Jazz" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Latin" text="Latin" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Meditative" text="Meditative" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Musica+Italiana" text="Musica Italiana" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=New+Age" text="New Age" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=New+Wave" text="New Wave" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Progressive+Rock" text="Progressive Rock" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=R%26B" text="R&amp;B" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Rap" text="Rap" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Reggae" text="Reggae" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Rock" text="Rock" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Rock+%26+Roll" text="Rock &amp; Roll" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Score" text="Score" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Soundtrack" text="Soundtrack" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Synth+Pop" text="Synth Pop" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=Vocal" text="Vocal" type="genre"></item>
-  <item browseKey="LocalMusic:MG/Genres?genre=jazz" text="jazz" type="genre"></item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Alternative+Rock" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Alternative+Rock" text="Alternative Rock" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Alternative+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Alternative+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Audiobook" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Audiobook" text="Audiobook" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Audiobook&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Audiobook&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Blues" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Blues" text="Blues" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Blues&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Blues&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Blues+Rock" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Blues+Rock" text="Blues Rock" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Blues+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Blues+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Christmas" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Christmas" text="Christmas" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Christmas&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Christmas&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Classical" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Classical" text="Classical" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Classical&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Classical&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Contemporary+Rock" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Contemporary+Rock" text="Contemporary Rock" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Contemporary+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Contemporary+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Country" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Country" text="Country" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Country&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Country&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Country+Rock" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Country+Rock" text="Country Rock" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Country+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Country+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Dance" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Dance" text="Dance" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Dance&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Dance&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Deutsch" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Deutsch" text="Deutsch" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Deutsch&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Deutsch&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Electronic" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Electronic" text="Electronic" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Electronic&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Electronic&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Folk" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Folk" text="Folk" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Folk&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Folk&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Hard+Rock" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Hard+Rock" text="Hard Rock" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Hard+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Hard+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Heavy+Metal" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Heavy+Metal" text="Heavy Metal" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Heavy+Metal&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Heavy+Metal&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Indie+Rock" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Indie+Rock" text="Indie Rock" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Indie+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Indie+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Industrial" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Industrial" text="Industrial" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Industrial&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Industrial&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=International" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=International" text="International" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=International&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=International&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Jazz" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Jazz" text="Jazz" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Jazz&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Jazz&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Latin" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Latin" text="Latin" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Latin&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Latin&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Meditative" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Meditative" text="Meditative" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Meditative&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Meditative&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Musica+Italiana" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Musica+Italiana" text="Musica Italiana" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Musica+Italiana&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Musica+Italiana&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=New+Age" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=New+Age" text="New Age" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=New+Age&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=New+Age&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=New+Wave" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=New+Wave" text="New Wave" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=New+Wave&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=New+Wave&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Progressive+Rock" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Progressive+Rock" text="Progressive Rock" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Progressive+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Progressive+Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=R%26B" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=R%26B" text="R&amp;B" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=R%26B&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=R%26B&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Rap" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Rap" text="Rap" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Rap&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Rap&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Reggae" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Reggae" text="Reggae" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Reggae&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Reggae&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Rock" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Rock" text="Rock" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Rock&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Rock+%26+Roll" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Rock+%26+Roll" text="Rock &amp; Roll" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Rock+%26+Roll&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Rock+%26+Roll&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Score" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Score" text="Score" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Score&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Score&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Soundtrack" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Soundtrack" text="Soundtrack" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Soundtrack&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Soundtrack&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Synth+Pop" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Synth+Pop" text="Synth Pop" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Synth+Pop&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Synth+Pop&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
+  <item browseKey="LocalMusic:MG/Genres?genre=Vocal" contextMenuKey="LocalMusic:CM/LocalMusic-Genre?genre=Vocal" text="Vocal" type="genre">
+    <contextMenu>
+      <item actionURL="/Add?clear=0&amp;genre=Vocal&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=0&amp;where=next" text="Play now" type="addAll-now"></item>
+      <item actionURL="/Add?genre=Vocal&amp;playnow=1&amp;service=LocalMusic&amp;shuffle=1" text="Shuffle" type="addAll-shuffle"></item>
+    </contextMenu>
+  </item>
 </browse>

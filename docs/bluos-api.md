@@ -3,7 +3,7 @@
 All known BluOS HTTP endpoints by category: the official *BluOS Custom Integration API* and unofficial endpoints.
 
 - **Official documentation:** [BluOS Custom Integration API v1.7](https://bluos.io/wp-content/uploads/2025/06/BluOS-Custom-Integration-API_v1.7.pdf) ([bluos.io/downloads](https://bluos.io/downloads/)); column "Official" in the overview of each category.
-- **Verified:** column "Verified" = checked on a Bluesound Powernode N331 with BluOS 4.18.18 (API v0.5.43); other players and versions may differ.
+- **Verified:** column "Verified" = checked on a Bluesound Powernode N331 with BluOS 4.18.26 (API v0.5.51); other players and versions may differ.
 
 ## Table of contents
 
@@ -149,7 +149,7 @@ GET /SyncStatus?timeout=<seconds>&etag=<etag>
 **Response format**
 
 ```xml
-<SyncStatus etag="2230" syncStat="2230" version="4.18.18" id="192.168.1.100:11000" db="-53.7" volume="14"
+<SyncStatus etag="2230" syncStat="2230" version="4.18.26" id="192.168.1.100:11000" db="-53.7" volume="14"
             name="Living Room" model="N331" modelName="Home Theatre Group" class="streamer-amplifier"
             icon="/images/players/ic_fixed_group_surround.png" brand="Bluesound" schemaVersion="36"
             initialized="true" zoneController="true" zone="Living Room" group="Living Room"
@@ -993,7 +993,7 @@ Tracks of an album:
 | `item` `autoplayURL` | play this track and fill the queue with the rest of its list |
 | `item` `contextMenuKey` | key of the item's context menu |
 | `item` `isFavourite` | `true` = favourite |
-| `contextMenu` > `item` (`actionURL`, `text`, `type`) | menu action: `favourite-add`, `favourite-delete`, `add-now`, `add-next`, `add-last`, `add-shuffle`, `addAll-now`, `addAll-next`, `addAll-last`, `playRadio`, `delete` |
+| `contextMenu` > `item` (`actionURL`, `text`, `type`) | menu action: `favourite-add`, `favourite-delete`, `add-now`, `add-next`, `add-last`, `add-shuffle`, `addAll-now`, `addAll-next`, `addAll-last`, `addAll-shuffle`, `playRadio`, `delete` |
 
 **Notes**
 
@@ -1010,7 +1010,7 @@ Tracks of an album:
   | `…bySection:Album/…` | `type="sections"`: one `item` per section with `browseKey`, `text`, `text2` = number of albums; USB lists only filled sections |
   | `…bySection:Artist/…`, `…Song/…`, `…Composer/…` | like Album, with counts |
   | `…S:Album/…&section=A` | `type="albums"`: the albums of the section with `browseKey`, `contextMenuKey`, `playURL`, `text`, `text2`, `tracks`, `image` and favourite state |
-  | `LocalMusic:GG/Genres` | `type="genres"`: one `item` per genre with `browseKey`, `text` |
+  | `LocalMusic:GG/Genres` | `type="genres"`: one `item` per genre with `browseKey`, `contextMenuKey` (`LocalMusic:CM/LocalMusic-Genre?genre=…`), `text` and its `contextMenu` (`addAll-now`, `addAll-shuffle`) |
   | `LocalMusic:MG/LocalMusic-Genre?genre=…` | empty – take the genre keys from the genre list |
   | `LocalMusic:MG/LocalMusic-Artist?artist=…` | links "Albums" and "Songs" of the artist; "Albums" (`LocalMusic:Album/%2Flibrary%2Fv1%2FAlbums%3Fartist=…&service=LocalMusic`) lists all albums with URLs and context menus, no paging, but **without favourite state** (no `isFavourite`, menu offers `favourite-add` also for favourites) |
   | `LocalMusic:Album/%2Flibrary%2Fv1%2FAlbums%3F<filter>&service=LocalMusic` | a `/library/v1/Albums` request as browse list with URLs, context menus and favourite state: `recent=1` (50 per page, `nextKey`), `category=FAVOURITES` (one answer); `genre=…` answers **empty** |
@@ -1024,7 +1024,7 @@ Tracks of an album:
   | `LocalMusic:Song/%2Flibrary%2Fv1%2FSongs%3Fexpr=…&service=LocalMusic` (search link "Songs") | `type="tracks"`, 50 per page: `contextMenuKey` (`artist` = track artist), `playURL` (`/Add?playnow=1&file=…`), `autoplayURL`, `text`, `text2` ("track artist • album"), `duration`, `image`; **no `browseKey`**, no link to the album |
   | `LocalMusic:CM/LocalMusic-Song?…` | `favourite-add`, `add-now`, `add-next`, `add-last`; no "Go to album" |
   | `LocalMusic:Playlist/…imported=1` | `type="playlists"`: the library playlists (see [`/library/v1/Playlists`](#get-libraryv1playlists)) |
-  | `BluOS:MG/BluOS-Playlist?playlist=…` | `type="tracks"` with `playURL` `/Load?service=BluOS&name=…`, 10 tracks per page: `playURL`, `autoplayURL` (`/Add?service=BluOS&listindex=<n>&…&playlist=…`), `text`, `text2`, `duration`, `image`; no `browseKey`, no context menus; with more than 10 tracks `nextKey` `BluOS:Song/%2FSongs%3Fplaylist=…&offset=10`; on later pages `listindex` starts at 0 and the `autoplayURL` carries `offset` |
+  | `BluOS:MG/BluOS-Playlist?playlist=…` | `type="tracks"` with `playURL` `/Load?service=BluOS&name=…`, 10 tracks per page: `playURL`, `autoplayURL` (`/Add?service=BluOS&listindex=<n>&…&playlist=…`), `text`, `text2`, `duration`, `image`, `contextMenuKey` (`BluOS:CM/BluOS-Song?filename=…`: `add-now`, `add-next`, `add-last`); no `browseKey`; with more than 10 tracks `nextKey` `BluOS:Song/%2FSongs%3Fplaylist=…&offset=10`; on later pages `listindex` starts at 0 and the `autoplayURL` carries `offset` |
 
 - Library search: every result list wraps the `/library/v1` endpoint of its type with `expr=<q>` (e.g. `LocalMusic:Album/%2Flibrary%2Fv1%2FAlbums%3Fexpr=love&service=LocalMusic`).
   - A term matches at the start of a word, not inside a word; case and accents are ignored (`buble` finds `Bublé`); several words are matched as one string, punctuation included.
@@ -1051,7 +1051,7 @@ GET /Info?service=<svc>&artist=<artist>&album=<album>&title=<title>&category=tec
 | Variant | Answer |
 |---|---|
 | `artist`, `album`, `title` | redirect to last.fm (HTML) |
-| `category=technical&filename=…` | empty |
+| `category=technical&filename=…` | HTML table: file path, format (e.g. `FLAC 16/44.1`), sample rate, sample size, channels |
 | `infourl=…` | the info web page itself (HTML, e.g. Wikipedia) |
 | `lyricsid=…` | HTML page with the lyrics |
 
@@ -1960,9 +1960,9 @@ Settings, alarms, sleep timer, library index, diagnostics and the web pages of t
 | `GET /Sleep` | step the sleep timer | | ✓ |
 | `GET /statistics` | switch the statistics collection (port 80) | | ✓ |
 | `GET /triggercfg` | web page for learning IR codes (port 80) | | ✓ |
-| `GET /update` | purpose unknown (presumably firmware update status) | | ✓ |
+| `GET /update` | firmware upgrade notification with its choices | | ✓ |
 | `GET /UpdateDNS` | purpose unknown (presumably refreshes the network name registration) | | ✓ |
-| `GET /upgrade` | redirect to a web page, presumably the firmware upgrade | | ✓ |
+| `GET /upgrade` | check for a firmware upgrade, start or delay it | | ✓ |
 | `POST /upload_playlists_api` | restore the BluOS playlists (port 80) | | ✓ |
 | `GET /Version` | API version | | ✓ |
 | `GET /wificfg` | web page for the Wi-Fi settings (port 80) | | ✓ |
@@ -2289,7 +2289,7 @@ No parameters.
 **Response format**
 
 ```xml
-<version>4.18.18</version>
+<version>4.18.26</version>
 ```
 
 | Element | Meaning |
@@ -2737,13 +2737,36 @@ No known parameters.
 
 **Response format**
 
+Without a pending upgrade:
+
 ```xml
 <update>no message</update>
 ```
 
+With a pending upgrade:
+
+```xml
+<notification>
+  <message>An upgrade (v4.18.26) is available for your players. May take up to 30 minutes. Do not remove power.</message>
+  <action type="upgrade">
+    <button id="1"><label>I want it now</label><url>/upgrade?upgrade=all</url></button>
+    <button id="2"><label>Delay 24 hours</label><url>/upgrade?upgrade=delay</url></button>
+  </action>
+</notification>
+```
+
 | Element | Meaning |
 |---|---|
-| `update` | presumably a firmware update message; `no message` = nothing to report |
+| `update` | `no message` = no upgrade pending |
+| `notification` > `message` | text of the upgrade, with the new version |
+| `action` `type` | `upgrade` |
+| `button` `id`, `label`, `url` | a choice and the request that performs it ([`/upgrade`](#get-upgrade)) |
+
+**Notes**
+
+- The upgrade service of the player sets the notification when it finds an upgrade (on its own, or after [`/upgrade?noheader=1`](#get-upgrade)); [`/upgrade?upgrade=delay`](#get-upgrade) clears it.
+- `/ui/Home` shows a pending upgrade as a teaser (image `ic_teaser_upgrade.png`).
+- Seen, not verified: `GET /update?<n>` from the BluOS Controller and the players of a group, `GET /update?clear=1` from the upgrade service (clears the notification), `POST /update` from the upgrade service of a group member.
 
 ### `GET /UpdateDNS`
 
@@ -2757,19 +2780,41 @@ No known parameters.
 
 Empty answer.
 
+**Notes**
+
+- The player sends it itself after a start.
+
 ### `GET /upgrade`
 
 ```
 GET /upgrade?noheader=1
+GET /upgrade?upgrade=<all|delay>
 ```
 
 | Parameter | Meaning |
 |---|---|
-| `noheader` | `1` = page without its header |
+| `noheader` | `1` = web page "Check For Upgrade": checks for an upgrade |
+| `upgrade` | `all` = start the upgrade of every player of the group, `delay` = delay it by 24 hours |
 
 **Response format**
 
-HTTP redirect to a web page (HTML).
+`noheader=1`: HTML page "Check For Upgrade" (e.g. "Update available." and "Please wait…").
+
+`upgrade=all`:
+
+```xml
+<upgrade inProgress="true">all</upgrade>
+```
+
+| Element | Meaning |
+|---|---|
+| `upgrade` | the choice; `inProgress` `true` = the upgrade has started |
+
+**Notes**
+
+- Take the `upgrade` URL from the buttons of [`/update`](#get-update); `noheader=1` only checks, an upgrade it finds appears there.
+- `upgrade=all`: the player restarts into the upgrade image and answers no requests until the upgrade is complete; the members of a group upgrade one after the other, the group is formed again afterwards.
+- The version afterwards: [`/GitVersion`](#get-gitversion); the system log ([`/Dataexport`](#get-dataexport)) has the line `Start upgrade from <old> to <new>`.
 
 ### `POST /upload_playlists_api`
 
@@ -2806,7 +2851,7 @@ No parameters.
 **Response format**
 
 ```xml
-<version>v0.5.43</version>
+<version>v0.5.51</version>
 ```
 
 | Element | Meaning |

@@ -12,7 +12,7 @@
 - **Terms:** queue (what the player plays), BluOS playlist (stored in the player, changeable), library playlist (imported playlist file of the share or USB drive, read-only), service playlist (streaming service); no "saved playlist".
 - Owner: Ingmar Gebert. MIT licence. Repository: `blu-album`.
 - Independent project, not affiliated with Lenbrook / Bluesound (no need to mention in README, file header or the about popup).
-- Owner's test setup: Bluesound Powernode, BluOS 4.18.18, API v0.5.43, library on a network share plus a USB drive. Main browser: Safari on macOS; Chrome as second browser.
+- Owner's test setup: Bluesound Powernode, BluOS 4.18.26, API v0.5.51, library on a network share plus a USB drive. Main browser: Safari on macOS; Chrome as second browser.
 
 ## Not in scope
 

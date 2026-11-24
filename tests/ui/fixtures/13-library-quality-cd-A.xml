@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<albums limit="500" quality="cd" section="A" id="327701" service="LocalMusic">
+<albums limit="500" quality="cd" section="A" id="458791" service="LocalMusic">
 	<sections>
 		<section name="A">
 			<album tracks="10" date="1982">
@@ -312,7 +312,7 @@
 			</album>
 			<album tracks="10" date="1998">
 				<title>Also sprach Zarathustra, Totenfeier</title>
-				<art>Pierre Boulez</art>
+				<art>Richard Strauss</art>
 			</album>
 			<album tracks="15" date="2003">
 				<title>Altre Latitudini</title>
@@ -546,7 +546,7 @@
 				<title>Automatic For The People</title>
 				<art>R.E.M.</art>
 			</album>
-			<album tracks="8" date="1980">
+			<album tracks="8" date="1980" isFavourite="1">
 				<title>Autumn (20th Anniversary)</title>
 				<art>George Winston</art>
 			</album>
