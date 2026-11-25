@@ -4510,6 +4510,7 @@ test(
     ok(on === "true" && accent !== "rgba(0, 0, 0, 0)", "chip row shown by default, button highlighted");
     await t.page.click("#fbtn");
     ok(!(await t.page.isVisible("#az")) && (await t.page.isVisible("#stl")), "chip row hidden, status line stays");
+    await t.page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height / 2); // off the button: no hover tint
     eq(await fbtn(), ["false", "rgba(0, 0, 0, 0)"], "button not highlighted");
     await t.reload();
     await t.settle(200);

@@ -28,6 +28,10 @@
   --acc:#d3b062;
   --accink:#1c1709;
   --plicon:none;
+  /* elevation: small controls on a cover / covers and round buttons / panels and the full-screen cover */
+  --sh1:0 1px 3px rgba(0, 0, 0, .4);
+  --sh2:0 4px 14px rgba(0, 0, 0, .35);
+  --sh3:0 16px 44px rgba(0, 0, 0, .45);
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
@@ -40,6 +44,9 @@
     --acc:#b8860b;
     --accink:#fff;
     --plicon:invert(1);
+    --sh1:0 1px 3px rgba(60, 45, 15, .3);
+    --sh2:0 4px 14px rgba(60, 45, 15, .2);
+    --sh3:0 16px 44px rgba(60, 45, 15, .3);
   }
 }
 :root[data-theme="light"] {
@@ -52,6 +59,28 @@
   --acc:#b8860b;
   --accink:#fff;
   --plicon:invert(1);
+  --sh1:0 1px 3px rgba(60, 45, 15, .3);
+  --sh2:0 4px 14px rgba(60, 45, 15, .2);
+  --sh3:0 16px 44px rgba(60, 45, 15, .3);
+}
+/* ---------- Design tokens (all designs) ----------
+   Hover colours are mixed from the colour tokens above, so they follow the design. */
+:root {
+  --hov:color-mix(in oklab, var(--ink) 12%, transparent);
+  --panel-h:color-mix(in oklab, var(--ink) 8%, var(--panel));
+  --acc-h:color-mix(in oklab, var(--acc) 85%, var(--ink));
+  --sans:-apple-system, "Segoe UI", system-ui, sans-serif;
+  --serif:Georgia, serif;
+  --fs-xs:12px;
+  --fs-s:13px;
+  /* radius: covers and tags / controls and chips / popups / pills */
+  --r-sm:6px;
+  --r-md:10px;
+  --r-lg:14px;
+  --r-pill:999px;
+  --dis:.4;
+  --t-fast:.15s;
+  --t-base:.25s;
 }
 /* ---------- Base ---------- */
 * {
@@ -65,11 +94,7 @@ body {
   padding-bottom: 98px;
   background: var(--bg);
   color: var(--ink);
-  font:
-    15px/1.4 -apple-system,
-    "Segoe UI",
-    system-ui,
-    sans-serif;
+  font: 15px/1.4 var(--sans);
 }
 /* ---------- Header ---------- */
 header {
@@ -85,10 +110,7 @@ header {
   align-items: center;
 }
 h1 {
-  font:
-    600 20px/1 Georgia,
-    "Iowan Old Style",
-    serif;
+  font: 600 20px/1 var(--serif);
   margin: 0 8px 0 0;
 }
 input,
@@ -97,23 +119,112 @@ button {
   color: inherit;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   padding: 7px 10px;
 }
 input {
   min-width: 0;
 }
-#gear {
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border-radius: 50%;
-  background: none;
-  color: var(--acc);
-  border: 0;
+/* Hover of every button with the default background (chips, segments, Connect, close): a tinted panel.
+   Zero specificity beyond the element, so buttons with their own background keep it. */
+button:where(:hover:not(:disabled)) {
+  background-color: var(--panel-h);
+}
+.pri:hover:not(:disabled),
+.play:hover {
+  background-color: var(--acc-h);
+}
+/* ---------- Icon button ----------
+   Round, only the symbol in the accent colour; hover tints a circle behind it.
+   On (aria-pressed / aria-expanded): accent background only around the symbol, the button keeps its size.
+   .sm: 20 px symbol; .sub: grey symbol; .fill: accent circle (play / pause) */
+.ib {
   display: grid;
   place-items: center;
   flex: none;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--acc);
+}
+.ib[hidden] {
+  display: none;
+}
+.ib svg {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+.ib.sm svg {
+  width: 20px;
+  height: 20px;
+}
+.ib:where(:hover:not(:disabled)) {
+  background-color: var(--hov);
+}
+.ib:active:not(:disabled) {
+  transform: scale(.92);
+}
+.ib:disabled {
+  opacity: var(--dis);
+  cursor: default;
+}
+.ib[aria-pressed=true],
+.ib[aria-expanded=true] {
+  padding: 4px;
+  background: var(--acc);
+  background-clip: content-box;
+  color: var(--accink);
+  border-radius: var(--r-md);
+}
+.ib:is([aria-pressed=true], [aria-expanded=true]):hover {
+  background-color: var(--acc-h);
+}
+.ib.sub {
+  color: var(--dim);
+}
+.ib.sub:hover {
+  color: var(--ink);
+}
+.ib.fill {
+  background: var(--acc);
+  color: var(--accink);
+  box-shadow: var(--sh2);
+}
+.ib.fill:hover:not(:disabled) {
+  background: var(--acc-h);
+}
+.ib.fill svg {
+  width: 20px;
+  height: 20px;
+}
+/* Overline: small grey capitals above a group (settings sections, disc of an album, source in the popup) */
+.ovl {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--dim);
+}
+h3.ovl {
+  margin: 16px 0 8px;
+}
+/* Key / value list (about popup, library settings, API response popup) */
+.kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 14px;
+  margin: 0;
+}
+.kv dt {
+  color: var(--dim);
+}
+.kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 /* App logo left of the title */
 header .logo {
@@ -123,57 +234,8 @@ header .logo {
   fill: var(--ink);
 }
 /* Search, filter and queue button at the right end of the header */
-#sbtn,
-#fbtn,
-#qbtn {
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border-radius: 50%;
-  background: none;
-  color: var(--acc);
-  border: 0;
-  display: grid;
-  place-items: center;
-  flex: none;
-}
 #sbtn {
   margin-left: auto;
-}
-#sbtn svg,
-#qbtn svg {
-  width: 28px;
-  height: 28px;
-  display: block;
-}
-#sbtn svg,
-#fbtn svg {
-  width: 26px;
-  height: 26px;
-}
-#sbtn:hover,
-#fbtn:hover,
-#qbtn:hover {
-  filter: brightness(1.2);
-}
-/* Search field shown / chip row shown / queue pinned: background only around the symbol, the button keeps its size */
-#sbtn[aria-expanded=true],
-#fbtn[aria-expanded=true],
-#qbtn[aria-expanded=true] {
-  background: var(--acc);
-  color: var(--accink);
-  padding: 4px;
-  background-clip: content-box;
-  border-radius: 10px;
-}
-#sbtn[aria-expanded=true] svg,
-#fbtn[aria-expanded=true] svg,
-#qbtn[aria-expanded=true] svg {
-  width: 24px;
-  height: 24px;
-}
-#qbtn:active {
-  transform: scale(.92);
 }
 /* ---------- Queue panel (slides in from the right) ---------- */
 #qside {
@@ -185,22 +247,18 @@ header .logo {
   width: min(360px, 92vw);
   background: var(--bar);
   border-left: 1px solid var(--line);
-  box-shadow: -6px 0 24px rgba(0, 0, 0, .35);
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
   visibility: hidden;
-  transition: transform .25s, visibility 0s .25s;
+  transition: transform var(--t-base), visibility 0s var(--t-base);
 }
 #qside.open {
   transform: none;
   visibility: visible;
-  transition: transform .25s;
+  transition: transform var(--t-base);
 }
 /* Pinned queue: on wide screens the content makes room for the panel instead of being covered. */
-#qside.open {
-  box-shadow: none;
-}
 @media (min-width: 800px) {
   body.qpin #az,
   body.qpin #grid {
@@ -224,47 +282,11 @@ header .logo {
   flex: 1;
   min-width: 0;
   color: var(--dim);
-  font-size: 13px;
+  font-size: var(--fs-s);
   line-height: 1.3;
   font-variant-numeric: tabular-nums;
   white-space: pre-line;
   overflow: hidden;
-}
-.qf button {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: none;
-  color: var(--acc);
-}
-.qf button:hover {
-  filter: brightness(1.2);
-}
-/* Shuffle / repeat switched on (state from /Status) */
-.qf button[aria-pressed=true] {
-  background: var(--acc);
-  color: var(--accink);
-  /* background only around the symbol (28 px), the button keeps its size */
-  padding: 5px;
-  background-clip: content-box;
-  border-radius: 10px;
-}
-.qf button[hidden] {
-  display: none;
-}
-.qf button:disabled {
-  opacity: .35;
-  cursor: default;
-  filter: none;
-}
-.qf svg {
-  width: 22px;
-  height: 22px;
-  display: block;
 }
 #qlist {
   list-style: none;
@@ -349,7 +371,7 @@ li.cur .qn {
 }
 .qt span {
   color: var(--dim);
-  font-size: 13px;
+  font-size: var(--fs-s);
 }
 .qd {
   flex: none;
@@ -358,7 +380,7 @@ li.cur .qn {
   min-width: 3.6em;
   text-align: right;
   color: var(--dim);
-  font-size: 13px;
+  font-size: var(--fs-s);
   font-variant-numeric: tabular-nums;
 }
 #qlist .rm {
@@ -373,8 +395,8 @@ li.cur .qn {
   color: var(--dim);
 }
 #qlist .rm svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   display: block;
 }
 #qlist .rm:hover {
@@ -404,17 +426,6 @@ li.cur .qn {
     visibility: hidden;
   }
 }
-#gear svg {
-  width: 28px;
-  height: 28px;
-  display: block;
-}
-#gear:hover {
-  filter: brightness(1.2);
-}
-#gear:active {
-  transform: scale(.92);
-}
 /* ---------- Settings panel (slides in from the left) ---------- */
 #scrim {
   position: fixed;
@@ -439,18 +450,18 @@ li.cur .qn {
   padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
   background: var(--panel);
   border-right: 1px solid var(--line);
-  box-shadow: 6px 0 24px rgba(0, 0, 0, .35);
+  box-shadow: var(--sh3);
   display: flex;
   flex-direction: column;
   gap: 10px;
   transform: translateX(-100%);
   visibility: hidden;
-  transition: transform .25s, visibility 0s .25s;
+  transition: transform var(--t-base), visibility 0s var(--t-base);
 }
 #side.open {
   transform: none;
   visibility: visible;
-  transition: transform .25s;
+  transition: transform var(--t-base);
 }
 /* Compact connection line */
 #cline {
@@ -471,7 +482,7 @@ li.cur .qn {
 }
 #cip {
   color: var(--dim);
-  font-size: 13px;
+  font-size: var(--fs-s);
   flex: 1;
   white-space: nowrap;
 }
@@ -480,7 +491,7 @@ li.cur .qn {
   background: none;
   padding: 0;
   color: var(--acc);
-  font-size: 13px;
+  font-size: var(--fs-s);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -491,10 +502,7 @@ li.cur .qn {
   gap: 10px;
 }
 #side h2 {
-  font:
-    600 20px/1.2 Georgia,
-    "Iowan Old Style",
-    serif;
+  font: 600 20px/1.2 var(--serif);
   margin: 0;
 }
 #side label {
@@ -503,7 +511,7 @@ li.cur .qn {
 #iphelp {
   margin: 0;
   color: var(--dim);
-  font-size: 13px;
+  font-size: var(--fs-s);
 }
 #side input {
   width: 100%;
@@ -520,16 +528,6 @@ li.cur .qn {
 }
 #info:empty {
   display: none;
-}
-#info h3,
-#settings h3,
-#chips h3 {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .07em;
-  color: var(--dim);
-  margin: 16px 0 8px;
 }
 #settings,
 #chips {
@@ -576,7 +574,7 @@ li.cur .qn {
   width: 44px;
   height: 26px;
   padding: 0;
-  border-radius: 13px;
+  border-radius: var(--r-pill);
   flex: none;
 }
 .sw::after {
@@ -588,7 +586,7 @@ li.cur .qn {
   height: 18px;
   border-radius: 50%;
   background: var(--dim);
-  transition: transform .15s, background .15s;
+  transition: transform var(--t-fast), background var(--t-fast);
 }
 .sw[aria-checked=true] {
   background: var(--acc);
@@ -615,39 +613,11 @@ li.cur .qn {
   font: inherit;
   cursor: pointer;
   color: var(--dim);
-  font-size: 13px;
+  font-size: var(--fs-s);
 }
-#info .kv {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 5px 14px;
-  margin: 0;
-}
-#info .kv dt {
-  color: var(--dim);
-}
-#info .kv dd {
-  margin: 0;
+#info .kv dd,
+#libset .kv dd {
   text-align: right;
-  overflow-wrap: anywhere;
-}
-#sclose {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--dim);
-}
-#sclose:hover {
-  color: var(--ink);
-}
-#sclose svg {
-  width: 20px;
-  height: 20px;
-  display: block;
 }
 #sclose {
   position: absolute;
@@ -670,7 +640,7 @@ li.cur .qn {
   padding-right: 4px;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-md);
 }
 #qbox[hidden] {
   display: none;
@@ -711,10 +681,13 @@ li.cur .qn {
 }
 #sin button {
   padding: 2px 8px;
-  font-size: 13px;
-  border-radius: 6px;
+  font-size: var(--fs-s);
+  border-radius: var(--r-sm);
   background: none;
   color: var(--dim);
+}
+#sin button:hover {
+  color: var(--ink);
 }
 #sin button[aria-pressed=true] {
   background: var(--acc);
@@ -764,7 +737,7 @@ button {
 #prog .pt {
   height: 3px;
   background: var(--line);
-  transition: height .12s;
+  transition: height var(--t-fast);
 }
 #prog.seek:hover .pt,
 #prog:focus-visible .pt {
@@ -790,10 +763,10 @@ button {
 .cv {
   width: 56px;
   height: 56px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--panel);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+  box-shadow: var(--sh2);
 }
 .cv img {
   width: 100%;
@@ -849,7 +822,7 @@ button {
   body.full #ctl {
     z-index: 17;
     transform: translateY(100%);
-    transition: transform .2s ease;
+    transition: transform var(--t-fast) ease;
   }
   body.full.fullbar #ctl {
     transform: none;
@@ -862,10 +835,10 @@ button {
   justify-self: end;
   width: min(100%, calc(100vh - var(--fh,56px) - 10vh));
   aspect-ratio: 1;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   overflow: hidden;
   background: var(--panel);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, .45);
+  box-shadow: var(--sh3);
 }
 #full .fcov img {
   width: 100%;
@@ -881,7 +854,7 @@ button {
 }
 #full h2 {
   margin: 0 0 14px;
-  font: 600 clamp(26px, 4vw, 56px)/1.12 Georgia, serif;
+  font: 600 clamp(26px, 4vw, 56px)/1.12 var(--serif);
   overflow-wrap: anywhere;
 }
 #full p {
@@ -929,7 +902,7 @@ button {
 }
 .na {
   color: var(--dim);
-  font-size: 13px;
+  font-size: var(--fs-s);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -942,8 +915,8 @@ button {
   content: ")";
 }
 /* Listening mode of the player (TV / Music / Movie) before the volume controls: icon of the player
-   (white, inverted in the light design by --plicon), display only. Grey and in a square frame, so it
-   reads as a status tag, not as one of the round or bare-symbol buttons next to it; no hover effect
+   (white, inverted in the light design by --plicon), display only. Grey and in a frame with the corners of a
+   tag, so it reads as a status tag, not as one of the round buttons next to it; no hover effect
    (only the tooltip). */
 .lm {
   flex: none;
@@ -952,6 +925,7 @@ button {
   padding: 2px;
   margin-right: 8px;
   border: 1px solid var(--line);
+  border-radius: var(--r-sm);
   cursor: default;
 }
 .lm img {
@@ -1019,31 +993,23 @@ button {
   align-items: center;
   gap: 6px;
   margin-top: 10px;
-  font-size: 12px;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  color: var(--dim);
 }
 #ds:empty {
   display: none;
 }
 #dlg #ds img {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex: none;
   filter: var(--plicon);
   opacity: .65;
 }
 .q {
   flex: none;
-  font:
-    800 11px/1 -apple-system,
-    "Segoe UI",
-    system-ui,
-    sans-serif;
+  font: 800 11px/1 var(--sans);
   letter-spacing: .08em;
   padding: 3px 7px;
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   border: 0;
   color: #555a63;
   text-shadow: 0 1px 0 rgba(255, 255, 255, .8), 0 -1px 0 rgba(0, 0, 0, .22);
@@ -1060,10 +1026,6 @@ button {
     inset 0 -1px 0 rgba(0, 0, 0, .28),
     0 1px 2px rgba(0, 0, 0, .45);
 }
-#ctl button:disabled {
-  opacity: .4;
-  cursor: default;
-}
 #vs {
   -webkit-appearance: none;
   appearance: none;
@@ -1078,7 +1040,7 @@ button {
 }
 #vs::-webkit-slider-runnable-track {
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--r-pill);
   background:
     linear-gradient(
       to right,
@@ -1093,16 +1055,16 @@ button {
   border-radius: 50%;
   background: var(--acc);
   border: 0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+  box-shadow: var(--sh1);
 }
 #vs::-moz-range-track {
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--r-pill);
   background: var(--line);
 }
 #vs::-moz-range-progress {
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--r-pill);
   background: var(--acc);
 }
 #vs::-moz-range-thumb {
@@ -1111,9 +1073,10 @@ button {
   border-radius: 50%;
   background: var(--acc);
   border: 0;
+  box-shadow: var(--sh1);
 }
 #vs:disabled {
-  opacity: .4;
+  opacity: var(--dis);
   cursor: default;
 }
 @media (max-width: 600px) {
@@ -1141,60 +1104,11 @@ button {
     --bh:164px;
   }
 }
-/* Round buttons of the footer (not the artist link in the now-playing line) */
-#ctl button:not(.al) {
-  width: 38px;
-  height: 38px;
-  min-width: 0;
-  padding: 0;
-  border-radius: 50%;
-  background: var(--acc);
-  color: var(--accink);
-  border: 0;
-  font-size: 21px;
-  line-height: 38px;
-  text-align: center;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, .45);
-}
-#ctl button:not(.al):active {
-  transform: scale(.92);
-}
-#ctl button:not(.al) {
-  display: grid;
-  place-items: center;
-}
-/* Previous / next and volume buttons: just the symbol, no round background */
-#ctl #bk,
-#ctl #sk,
-#ctl #vd,
-#ctl #vu {
-  background: none;
-  box-shadow: none;
-  color: var(--acc);
-}
-#ctl #bk,
-#ctl #sk {
+/* Previous / next: text symbols */
+#bk,
+#sk {
   font-size: 30px;
-}
-#ctl #vd svg,
-#ctl #vu svg {
-  width: 30px;
-  height: 30px;
-}
-#bk:hover,
-#sk:hover,
-#vd:hover,
-#vu:hover {
-  filter: brightness(1.2);
-}
-#ctl svg {
-  width: 24px;
-  height: 24px;
-  display: block;
-}
-#ctl #pp svg {
-  width: 20px;
-  height: 20px;
+  line-height: 1;
 }
 button.pri {
   background: var(--acc);
@@ -1278,7 +1192,7 @@ nav .gap {
   appearance: none;
   -webkit-appearance: none;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-s);
   color: var(--dim);
   background-color: transparent;
   background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
@@ -1286,7 +1200,7 @@ nav .gap {
   background-size: 5px 5px;
   background-repeat: no-repeat;
   border: 1px solid var(--dim);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   padding: 2px 26px 2px 10px;
   margin: 3px 0;
   cursor: pointer;
@@ -1334,9 +1248,9 @@ nav .gap {
 .cov {
   aspect-ratio: 1;
   background: var(--panel);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   overflow: hidden;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
+  box-shadow: var(--sh2);
 }
 .cov.rnd {
   display: grid;
@@ -1355,7 +1269,7 @@ nav .gap {
 }
 .card b {
   margin-top: 8px;
-  font: 600 14px/1.25 Georgia, serif;
+  font: 600 14px/1.25 var(--serif);
 }
 /* Title and artist: one line each; a cut text fades out and scrolls while the tile is hovered (fitLines()) */
 .card b,
@@ -1412,7 +1326,7 @@ button.card.ar:hover span,
 }
 .card > span {
   color: var(--dim);
-  font-size: 13px;
+  font-size: var(--fs-s);
 }
 .item {
   min-width: 0;
@@ -1438,12 +1352,17 @@ button.card.ar:hover span,
   background: var(--acc);
   color: var(--accink);
   border: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+  box-shadow: var(--sh1);
 }
+/* the play symbol 20 px, the others (add, heart, delete) 16 px */
 .play svg {
   width: 20px;
   height: 20px;
   display: block;
+}
+.play:is(.addq, .favc, .delp) svg {
+  width: 16px;
+  height: 16px;
 }
 .play.addq {
   right: 44px;
@@ -1458,25 +1377,13 @@ button.card.ar:hover span,
 .play.delp {
   right: 80px;
 }
-.play.delp svg {
-  width: 17px;
-  height: 17px;
-}
-.play.favc svg {
-  width: 16px;
-  height: 16px;
-}
 .play.favc[aria-pressed=true] svg {
   fill: currentColor;
-}
-.play.addq svg {
-  width: 17px;
-  height: 17px;
 }
 @media (hover: hover) {
   .cw .play {
     opacity: 0;
-    transition: opacity .15s;
+    transition: opacity var(--t-fast);
   }
   .cw:hover .play,
   .cw:focus-within .play {
@@ -1514,13 +1421,13 @@ button.card.ar:hover span,
   align-items: center;
   gap: 4px 8px;
   margin-top: 6px;
-  font-size: 13px;
+  font-size: var(--fs-s);
   font-variant-numeric: tabular-nums;
 }
 /* Artist of a track, only when it differs from the album artist (e.g. compilations) */
 #tracks li .ta {
   display: block;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--dim);
 }
 /* Track number without dot in its own column (width --tnw = digits of the highest number), then the title */
@@ -1536,15 +1443,10 @@ button.card.ar:hover span,
   flex: 1;
   min-width: 0;
 }
-/* Header of a disc on albums with several discs, like the section titles of the settings */
+/* Header of a disc on albums with several discs (.ovl, like the section titles of the settings) */
 #tracks li.disc {
   padding: 18px 4px 6px;
   border-bottom: 1px solid var(--line);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .07em;
-  color: var(--dim);
 }
 #tracks li.disc:first-child {
   padding-top: 4px;
@@ -1555,12 +1457,12 @@ dialog {
   max-height: 90vh;
   padding: 0;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   background: var(--bg);
   color: var(--ink);
 }
 dialog::backdrop {
-  background: rgba(0, 0, 0, .6);
+  background: rgba(0, 0, 0, .55);
 }
 /* An open popup keeps the page behind it still: the wheel scrolls only the popup content, the end
    of a list does not pass the scroll on to the page */
@@ -1645,7 +1547,7 @@ dialog * {
   }
 }
 .info h2 {
-  font: 600 26px/1.15 Georgia, serif;
+  font: 600 26px/1.15 var(--serif);
   margin: 0 0 4px;
 }
 .info p {
@@ -1707,39 +1609,25 @@ dialog * {
   width: min(560px, 92vw);
   padding: 20px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   background: var(--panel);
   color: var(--ink);
-}
-#apidlg::backdrop,
-#infodlg::backdrop {
-  background: rgba(0, 0, 0, .55);
 }
 #apidlg h2,
 #infodlg h2 {
   margin: 0 40px 12px 0;
-  font: 600 18px/1.25 Georgia, serif;
+  font: 600 20px/1.25 var(--serif);
 }
 #apidlg .kv {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  margin: 0 0 12px;
-  font-size: 13px;
-}
-#apidlg dt {
-  color: var(--dim);
-}
-#apidlg dd {
-  margin: 0;
-  overflow-wrap: anywhere;
+  margin-bottom: 12px;
+  font-size: var(--fs-s);
 }
 #apib {
   margin: 0;
   max-height: 50vh;
   overflow: auto;
   padding: 10px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--bg);
   border: 1px solid var(--line);
   font: 12px/1.45 ui-monospace, Menlo, monospace;
@@ -1763,12 +1651,11 @@ dialog * {
 }
 #infodlg .abt h2 {
   margin: 0 0 6px;
-  font-size: 22px;
 }
 #infodlg .abt p {
   margin: 2px 0;
   color: var(--dim);
-  font-size: 13px;
+  font-size: var(--fs-s);
 }
 #infodlg .abt a {
   color: var(--acc);
@@ -1781,7 +1668,7 @@ dialog * {
   margin-top: 10px;
 }
 #infodlg .abt .upd button {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   padding: 4px 10px;
 }
 #infodlg .abt #updmsg:empty {
@@ -1799,28 +1686,6 @@ dialog * {
 #libset:empty {
   display: none;
 }
-#libset h3 {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .07em;
-  color: var(--dim);
-  margin: 16px 0 8px;
-}
-#libset .kv {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 5px 14px;
-  margin: 0;
-}
-#libset .kv dt {
-  color: var(--dim);
-}
-#libset .kv dd {
-  margin: 0;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
 /* ---------- Toast ---------- */
 #toast {
   position: fixed;
@@ -1830,11 +1695,11 @@ dialog * {
   background: var(--acc);
   color: var(--accink);
   padding: 8px 14px;
-  border-radius: 20px;
+  border-radius: var(--r-pill);
   font-weight: 600;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .2s;
+  transition: opacity var(--t-fast);
 }
 #toast.on {
   opacity: 1;
@@ -1846,7 +1711,7 @@ dialog * {
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><mask id="logomask"><rect width="32" height="32" fill="white"/><g fill="black"><ellipse cx="8.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 8.3 26.5)"/><ellipse cx="22.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 22.3 26.5)"/><rect x="10.5" y="11" width="2.6" height="15"/><rect x="24.5" y="9" width="2.6" height="17"/><path d="M10.5 10 27.1 8v4.6L10.5 14.6z"/></g></mask><symbol id="logo" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" mask="url(#logomask)"/></symbol></defs></svg>
 <!-- Header: settings button, logo, title, search, queue button -->
 <header>
-  <button id="gear" aria-label="Menu" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <button id="gear" class="ib" aria-label="Menu" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><use href="#logo"/></svg>
   <h1 id="ttl">BluAlbum</h1>
   <!-- Search field with the search areas (chips, only Album on by default, stored); hidden until the search button -->
@@ -1858,9 +1723,9 @@ dialog * {
       <button data-in="composer" aria-pressed="false" title="Search in composers">Composer</button>
     </div>
   </div>
-  <button id="sbtn" aria-label="Search" aria-expanded="false" aria-controls="qbox"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5.5 5.5"/></svg></button>
-  <button id="fbtn" aria-label="Filter chips" aria-expanded="true" aria-controls="az"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h18l-7 8.5v6.5l-4 1.5v-8z"/></svg></button>
-  <button id="qbtn" aria-label="Queue" aria-expanded="false" aria-controls="qside"></button>
+  <button id="sbtn" class="ib" aria-label="Search" aria-expanded="false" aria-controls="qbox"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5.5 5.5"/></svg></button>
+  <button id="fbtn" class="ib" aria-label="Filter chips" aria-expanded="true" aria-controls="az"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h18l-7 8.5v6.5l-4 1.5v-8z"/></svg></button>
+  <button id="qbtn" class="ib" aria-label="Queue" aria-expanded="false" aria-controls="qside"></button>
 </header>
 <!-- Genre chips (filled by openSources) -->
 <nav id="az" aria-label="Genre filter"></nav>
@@ -1876,7 +1741,7 @@ dialog * {
   <div class="dl">
     <div class="dleft">
       <div class="cov"><img id="dimg" alt=""></div>
-      <div class="info"><h2 id="dt"></h2><div class="meta"><p><span id="da"></span><span id="dy"></span></p><p id="dlen"></p><p id="dtech"></p><p id="ds"></p></div></div>
+      <div class="info"><h2 id="dt"></h2><div class="meta"><p><span id="da"></span><span id="dy"></span></p><p id="dlen"></p><p id="dtech"></p><p id="ds" class="ovl"></p></div></div>
     </div>
     <div class="dright">
       <ol id="tracks"></ol>
@@ -1914,9 +1779,9 @@ dialog * {
 <footer id="ctl" role="group" aria-label="Player controls">
   <div id="prog" role="slider" tabindex="0" aria-label="Playback position" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-disabled="true"><div class="pt"><div class="pf"></div></div></div>
   <div class="tp">
-    <button id="bk" aria-label="Previous">⏮︎</button>
-    <button id="pp" aria-label="Play/Pause"></button>
-    <button id="sk" aria-label="Next">⏭︎</button>
+    <button id="bk" class="ib" aria-label="Previous">⏮︎</button>
+    <button id="pp" class="ib fill" aria-label="Play/Pause"></button>
+    <button id="sk" class="ib" aria-label="Next">⏭︎</button>
   </div>
   <div class="cv" id="cvb" role="button" tabindex="0" aria-label="Show full-screen player" title="Full-screen player"><img id="cov" alt="" hidden></div>
   <div class="np" aria-live="polite">
@@ -1925,9 +1790,9 @@ dialog * {
   </div>
   <div class="vl">
     <span id="lmf" class="lm" hidden><img id="lm" alt="" hidden></span>
-    <button id="vd" aria-label="Volume down" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <button id="vd" class="ib" aria-label="Volume down" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     <input id="vs" type="range" min="0" max="100" step="1" value="0" aria-label="Volume" disabled>
-    <button id="vu" aria-label="Volume up" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <button id="vu" class="ib" aria-label="Volume up" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
   </div>
 </footer>
 <!-- Queue panel -->
@@ -1935,16 +1800,16 @@ dialog * {
   <ol id="qlist"></ol>
   <div class="qf">
     <span id="qcount"></span>
-    <button id="qshuf" aria-label="Shuffle" title="Shuffle" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
-    <button id="qrep" aria-label="Repeat: off" title="Repeat: off" aria-pressed="false"></button>
-    <button id="qsave" aria-label="Save queue as BluOS playlist" title="Save queue as BluOS playlist"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8 4v4h7V4M7.5 20v-6h9v6"/></svg></button>
-    <button id="qclear" aria-label="Clear queue" title="Clear queue"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14M3 8.75h14M3 13.5h6M3 18.25h5" stroke-width="2.4"/><path d="M12.5 11.5l8.5 8.5M21 11.5L12.5 20" stroke-width="2.4"/></svg></button>
+    <button id="qshuf" class="ib sm" aria-label="Shuffle" title="Shuffle" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
+    <button id="qrep" class="ib sm" aria-label="Repeat: off" title="Repeat: off" aria-pressed="false"></button>
+    <button id="qsave" class="ib sm" aria-label="Save queue as BluOS playlist" title="Save queue as BluOS playlist"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8 4v4h7V4M7.5 20v-6h9v6"/></svg></button>
+    <button id="qclear" class="ib sm" aria-label="Clear queue" title="Clear queue"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14M3 8.75h14M3 13.5h6M3 18.25h5" stroke-width="2.4"/><path d="M12.5 11.5l8.5 8.5M21 11.5L12.5 20" stroke-width="2.4"/></svg></button>
   </div>
 </aside>
 <div id="scrim"></div>
 <!-- Settings panel -->
 <aside id="side" aria-label="Connection">
-  <button id="sclose" aria-label="Close settings"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+  <button id="sclose" class="ib sm sub" aria-label="Close settings"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
   <h2>Connection</h2>
   <!-- Compact line once connected: room name, IP, "Change" shows the form again -->
   <div id="cline" hidden><span id="cname"></span><span id="cip"></span><button type="button" id="cchg">Change</button></div>
@@ -1956,7 +1821,7 @@ dialog * {
   </div>
   <!-- Settings: source switches (filled by renderSources), cover size, design -->
   <section id="settings">
-    <h3>Settings</h3>
+    <h3 class="ovl">Settings</h3>
     <div id="srcl" role="group" aria-label="Music sources"></div>
     <div class="srow"><span>Cover size</span>
       <div id="sizes" role="group" aria-label="Cover size">
@@ -1967,15 +1832,15 @@ dialog * {
     </div>
     <div class="srow"><span>Design</span>
       <div id="themes" role="group" aria-label="Design">
-      <button type="button" data-theme="system" title="System" aria-label="System"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
-      <button type="button" data-theme="light" title="Day" aria-label="Day"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
-      <button type="button" data-theme="dark" title="Night" aria-label="Night"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+      <button type="button" data-theme="system" title="System" aria-label="System"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
+      <button type="button" data-theme="light" title="Day" aria-label="Day"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button type="button" data-theme="dark" title="Night" aria-label="Night"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
       </div>
     </div>
   </section>
   <!-- Filter chips: one switch per chip group, in the order of the chip row -->
   <section id="chips" role="group" aria-labelledby="chipsh">
-    <h3 id="chipsh">Filter chips</h3>
+    <h3 id="chipsh" class="ovl">Filter chips</h3>
     <div class="srow"><span>Quality</span><button type="button" id="qsw" class="sw" role="switch" aria-checked="false" aria-label="Show quality chips"></button></div>
     <div class="srow"><span>Decades</span><button type="button" id="dsw" class="sw" role="switch" aria-checked="false" aria-label="Show decade chips"></button></div>
     <div class="srow"><span>Genres</span><button type="button" id="gsw" class="sw" role="switch" aria-checked="false" aria-label="Show genre chips"></button></div>
@@ -3240,7 +3105,7 @@ async function openAlbum(a) {
     let disc = "";
     tr.forEach((i, k) => {
       const sg = sgs[k], dn = sg ? textOf(sg, "discno") : "";
-      if (discs > 1 && dn && dn !== disc) ol.append(el("li", { className: "disc" }, "Disc " + dn));
+      if (discs > 1 && dn && dn !== disc) ol.append(el("li", { className: "disc ovl" }, "Disc " + dn));
       disc = dn || disc;
       const ar = sg ? textOf(sg, "art") : "";
       ol.append(trackItem(i, { num: parts[k][1] || "", title: parts[k][2], artist: ar !== a.a ? ar : "" }));
@@ -3984,7 +3849,7 @@ function renderLib() {
   const stats = ["Albums", "Artists", "Songs", "Genres", "Composers"].filter((k) => k in libStats).map((k) => [k, fmt(libStats[k])]);
   if (plCount !== null) stats.push(["Playlists", fmt(plCount)]);
   const section = (box, title, rows) => {
-    if (rows.length) box.append(el("h3", {}, title), el("dl", { className: "kv" }, ...rows.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)])));
+    if (rows.length) box.append(el("h3", { className: "ovl" }, title), el("dl", { className: "kv" }, ...rows.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)])));
   };
   section($("#info"), "Player", [["Room", playerName], ...playerRows].filter((x) => x[1]));
   section($("#info"), "Music Library Stats", stats);

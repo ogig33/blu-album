@@ -104,12 +104,13 @@ Do not build these; when asked, point to the alternative.
 
 ## Code conventions (`blualbum.html`)
 
-- **Order:** `<style>` (colour tokens for light / dark / system at the top), HTML, `<script>` (module overview at its top; start-up code only in the last module "Event wiring & start").
+- **Order:** `<style>` (colour tokens for light / dark / system and the design tokens at the top), HTML, `<script>` (module overview at its top; start-up code only in the last module "Event wiring & start").
 - **State** only in the State module (`let`s); `resetPlayerState()` forgets everything of the previous player on connect, `resetLibrary()` everything of the source selection.
 - **Requests** only through `api(path)` (parsed XML, throws on network / HTTP / `<e>` errors) and `apiRaw(path)` (`{ok, status, body}` for the popup that shows unsuccessful answers); `browse(key, q)`, `xml(path)`, `rawCmd(path, title, ok)` and `cmd(url, label)` build on them. Lists of sections are read with `mapLimit()`, 3 at a time. Every request sends `Accept-Language: en` (`PLAYER_HEADERS`).
 - **Failed requests:** errors of `api()` carry `url`, `status` and `body`; `apiFail(title, e)` shows them in the API response popup (`showApiResponse()`), `loadFailed(prefix, title, e)` also writes the status line. `xml()` and `cmd()` use the popup on failure.
 - **Outdated async results** are dropped: `ctx()` (player + source selection), `activeKey` (current view) and counters `plSeq`, `qSeq`, `dlgSeq`, `searchSeq`, `lazyTok`. View loaders show results and errors only through `viewOut()` (also holds them back during a search).
 - **Elements** are built with `el(tag, props, ...children)`, chips with `chip(props, load)`, line icons with `strokeIcon()`; texts of XML elements are read with `textOf(e, sel)`.
+- **Styles:** values come from the tokens (`--r-*` radius, `--sh*` shadow, `--fs-*`, `--serif` / `--sans`, `--hov` / `--panel-h` / `--acc-h` hover, `--dis`, `--t-*`), no new literal values; shared classes: `.ib` icon button (`.sm`, `.sub`, `.fill`; on via `aria-pressed` / `aria-expanded`), `.ovl` overline, `.kv` key / value list; buttons with the default background get the hover tint automatically.
 - **Covers** are read with `fetch()` and shown as blob URLs (`showImg()`), not as `<img src="http://…">` (Firefox upgrades those to https on a `file://` page).
 - **Settings switches / segments:** `bindSwitch()` (also the search area chips), `bindSegment()`; localStorage only for conveniences (IP, design, cover size, chip groups, chip row, search areas, sort order, pinned queue, disabled sources).
 - **Configuration constants:** `APP`, `SVC_LIBRARY`, `VIEW` (view and cache keys), `QUALITIES`, `SORTS`, `FORMATS`, `LOSSY`, `REPEAT`, icons (`ICON_*`, `HEART`).

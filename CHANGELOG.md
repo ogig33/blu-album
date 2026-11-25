@@ -3,6 +3,7 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Design: one consistent style for buttons, icons, corners and shadows; every button reacts to the mouse.
 - Player: now playing reads "Title by Artist from Album (Year)".
 - Sort order: the albums of a chip can be sorted by album title, album artist, year or randomly (the default).
 - Sort order: sorted by album artist or year, the tiles show the year in front of the artist.
