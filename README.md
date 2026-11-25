@@ -15,7 +15,7 @@
 - **Quick album actions:** play, add to the queue, mark as favourite
 - **Random album:** play or add to queue for whole collection and any filter
 - **Album details:** year, quality, format, bit depth, sample rate, average bitrate, artist per track, number of tracks, playing time, breakdown of multi-disc albums
-- **Playlists:** BluOS and library playlists can be play, add to queue, list tracks 
+- **Playlists:** BluOS and library playlists play, add to queue, list tracks 
 - **Queue:** shuffle, repeat, reorder tracks by drag and drop, remove tracks, clear
 - **Player bar:** play/pause, previous/next, seek, volume, show current player listening mode
 - **Full-screen view:** focus on album art and current track
