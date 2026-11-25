@@ -251,7 +251,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 
 | ID | Test case | Input | Expected output | Real player | Core |
 |---|---|---|---|---|---|
-| FTR-01 | Now playing | Connect, TD-STATUS playing | Line 1 = `title1` (else `name`), line 2 = `title2 – title3`; cover from `image` | read | local |
+| FTR-01 | Now playing | Connect, TD-STATUS playing | Line 1 = `title1` (else `name`), line 2 = "by `title2` from `title3`" (`title2` / `title3` = `artist` / `album`), artist and album in the text colour of line 1, not bold; cover from `image` | read | local |
 | FTR-02 | Quality tag | TD-STATUS with `quality` cd / hd / hr / mqa / dolby, `streamFormat` MP3 | Tag CD / HD / HD / MQA / Dolby / MP3 (MP3 wins); tooltip = `streamFormat`; no tag for other values | – | yes |
 | FTR-03 | No source icon | Footer | No USB / library icon in the player bar | read | yes |
 | FTR-04 | Nothing playing | Mock `playing: false` | Line 1 "Nothing playing", line 2 empty, no cover, no quality tag; full screen cannot open | – | – |
@@ -270,19 +270,19 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | FTR-17 | Player without listening modes | Option `listeningModes: false` (404) | Icon and its frame hidden, no image; no error popup; no JavaScript error | – | – |
 | FTR-18 | Long polling | Connect; mock answers with an error once | `/Status?timeout=100`, then with `&etag=` of the last answer; at least 1 s between requests, 5 s after an error; no one-off `/Status` / `/Volume` | – | yes |
 | FTR-19 | Long polling after sleep / hanging request | Hold a `/Status` long poll; the page clock jumps 60 s ahead (sleep); hold the next one while the clock runs fast without a jump | After the jump at once a new `/Status?timeout=100` without etag, footer shows the new state; a request open longer than 115 s is replaced the same way; no error popup | – | – |
+| FTR-20 | Year after the album, words of line 2 | Something playing from the queue (TD-STATUS `song`); open and close the full screen; new track (mock: `song` 2 with year 1999); stream outside the queue (`streamUrl`) with `title2` ≠ `artist` | Line 2 "… from `title3` (year)", year = `<date>` of `/Playlist?start=<song>&end=<song>`, once per track, also with the full screen closed; follows the new track; stream: no year, line 2 `title2 – title3` without "by" / "from" | read | yes |
 
 ### 4.10 Full screen (FUL)
 
 | ID | Test case | Input | Expected output | Real player | Core |
 |---|---|---|---|---|---|
-| FUL-01 | Open from the footer cover | Something playing, click the footer cover | Full-screen view with cover and `title1` / `title2` / `title3` of TD-STATUS; cover not requested again | read | local |
+| FUL-01 | Open from the footer cover | Something playing, click the footer cover | Full-screen view with cover and the lines `title1`, "by `title2`", "from `title3`" of TD-STATUS (artist and album bold), no year; cover not requested again | read | local |
 | FUL-02 | Footer only at the bottom edge | Full screen open, pointer in the middle, then at the bottom edge, then over the footer | Footer hidden; shown at the last 4 px; stays while the pointer is over it; hidden when the pointer leaves the window | read | yes |
 | FUL-03 | Close | Esc; click anywhere in the view; click the footer cover again | Closed each time | read | yes |
 | FUL-04 | Keyboard | Focus the footer cover, Enter / Space | Opens / closes the view; label changes "Show / Close full-screen player" | read | yes |
 | FUL-05 | Playback stops | Full screen open, status without title | View closes by itself; cannot be opened while nothing plays | – | – |
 | FUL-06 | Background from the cover | Something playing (mock cover with one colour); new cover while the view is open; cover fails (`/Artwork` 404) | Ambient colour `--amb` = colour of the cover, view background is a gradient of it mixed with the theme background; follows the new cover; without a readable cover (also covers of other hosts, e.g. radio) no colour, plain theme background | – | – |
 | FUL-07 | Full-size cover | Something playing (TD-STATUS) | Cover asked with `&width=3000&height=3000&followRedirects=1` (`COVER_FULL`), one request for the footer and the full screen | read | yes |
-| FUL-08 | Year next to the album | Something playing from the queue (TD-STATUS `song`), open the view; close and open again; new track while open (mock: `song` 2 with year 1999); stream outside the queue (`streamUrl`) | Album line "`title3` · year", year = `<date>` of `/Playlist?start=<song>&end=<song>`; not read while the view is closed, once per track; follows the new track; no year for a stream | read | yes |
 
 ### 4.11 Queue panel (QUE)
 

@@ -119,6 +119,18 @@ const sum = (secs) => secs.reduce((n, x) => n + (+x.text2 || 0), 0);
 // Text of the first <tag> of an answer (e.g. a /Status value)
 const stOf = (xml) => (tag) =>
   ent(((xml || "").match(new RegExp("<" + tag + ">([^<]*)</" + tag + ">")) || [])[1] || "");
+// Now-playing texts of a /Status (st = stOf(...)): footer line 2 and the full-screen lines 2 and 3; "by" / "from"
+// only when title2 / title3 are the artist and album, else "title2 – title3"
+const nowLines = (st) => {
+  const t2 = st("title2"),
+    t3 = st("title3"),
+    named = t2 === st("artist") && t3 === st("album");
+  if (!named) return { bar: [t2, t3].filter(Boolean).join(" – "), full: [t2, t3] };
+  return { bar: [t2 && "by " + t2, t3 && "from " + t3].filter(Boolean).join(" "), full: [t2 && "by " + t2, t3 && "from " + t3] };
+};
+// Highlighted now-playing words below sel: [text, bold]; the connecting words "by" / "from" are not highlighted
+const nowStyles = (page, sel) =>
+  page.$eval(sel, (e) => [...e.querySelectorAll(".nv")].map((x) => [x.textContent, +getComputedStyle(x).fontWeight >= 600]));
 // Form encoding as the player writes it in keys and URLs (same as formEnc() of the app)
 const formEnc = (v) =>
   encodeURIComponent(v)
@@ -2056,12 +2068,8 @@ test(
     ok((await t.page.textContent("#qlist li:first-child .qt span")).startsWith(qa + " – "), "queue: artist – album");
     await searches("#qlist li:first-child .qt .al", "queue");
     eq(t.cmds(/^\/Move/), [], "queue: no move");
-    // Player bar: line 2 "artist – album", the artist (title2 = artist) as link
-    eq(
-      await t.page.textContent("#nt2"),
-      [t.st("title2"), t.st("title3")].filter(Boolean).join(" – "),
-      "player bar: line 2",
-    );
+    // Player bar: line 2 "by artist from album", the artist (title2 = artist) as link
+    eq(await t.page.textContent("#nt2"), nowLines(t.st).bar, "player bar: line 2");
     eq((await links("#nt2 .al")).join(", "), t.st("title2"), "player bar: artist link");
     await searches("#nt2 .al", "player bar");
   },
@@ -2976,7 +2984,13 @@ test(
     const st = t.st;
     ok(st("title1") || st("name"), "something is playing (precondition)");
     await t.page.waitForFunction((x) => document.querySelector("#nt1").textContent === x, st("title1") || st("name"));
-    eq(await t.page.textContent("#nt2"), [st("title2"), st("title3")].filter(Boolean).join(" \u2013 "), "line 2");
+    eq(await t.page.textContent("#nt2"), nowLines(st).bar, "line 2");
+    if (st("title2") === st("artist") && st("title3") === st("album"))
+      eq(
+        await nowStyles(t.page, "#nt2"),
+        [[st("title2"), false], [st("title3"), false]],
+        "artist and album highlighted, not bold",
+      );
     const q = /^MP3\b/.test(st("streamFormat")) ? "MP3" : { cd: "CD", hd: "HD", hr: "HD" }[st("quality")] || "";
     if (q) eq((await t.page.textContent("#nq")).trim(), q, "quality tag");
     eq(
@@ -3410,6 +3424,56 @@ test("FTR-19 ERR-08 long polling starts again after a sleep and after a hanging 
   eq(t.errors, [], "no JavaScript errors");
 });
 
+test(
+  "FTR-20 year after the album, read once per track",
+  async (t) => {
+    const song = t.st("song"),
+      path = `/Playlist?start=${song}&end=${song}`,
+      year = stOf(await t.player.get(path))("date");
+    const asked = () => t.player.state.requests.filter((x) => x === path).length;
+    await t.page.waitForFunction((y) => document.querySelector("#fy").textContent === y, year);
+    eq(
+      await t.page.$eval("#fy", (e) => [getComputedStyle(e, "::before").content, getComputedStyle(e, "::after").content]),
+      ['" ("', '")"'],
+      "year in brackets",
+    );
+    eq(asked(), 1, "one request for the year");
+    await t.page.click("#cvb");
+    await t.settle();
+    eq(await t.page.textContent("#ft3"), nowLines(t.st).full[1], "no year in the full screen");
+    await t.page.keyboard.press("Escape");
+    await t.settle();
+    eq(asked(), 1, "not read again for the same track");
+    eq(await t.page.textContent("#fy"), year, "year kept");
+  },
+  { ...R, needs: ["library"] },
+);
+
+test(
+  "FTR-20 year follows the track; none for a stream outside the queue; no by / from for other lines",
+  async (t) => {
+    // the year of the playing track from the recording; queue entry 2 answers 1999 (override)
+    const song = t.st("song"),
+      year = stOf(await t.player.get(`/Playlist?start=${song}&end=${song}`))("date");
+    ok(song !== "2" && year && year !== "1999", "the playing track is not entry 2 and has a year other than 1999");
+    await t.page.waitForFunction((y) => document.querySelector("#fy").textContent === y, year);
+    t.player.state.statusPatch.song = "2";
+    await t.page.waitForFunction(() => document.querySelector("#fy").textContent === "1999");
+    ok(t.player.state.requests.includes("/Playlist?start=2&end=2"), "queue entry of the new track");
+    t.player.state.statusPatch.streamUrl = "RadioParadise:/0:4";
+    t.player.state.statusPatch.title2 = "Radio Paradise";
+    await t.page.waitForFunction(() => document.querySelector("#fy").textContent === "");
+    await t.settle();
+    eq(await t.page.textContent("#fy"), "", "no year for a stream");
+    eq(await t.page.textContent("#nt2"), "Radio Paradise – " + t.st("title3"), "title2 not the artist: no by / from");
+  },
+  {
+    overrides: [
+      { match: /^\/Playlist\?start=2&end=2$/, edit: (x) => x.replace(/<date>\d+<\/date>/, "<date>1999</date>") },
+    ],
+  },
+);
+
 // ---------- 4.10 Full screen (FUL) ----------
 test(
   "FUL-01 FUL-02 FUL-03 full screen: opens from the footer cover, footer at the bottom edge, Esc",
@@ -3417,11 +3481,14 @@ test(
     await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
     await t.page.click("#cvb");
     ok(await t.page.isVisible("#full"), "full screen visible");
-    eq(
-      [await t.page.textContent("#ft2"), await t.page.textContent("#ft3")],
-      [t.st("title2"), t.st("title3")],
-      "lines 2 and 3",
-    );
+    eq([await t.page.textContent("#ft2"), await t.page.textContent("#ft3")], nowLines(t.st).full, "lines 2 and 3");
+    if (t.st("title2") === t.st("artist") && t.st("title3") === t.st("album"))
+      eq(
+        await nowStyles(t.page, "#full .ftx"),
+        [[t.st("title2"), true], [t.st("title3"), true]],
+        "artist and album bold",
+      );
+    ok(!(await t.page.$("#full #fy")), "no year in the full screen");
     const x = VIEWPORT.width / 2,
       h = VIEWPORT.height;
     await t.page.mouse.move(x, h * 0.4);
@@ -3602,53 +3669,6 @@ test(
     );
   },
   { ...R, needs: ["library"] },
-);
-
-test(
-  "FUL-08 year next to the album, read once per track while the view is open",
-  async (t) => {
-    const song = t.st("song"),
-      path = `/Playlist?start=${song}&end=${song}`,
-      year = stOf(await t.player.get(path))("date");
-    const asked = () => t.player.state.requests.filter((x) => x === path).length;
-    await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
-    eq(asked(), 0, "not read while the view is closed");
-    await t.page.click("#cvb");
-    await t.page.waitForFunction((y) => document.querySelector("#fy").textContent === y, year);
-    eq(await t.page.textContent("#ft3"), t.st("title3"), "album line unchanged");
-    eq(asked(), 1, "one request for the year");
-    await t.page.keyboard.press("Escape");
-    await t.page.click("#cvb");
-    await t.settle();
-    eq(asked(), 1, "not read again for the same track");
-    eq(await t.page.textContent("#fy"), year, "year kept");
-  },
-  { ...R, needs: ["library"] },
-);
-
-test(
-  "FUL-08 year follows the track; none for a stream outside the queue",
-  async (t) => {
-    // the year of the playing track from the recording; queue entry 2 answers 1999 (override)
-    const song = t.st("song"),
-      year = stOf(await t.player.get(`/Playlist?start=${song}&end=${song}`))("date");
-    ok(song !== "2" && year && year !== "1999", "the playing track is not entry 2 and has a year other than 1999");
-    await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
-    await t.page.click("#cvb");
-    await t.page.waitForFunction((y) => document.querySelector("#fy").textContent === y, year);
-    t.player.state.statusPatch.song = "2";
-    await t.page.waitForFunction(() => document.querySelector("#fy").textContent === "1999");
-    ok(t.player.state.requests.includes("/Playlist?start=2&end=2"), "queue entry of the new track");
-    t.player.state.statusPatch.streamUrl = "RadioParadise:/0:4";
-    await t.page.waitForFunction(() => document.querySelector("#fy").textContent === "");
-    await t.settle();
-    eq(await t.page.textContent("#fy"), "", "no year for a stream");
-  },
-  {
-    overrides: [
-      { match: /^\/Playlist\?start=2&end=2$/, edit: (x) => x.replace(/<date>\d+<\/date>/, "<date>1999</date>") },
-    ],
-  },
 );
 
 // ---------- 4.11 Queue panel (QUE) ----------
@@ -5145,7 +5165,7 @@ test(
   "REG-01 connect: no playback command on page load (regression)",
   async (t) => {
     await t.settle(1200);
-    eq(t.cmds(/^\/(Add|Play|Load)/), [], "playback commands after load");
+    eq(t.cmds(/^\/(Add|Play|Load)(\?|$)/), [], "playback commands after load");
   },
   R,
 );

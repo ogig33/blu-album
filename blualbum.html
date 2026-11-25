@@ -886,20 +886,17 @@ button {
 }
 #full p {
   margin: 0 0 8px;
-  font-size: clamp(17px, 2vw, 28px);
+  font-size: clamp(19px, 2.3vw, 32px);
   color: var(--dim);
   overflow-wrap: anywhere;
 }
-#full #ft2 {
+/* Now-playing lines: artist and album in the text colour of the title (in the full screen also bold like it),
+   the connecting words "by" / "from" stay dim */
+.nv {
   color: var(--ink);
 }
-/* Year next to the album: "Album · 1983" */
-#fy {
-  white-space: nowrap;
-}
-#fy:not(:empty)::before {
-  content: "\00B7";
-  margin: 0 .4em;
+#full .nv {
+  font-weight: 600;
 }
 @media (max-aspect-ratio: 1/1) {
   #full {
@@ -936,6 +933,13 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* Year after the album: "by Artist from Album (1983)" */
+#fy:not(:empty)::before {
+  content: " (";
+}
+#fy:not(:empty)::after {
+  content: ")";
 }
 /* Listening mode of the player (TV / Music / Movie) before the volume controls: icon of the player
    (white, inverted in the light design by --plicon), display only. Grey and in a square frame, so it
@@ -1904,7 +1908,7 @@ dialog * {
 <!-- Full-screen now playing (opened by clicking the cover in the footer) -->
 <div id="full" hidden>
   <div class="fcov"><img id="fimg" alt=""></div>
-  <div class="ftx"><h2 id="ft1"></h2><p id="ft2"></p><p><span id="ft3"></span><span id="fy"></span></p></div>
+  <div class="ftx"><h2 id="ft1"></h2><p id="ft2"></p><p id="ft3"></p></div>
 </div>
 <!-- Footer: progress strip, transport, now playing, volume -->
 <footer id="ctl" role="group" aria-label="Player controls">
@@ -1917,7 +1921,7 @@ dialog * {
   <div class="cv" id="cvb" role="button" tabindex="0" aria-label="Show full-screen player" title="Full-screen player"><img id="cov" alt="" hidden></div>
   <div class="np" aria-live="polite">
     <div class="nt"><span id="nt1"></span><span id="nq" class="q" hidden></span></div>
-    <div class="na" id="nt2"></div>
+    <div class="na"><span id="nt2"></span><span id="fy"></span></div>
   </div>
   <div class="vl">
     <span id="lmf" class="lm" hidden><img id="lm" alt="" hidden></span>
@@ -2262,7 +2266,7 @@ let searchSeq = 0, searchTimer = 0, searching = false, viewHeld = null;
 let playerName = "";
 // Listening mode (footer tag): syncStat of /Status it was read for, request counter.
 let lmSync = "", lmSeq = 0;
-// Year of the full-screen view: track it belongs to (pid:song of /Status, "" = none), track it was read
+// Year in the footer: track it belongs to (pid:song of /Status, "" = none), track it was read
 // for, request counter.
 let fyWant = "", fyHave = "", fySeq = 0;
 // Settings panel: library settings rows [label, value] and library statistics;
@@ -3640,7 +3644,7 @@ function stopPoll() {
   pollCtl?.abort();
   pollCtl = null;
   $("#nt1").textContent = "";
-  $("#nt2").textContent = $("#nt2").dataset.k = "";
+  $("#nt2").textContent = $("#nt2").dataset.k = $("#fy").textContent = "";
   $("#nq").hidden = true;
   $("#lm").hidden = $("#lmf").hidden = true;
   $("#cov").hidden = true;
@@ -3705,13 +3709,20 @@ function showNow(d) {
   showRepeat(g("repeat"));
   const t1 = g("title1") || g("name");
   $("#nt1").textContent = t1 || (state ? "Nothing playing" : "");
-  // Line 2 "artist \u2013 album": title2 is a link (searchArtist()) when it is the track's artist; built again only
-  // when it changes (keeps the focus of a link)
-  const t2 = t1 ? g("title2") : "", t3 = t1 ? g("title3") : "", nt2 = $("#nt2"), nk = [t2, t3, g("artist")].join("\n");
+  // Now-playing lines of the footer ("by artist from album") and the full screen ("by artist", "from album"):
+  // the words "by" / "from" only when title2 / title3 are the track's artist and album, else "title2 \u2013 title3"
+  // (e.g. a stream); title2 is a link (searchArtist()) when it is the track's artist. Built again only when they
+  // change (keeps the focus of a link).
+  const t2 = t1 ? g("title2") : "", t3 = t1 ? g("title3") : "", nt2 = $("#nt2"), nk = [t2, t3, g("artist"), g("album")].join("\n");
   if (nt2.dataset.k !== nk) {
     nt2.dataset.k = nk;
-    nt2.textContent = "";
-    nt2.append(...(t2 && t2 === g("artist") ? artistLinks(t2, "al", true) : [t2]), t2 && t3 ? " \u2013 " : "", t3);
+    const isArtist = t2 === g("artist"), named = isArtist && t3 === g("album");
+    const cn = (w) => named ? w : "", nv = (...c) => el("span", { className: "nv" }, ...c);
+    const by = t2 ? [cn("by "), nv(...(isArtist ? artistLinks(t2, "al", true) : [t2]))] : [];
+    const from = t3 ? [t2 ? named ? cn(" from ") : " \u2013 " : cn("from "), nv(t3)] : [];
+    nt2.replaceChildren(...by, ...from);
+    $("#ft2").replaceChildren(...(t2 ? [cn("by "), nv(t2)] : []));
+    $("#ft3").replaceChildren(...(t3 ? [cn("from "), nv(t3)] : []));
   }
   const im = t1 ? g("image") : "", cv = $("#cov"), fi = $("#fimg");
   const src = imgUrl(im, COVER_FULL);
@@ -3721,14 +3732,12 @@ function showNow(d) {
   if (upd.length) showImg(upd, src);
   // Full-screen view: title1-3 are the three now-playing lines the API asks UIs to use
   $("#ft1").textContent = t1;
-  $("#ft2").textContent = t2;
-  $("#ft3").textContent = t3;
   // Year: only for a track of the queue (no streamUrl); read again when the track or the queue changes
   const yk = t1 && song !== "" && !g("streamUrl") ? pid + ":" + song : "";
   if (yk !== fyWant) {
     fyWant = yk;
     $("#fy").textContent = "";
-    if (!$("#full").hidden) loadYear();
+    loadYear();
   }
   if (!t1) showFull(false);
   // MP3 has a bitrate as quality (e.g. 184000); it is recognised by the stream format ("MP3 184 kb/s").
@@ -3769,8 +3778,8 @@ function watchPoll() {
   tickAt = now;
   if (pollCtl && (slept || now - pollAt > POLL_LIMIT)) pollStatus();
 }
-// Year next to the album in the full-screen view: /Status has none, the queue entry of the playing track
-// has it as <date> (Bruno E33). Read only while the view is open, once per track.
+// Year after the album in the footer: /Status has none, the queue entry of the playing track has it as <date>
+// (Bruno E33). Read once per track.
 async function loadYear() {
   const k = fyWant, mine = base;
   if (!k || k === fyHave) return;
@@ -3779,11 +3788,8 @@ async function loadYear() {
   let d = null;
   try {
     d = await api("/Playlist?start=" + song + "&end=" + song);
-  } catch (e) { // no year; asked again when the view opens next time
-    if (seq === fySeq) {
-      fyHave = "";
-      apiFail("Loading the year did not succeed", e);
-    }
+  } catch (e) { // no year for this track
+    if (seq === fySeq) apiFail("Loading the year did not succeed", e);
   }
   if (seq !== fySeq || mine !== base || k !== fyWant || !d) return;
   $("#fy").textContent = textOf(d, "song > date");
@@ -3791,10 +3797,7 @@ async function loadYear() {
 // Opens / closes the full-screen view (only while something is playing).
 function showFull(open) {
   if (open && !$("#ft1").textContent) return;
-  if (open) {
-    setBars();
-    loadYear();
-  }
+  if (open) setBars();
   $("#full").hidden = !open;
   document.body.classList.toggle("full", open);
   document.body.classList.remove("fullbar");
