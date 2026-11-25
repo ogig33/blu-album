@@ -126,11 +126,14 @@ const nowLines = (st) => {
     t3 = st("title3"),
     named = t2 === st("artist") && t3 === st("album");
   if (!named) return { bar: [t2, t3].filter(Boolean).join(" – "), full: [t2, t3] };
-  return { bar: [t2 && "by " + t2, t3 && "from " + t3].filter(Boolean).join(" "), full: [t2 && "by " + t2, t3 && "from " + t3] };
+  return {
+    bar: [t2 && "by " + t2, t3 && "from " + t3].filter(Boolean).join(" "),
+    full: [t2 && "by " + t2, t3 && "from " + t3],
+  };
 };
 // Highlighted now-playing words below sel: [text, bold]; the connecting words "by" / "from" are not highlighted
 const nowStyles = (page, sel) =>
-  page.$eval(sel, (e) => [...e.querySelectorAll(".nv")].map((x) => [x.textContent, +getComputedStyle(x).fontWeight >= 600]));
+  page.$$eval(sel + " .nv", (l) => l.map((x) => [x.textContent, +getComputedStyle(x).fontWeight >= 600]));
 // Form encoding as the player writes it in keys and URLs (same as formEnc() of the app)
 const formEnc = (v) =>
   encodeURIComponent(v)
@@ -3291,10 +3294,11 @@ test(
     ok(
       await t.page.$eval("#lmf", (f) => {
         const s = getComputedStyle(f),
-          i = getComputedStyle(f.firstElementChild);
-        return !f.hidden && s.borderStyle === "solid" && parseFloat(s.borderRadius || "0") === 0 && +i.opacity < 1;
+          i = getComputedStyle(f.firstElementChild),
+          r = parseFloat(s.borderRadius || "0");
+        return !f.hidden && s.borderStyle === "solid" && r > 0 && r < f.offsetWidth / 4 && +i.opacity < 1;
       }),
-      "status tag look: square-cornered frame, grey (dimmed) icon",
+      "status tag look: frame with the corners of a tag (not round like the buttons), grey (dimmed) icon",
     );
     // Frame colour, compared with the colour token (computed through a probe element); no hover effect
     const look = () =>
@@ -5071,11 +5075,8 @@ test(
         ok(c >= 4.5, `${theme}: ${sel} contrast ${c}`);
       }
       // the hover of the first track keeps a gap to the close button
-      const gap = await t.page.evaluate(
-        () =>
-          document.querySelector("#tracks li").getBoundingClientRect().top -
-          document.querySelector("#close").getBoundingClientRect().bottom,
-      );
+      const rect = (sel) => t.page.$eval(sel, (e) => e.getBoundingClientRect().toJSON());
+      const gap = (await rect("#tracks li")).top - (await rect("#close")).bottom;
       ok(gap >= 8, `${theme}: gap of ${Math.round(gap)} px between the close button and the first track`);
       await t.page.click("#close");
     }
