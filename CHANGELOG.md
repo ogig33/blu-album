@@ -3,7 +3,7 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
-- Player: the now-playing lines read "by <artist> from <album>" with artist and album highlighted, a little larger in the full screen; the year moves from the full screen to the player bar, in brackets after the album.
+- Player: now playing reads "<title> by <artist> from <album> (<year>)".
 - Sort order: the albums of a chip can be sorted by album title, album artist, year or randomly (the default).
 - Sort order: sorted by album artist or year, the tiles show the year in front of the artist.
 - Search: faster with many results (the player's result sections load in parallel).
