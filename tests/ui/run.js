@@ -3925,7 +3925,7 @@ test(
       timeout: 15000,
     });
     eq(
-      [...new Set(t.reqs(/^\/Playlist\?/))].sort(),
+      [...new Set(t.reqs(/^\/Playlist\?/))].filter((u) => !/start=(\d+)&end=\1$/.test(u)).sort(), // without the year
       Array.from({ length: 10 }, (_, i) => `/Playlist?start=${i * 200}&end=${i * 200 + 199}`).sort(),
       "ten pages",
     );
@@ -3942,7 +3942,7 @@ test(
     const p = await t.apiPopup("Loading the queue did not succeed");
     ok(/^\/Playlist\?/.test(p.u), "queue request: " + p.u);
   },
-  { overrides: [{ match: /^\/Playlist\?/, status: 500 }] },
+  { overrides: [{ match: /^\/Playlist\?start=0&end=199$/, status: 500 }] }, // only the queue, not the year
 );
 
 // Titles of the queue rows, in their order
@@ -3992,7 +3992,7 @@ test(
     await t.openQueue();
     await t.settle(2500);
     const before = await qTitles(t),
-      loads = () => t.player.state.requests.filter((x) => /^\/Playlist\?start=0&/.test(x)).length,
+      loads = () => t.player.state.requests.filter((x) => x === "/Playlist?start=0&end=199").length,
       n = loads();
     const during = await dragRow(t, 0, 3, 0.75);
     eq(during.drag, 1, "dragged row dimmed");
@@ -4035,7 +4035,7 @@ test(
     );
     const title = await t.page.textContent("#qlist li.cur .qt b"),
       to = cur > 0 ? 0 : 2,
-      loads = () => t.player.state.requests.filter((x) => /^\/Playlist\?start=0&/.test(x)).length,
+      loads = () => t.player.state.requests.filter((x) => x === "/Playlist?start=0&end=199").length,
       n = loads();
     await dragRow(t, cur, to, to ? 0.75 : 0.25);
     eq(t.cmds(/^\/Move/), [`/Move?new=${to}&old=${cur}`], "/Move sent");
@@ -4092,7 +4092,7 @@ test(
   async (t) => {
     await t.openQueue();
     const before = await qTitles(t),
-      loads = () => t.player.state.requests.filter((x) => /^\/Playlist\?start=0&/.test(x)).length,
+      loads = () => t.player.state.requests.filter((x) => x === "/Playlist?start=0&end=199").length,
       n = loads();
     await dragRow(t, 0, 3, 0.75);
     const p = await t.apiPopup("The player command did not succeed");
