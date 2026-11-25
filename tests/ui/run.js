@@ -2878,7 +2878,10 @@ test(
     const bg = () => t.page.$eval("#sbtn", (b) => getComputedStyle(b).backgroundColor);
     eq(await bg(), "rgba(0, 0, 0, 0)", "search button not highlighted");
     const left = (sel) => t.page.$eval(sel, (e) => e.getBoundingClientRect().left);
-    ok((await left("#sbtn")) < (await left("#fbtn")) && (await left("#fbtn")) < (await left("#qbtn")), "search, filter, queue button");
+    ok(
+      (await left("#sbtn")) < (await left("#fbtn")) && (await left("#fbtn")) < (await left("#qbtn")),
+      "search, filter, queue button",
+    );
     await t.page.click("#sbtn");
     ok((await shown()) && (await t.page.isVisible("#sin")), "field and search areas shown");
     eq(await t.page.getAttribute("#sbtn", "aria-expanded"), "true", "search button expanded");
