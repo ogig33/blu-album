@@ -3373,6 +3373,43 @@ test("FTR-18 ERR-08 long polling with etag, pause between requests, longer after
   );
 });
 
+test("FTR-19 ERR-08 long polling starts again after a sleep and after a hanging request", async (t) => {
+  const status = () => t.player.state.requests.filter((x) => /^\/Status\?/.test(x));
+  await t.page.waitForFunction((x) => document.querySelector("#nt1").textContent === x, t.st("title1"));
+  // Sleep: the long poll hangs (a connection broken during the sleep), the clock of the page jumps 60 s ahead
+  let held = t.player.state.hold(/^\/Status\?.*etag=/);
+  await held.asked();
+  let before = status().length;
+  t.player.state.statusPatch.title1 = "After the sleep";
+  await t.page.evaluate(() => {
+    const now = Date.now;
+    Date.now = () => now() + 60e3;
+  });
+  await t.page.waitForFunction(() => document.querySelector("#nt1").textContent === "After the sleep", null, {
+    timeout: 3000,
+  });
+  eq(status()[before], "/Status?timeout=100", "at once a new request without etag after waking up");
+  await held.release();
+  // Hanging request without a sleep: the clock runs fast (2.5 s per tick, below the sleep gap) until the request is
+  // 115 s old
+  held = t.player.state.hold(/^\/Status\?.*etag=/);
+  await held.asked();
+  before = status().length;
+  const t0 = Date.now();
+  await t.page.evaluate(() => {
+    const now = Date.now;
+    let off = 0;
+    Date.now = () => now() + off;
+    const iv = setInterval(() => (off += 1e3) > 130e3 && clearInterval(iv), 100);
+  });
+  while (status().length === before && Date.now() - t0 < 20000) await t.page.waitForTimeout(100);
+  eq(status()[before], "/Status?timeout=100", "new request without etag");
+  ok(Date.now() - t0 >= 9000, `only after the request limit (${Date.now() - t0} ms, about 11.5 s expected)`);
+  await held.release();
+  ok(!(await t.page.$eval("#apidlg", (e) => e.open)), "no error popup");
+  eq(t.errors, [], "no JavaScript errors");
+});
+
 // ---------- 4.10 Full screen (FUL) ----------
 test(
   "FUL-01 FUL-02 FUL-03 full screen: opens from the footer cover, footer at the bottom edge, Esc",

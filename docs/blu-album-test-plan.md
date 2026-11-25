@@ -23,7 +23,7 @@ Every function of the app (`blualbum.html`) as a test case, grouped into test bl
 | ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache, artist links (several artists, track artists) | 5 | 4 | 5 |
 | POP | 4.7 Album popup | Details, technical data, track list, playing a track, closing | 20 | 10 | 17 |
 | SRH | 4.8 Search | Player search, albums of found composers, groups by album title / artist / composer, search areas, search button, typing rules, empty field, errors | 13 | 4 | 12 |
-| FTR | 4.9 Player footer | Now playing, quality tag, transport, progress, volume, listening mode, long polling | 18 | 10 | 12 |
+| FTR | 4.9 Player footer | Now playing, quality tag, transport, progress, volume, listening mode, long polling | 19 | 10 | 12 |
 | FUL | 4.10 Full screen | Full-screen now playing view, background from the cover, full-size cover | 8 | 6 | 6 |
 | QUE | 4.11 Queue panel | Pinning, list, remove, reorder (drag and drop, keyboard), shuffle, repeat, save as playlist, clear | 18 | 16 | 17 |
 | PLS | 4.12 Playlists | Playlists chip, playlists as tiles, random playlist, playing / queueing / deleting a playlist, playlist popup, favourite library playlist | 13 | 10 | 10 |
@@ -33,7 +33,7 @@ Every function of the app (`blualbum.html`) as a test case, grouped into test bl
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 4 | 3 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 2 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **188** | **128** | **150** |
+| | | **Total** | **189** | **128** | **150** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -269,6 +269,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | FTR-16 | Listening mode follows syncStat | Change the mode in the mock and raise `syncStat` | `/audioPreset` read once on connect and again only after the change; icon shows the new mode; no command sent | – | – |
 | FTR-17 | Player without listening modes | Option `listeningModes: false` (404) | Icon and its frame hidden, no image; no error popup; no JavaScript error | – | – |
 | FTR-18 | Long polling | Connect; mock answers with an error once | `/Status?timeout=100`, then with `&etag=` of the last answer; at least 1 s between requests, 5 s after an error; no one-off `/Status` / `/Volume` | – | yes |
+| FTR-19 | Long polling after sleep / hanging request | Hold a `/Status` long poll; the page clock jumps 60 s ahead (sleep); hold the next one while the clock runs fast without a jump | After the jump at once a new `/Status?timeout=100` without etag, footer shows the new state; a request open longer than 115 s is replaced the same way; no error popup | – | – |
 
 ### 4.10 Full screen (FUL)
 

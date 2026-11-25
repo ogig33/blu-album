@@ -11,6 +11,7 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 - Filter chips: all chips have the same grey border, a separator sets the quality chips apart; the search, filter and queue buttons are highlighted while active.
 - Status line: a genre chip shows its genre, e.g. "12 albums in the genre Jazz"; after a search the status line of the view comes back in full.
 - Artist links: the track artists in the album and playlist popups, the queue and the player bar are links that search that artist in the search area Artist only.
+- Fix: after the computer wakes up from sleep, the player bar shows the current track again at once instead of the one from before.
 
 ## 0.12.0
 - Playlists: one "Playlists" chip after New shows the BluOS playlists as tiles like albums, with play, add to queue, delete and a popup with the track list.

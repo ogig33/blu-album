@@ -2023,8 +2023,12 @@ const SVC_LIBRARY = "LocalMusic";
 const LAN_MSG = "Please make sure your browser has permission to access the Local Area Network (LAN).";
 // Connect: the player must answer the first request (top menu, about 1 KB) within CONNECT_TIMEOUT ms,
 // otherwise NO_REPLY_MSG is shown. An address without a device often gets no answer at all, and the
-// browser would wait for minutes. Later requests have no limit (large lists, long polling).
+// browser would wait for minutes. Later requests have no limit (large lists), except the long polling (POLL_LIMIT).
 const CONNECT_TIMEOUT = 5000;
+// Status long polling starts again when its request is still open after POLL_LIMIT ms (the player holds it for
+// 100 s) or when the visible page had no tick for more than WAKE_GAP ms (the computer slept): a connection broken
+// during the sleep may never answer, and the footer would keep the state from before.
+const POLL_LIMIT = 115e3, WAKE_GAP = 10e3;
 const NO_REPLY_MSG = "The player did not answer. Please check the IP address and that the player is switched on and in the same network.";
 // Keys of the views (activeKey) and of their albums in the cache; a genre view uses the genre name.
 // lib: every album of the enabled sources with year and album artist (cache only: decade chips, album artist search).
@@ -2242,8 +2246,9 @@ let dcCtx = "";
 let pos = { secs: 0, total: 0, t: 0, playing: false, canSeek: false };
 // Volume slider: drag state and rate limiting (at most one request per 150 ms while dragging).
 let dragging = false, vWant = 0, vTimer = 0, vLast = 0;
-// Long polling of /Status. pollId invalidates running loops, pollCtl aborts the pending request.
-let pollId = 0, pollCtl = null;
+// Long polling of /Status. pollId invalidates running loops, pollCtl aborts the pending request (null = no polling),
+// pollAt: start time (ms) of the latest request, tickAt: time of the latest tick (see watchPoll()).
+let pollId = 0, pollCtl = null, pollAt = 0, tickAt = Date.now();
 // Queue panel: open (pinned), playlist id (pid), current song index, request counter,
 // qDragEnd: time (ms) a drag in the queue ended (the click that follows a drag is ignored).
 let qOpen = false, qPid = "", qSong = "", qSeq = 0, qDragEnd = 0;
@@ -3633,6 +3638,7 @@ function stopPoll() {
   pos = { secs: 0, total: 0, t: 0, playing: false, canSeek: false };
   tickProg();
   pollCtl?.abort();
+  pollCtl = null;
   $("#nt1").textContent = "";
   $("#nt2").textContent = $("#nt2").dataset.k = "";
   $("#nq").hidden = true;
@@ -3734,12 +3740,13 @@ function showNow(d) {
   Object.entries(Q_CLASS).forEach(([l, c]) => q.classList.toggle(c, ql === l));
 }
 // Long-poll loop: /Status?timeout=100&etag=... returns as soon as something changes.
-// Waits at least 1 s between requests and 5 s after an error.
+// Waits at least 1 s between requests and 5 s after an error. A new call ends the running loop.
 async function pollStatus() {
   const id = ++pollId;
+  pollCtl?.abort();
   let etag = "";
   while (id === pollId) {
-    const t0 = Date.now();
+    const t0 = pollAt = Date.now();
     try {
       pollCtl = new AbortController();
       const d = await api("/Status?timeout=100" + (etag ? "&etag=" + encodeURIComponent(etag) : ""), { signal: pollCtl.signal });
@@ -3753,6 +3760,14 @@ async function pollStatus() {
     const dt = Date.now() - t0;
     if (dt < 1e3) await new Promise((res) => setTimeout(res, 1e3 - dt));
   }
+}
+// Watchdog of the long polling (every 250 ms, with tickProg()): starts it again, without etag (the player answers at
+// once), after a sleep of the computer or when its request hangs (POLL_LIMIT, WAKE_GAP). The gap counts only while
+// the page is visible: browsers slow down the timers of a hidden page.
+function watchPoll() {
+  const now = Date.now(), slept = now - tickAt > WAKE_GAP && !document.hidden;
+  tickAt = now;
+  if (pollCtl && (slept || now - pollAt > POLL_LIMIT)) pollStatus();
 }
 // Year next to the album in the full-screen view: /Status has none, the queue entry of the playing track
 // has it as <date> (Bruno E33). Read only while the view is open, once per track.
@@ -4156,7 +4171,10 @@ $("#aboutb").onclick = () => {
   $("#infodlg").showModal();
   $("#infoclose").blur();
 };
-setInterval(tickProg, 250);
+setInterval(() => {
+  tickProg();
+  watchPoll();
+}, 250);
 $("#prog").addEventListener("click", (e) => {
   const r = $("#prog").getBoundingClientRect();
   seekTo((e.clientX - r.left) / r.width * pos.total);
