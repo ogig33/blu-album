@@ -377,7 +377,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 
 | ID | Test case | Input | Expected output | Real player | Core |
 |---|---|---|---|---|---|
-| LAY-01 | Readable titles, no horizontal scrolling | Every cover size in every design; Day and Night with pinned queue and open popup | Contrast ≥ 4.5 (WCAG AA) of album titles, now playing title, queue titles, popup title and tracks; no horizontal scrolling | read | local |
+| LAY-01 | Readable texts, no horizontal scrolling | Every cover size in every design; Day and Night with pinned queue and open popup | Contrast ≥ 4.5 (WCAG AA) of album titles, now playing title, queue titles and artists, track count of the queue, status line, text of the selected chip, popup title and tracks; first track 8 px or more below the close button; no horizontal scrolling | read | local |
 | LAY-02 | Keyboard and screen reader labels | Queue pinned; all visible controls; Tab on the chip row | Every control has a name (`aria-label`, text, title or label); chips have `aria-pressed`, switches `aria-checked`, menu, filter and queue button `aria-expanded`; Tab moves to the next chip (Safari: Option-Tab, its default for buttons) | read | yes |
 | LAY-03 | Favicon | Open the app (no connection) | `link rel="icon"` is an embedded SVG (`data:` URI, no request): double note knocked out of a circle, dark in light mode and cream in dark mode (`prefers-color-scheme`); the image loads; the tab shows it in Chrome, Edge and Firefox (Safari shows no favicon for `file://` pages) | read | – |
 | LAY-04 | Header logo | Open the app (no connection) | Menu button first, then the app logo (double note in a circle, text colour) left of the title "BluAlbum" | read | – |

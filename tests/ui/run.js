@@ -5056,7 +5056,8 @@ test(
       await t.page.keyboard.press("Escape");
       if (!(await t.page.isVisible("#qside"))) await t.openQueue();
       await t.settle(300);
-      for (const sel of ["#nt1", "#qlist li b"]) {
+      // titles, grey text on the page and in the queue panel, text on the accent (selected chip)
+      for (const sel of ["#nt1", "#qlist li b", "#qlist li .qt span", "#qcount", "#msg", "#az button[aria-pressed=true]"]) {
         const c = await contrastOf(t.page, sel);
         ok(c >= 4.5, `${theme}: ${sel} contrast ${c}`);
       }
@@ -5069,6 +5070,13 @@ test(
         const c = await contrastOf(t.page, sel);
         ok(c >= 4.5, `${theme}: ${sel} contrast ${c}`);
       }
+      // the hover of the first track keeps a gap to the close button
+      const gap = await t.page.evaluate(
+        () =>
+          document.querySelector("#tracks li").getBoundingClientRect().top -
+          document.querySelector("#close").getBoundingClientRect().bottom,
+      );
+      ok(gap >= 8, `${theme}: gap of ${Math.round(gap)} px between the close button and the first track`);
       await t.page.click("#close");
     }
   },
