@@ -8,15 +8,15 @@
 
 ## Features
 
-- **Album wall** supports player's local music library (network share and USB drive), loaded lazily
-- **Filters:** All, Favourites, New, quality (HD, CD, MQA), decades, genres, playlists
-- **Search:** search for album titles, track artists, album artists, composers
+- **Browse** your BluOS player's local music library (network share and USB drive), loaded lazily
+- **Filter:** albums by All, Favourites, New, quality (HD, CD, MQA), decades, genres, playlists
+- **Search:** for album titles, track artists, album artists, composers
+- **Sort:** albums by album title, album artist, release year or randomly
 - **Quick album actions:** play, add to the queue, mark as favourite
-- **Play Random album:** available for whole collection and any filter, play or add to queue
+- **Random album:** play or add to queue for whole collection and any filter
 - **Album details:** year, quality, format, bit depth, sample rate, average bitrate, artist per track, number of tracks, playing time, breakdown of multi-disc albums
-- **BluOS Playlists:** play, add to queue, track list, create/delete
-- **Library Playlists:** play, add to queue, track list, mark as favourites
-- **Queue panel** shuffle, repeat, reorder tracks by drag and drop, remove tracks, clear
+- **Playlists:** BluOS and library playlists can be play, add to queue, list tracks 
+- **Queue:** shuffle, repeat, reorder tracks by drag and drop, remove tracks, clear
 - **Player bar:** play/pause, previous/next, seek, volume, show current player listening mode
 - **Full-screen view:** focus on album art and current track
 - **Settings:** select music sources, enable filtering options, cover size, appearance
