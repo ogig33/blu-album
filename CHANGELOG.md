@@ -2,7 +2,7 @@
 
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
-## Unreleased
+## 0.13.0
 - Design: one consistent style for buttons, icons, corners and shadows; every button reacts to the mouse.
 - Design: better contrast in the day design; gold only marks what is on, selected or playing.
 - Fix: in the album popup the first track no longer touches the close button.
