@@ -3499,7 +3499,7 @@ test(
 
 // ---------- 4.10 Full screen (FUL) ----------
 test(
-  "FUL-01 FUL-02 FUL-03 full screen: opens from the footer cover, footer at the bottom edge, Esc",
+  "FUL-01 FUL-02 FUL-03 full screen: opens from the footer cover, no player controls, Esc",
   async (t) => {
     await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
     await t.page.click("#cvb");
@@ -3515,30 +3515,23 @@ test(
         "artist and album bold",
       );
     ok(!(await t.page.$("#full #fy")), "no year in the full screen");
+    // no player controls: the view covers the footer (also at the bottom edge), the footer is inert
     const x = VIEWPORT.width / 2,
       h = VIEWPORT.height;
-    await t.page.mouse.move(x, h * 0.4);
-    await t.settle(300);
-    const top = () => t.page.$eval("#ctl", (e) => Math.round(e.getBoundingClientRect().top));
-    ok((await top()) >= h, "footer hidden");
     await t.page.mouse.move(x, h - 1);
     await t.settle(400);
-    const shownAt = await top();
-    ok(shownAt < h, "footer shown at bottom edge");
-    await t.page.mouse.move(x, (shownAt + h) / 2 - 8);
-    await t.settle(300);
-    ok((await top()) < h, "stays while the pointer is over the footer");
-    await t.page.evaluate(() => document.documentElement.dispatchEvent(new MouseEvent("mouseleave")));
-    await t.settle(400);
-    ok((await top()) >= h, "hidden when the pointer leaves the window");
+    const atBottom = () => t.page.evaluate(([x, y]) => !!document.elementFromPoint(x, y).closest("#full"), [x, h - 5]);
+    ok(await atBottom(), "footer covered, also with the pointer at the bottom edge");
+    ok(await t.page.$eval("#ctl", (e) => e.inert), "footer inert");
     await t.page.keyboard.press("Escape");
     ok(!(await t.page.isVisible("#full")), "closed with Esc");
+    ok(!(await t.page.$eval("#ctl", (e) => e.inert)), "footer usable again");
   },
   { ...R, needs: ["library"] },
 );
 
 test(
-  "FUL-03 close by a click in the view, by the footer cover and by the close button (shown while the mouse moves)",
+  "FUL-03 close by a click in the view and by the close button (shown while the mouse moves)",
   async (t) => {
     await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
     await t.page.click("#cvb");
@@ -3555,28 +3548,22 @@ test(
     ok(await shown(), "close button shown again by a mouse movement");
     await t.page.click("#fclose");
     ok(!(await t.page.isVisible("#full")), "closed by the close button");
-    await t.page.click("#cvb");
-    ok(await t.page.isVisible("#full"), "open again");
-    await t.page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height - 1);
-    await t.settle(500);
-    await t.page.click("#cvb");
-    ok(!(await t.page.isVisible("#full")), "closed by the footer cover");
   },
   { ...R, needs: ["library"] },
 );
 
 test(
-  "FUL-04 keyboard: Enter and Space on the footer cover",
+  "FUL-04 keyboard: Enter on the footer cover opens, the focus moves to the close button and back",
   async (t) => {
     await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
+    const focused = () => t.page.evaluate(() => document.activeElement.id);
     await t.page.focus("#cvb");
     await t.page.keyboard.press("Enter");
     ok(await t.page.isVisible("#full"), "opened with Enter");
-    eq(await t.page.getAttribute("#cvb", "aria-label"), "Close full-screen player", "label when open");
-    await t.page.focus("#cvb");
+    eq(await focused(), "fclose", "focus on the close button");
     await t.page.keyboard.press(" ");
-    ok(!(await t.page.isVisible("#full")), "closed with Space");
-    eq(await t.page.getAttribute("#cvb", "aria-label"), "Show full-screen player", "label when closed");
+    ok(!(await t.page.isVisible("#full")), "closed with Space on the close button");
+    eq(await focused(), "cvb", "focus back on the footer cover");
   },
   { ...R, needs: ["library"] },
 );

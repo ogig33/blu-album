@@ -120,6 +120,7 @@ Do not build these; when asked, point to the alternative.
 
 - **No genre in the album popup:** would be useful, but no endpoint gives the genre of an album; it would need the album lists of all genres (`genre=…&section=all`, 1 request per genre and source: 37 requests, 245 KB, about 2 s for the owner's library and USB drive).
 - **No player controls in the album popup:** play / queue are on the cover in the album grid (hover); keeps the popup simple.
+- **No player controls in the full screen:** it covers the footer (inert meanwhile); the footer sliding in at the bottom edge irritated (removed 2026-11-26). Close: button at the top right, click, Esc.
 - **No track duration in the player bar:** shown in the queue panel; keeps the player bar uncluttered.
 - **No mute / unmute button:** use pause instead; keeps the player bar uncluttered.
 - **No player discovery:** not technically feasible from a local HTML page in a browser.

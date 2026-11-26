@@ -540,19 +540,22 @@ li.cur .qn {
   display: none;
 }
 #settings,
+#display,
 #chips {
   margin-top: 6px;
   border-top: 1px solid var(--line);
 }
-#settings .srow,
-#chips .srow {
+/* Music sources: only once the sources of a player are known */
+#settings:has(#srcl:empty) {
+  display: none;
+}
+#side .srow {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 40px;
 }
-#settings .srow > span,
-#chips .srow > span {
+#side .srow > span {
   flex: 1;
 }
 #srcl {
@@ -805,7 +808,7 @@ button {
   top: 0;
   left: 0;
   right: 0;
-  bottom: var(--fh,56px);
+  bottom: 0;
   z-index: 16;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -831,32 +834,14 @@ button {
   transition: opacity var(--t-base);
 }
 @media (hover: hover) {
-  body.fidle #fclose {
+  body.fidle #fclose:not(:focus-visible) {
     opacity: 0;
   }
 }
-/* With a mouse the full-screen view covers the whole screen; the footer slides in only while the
-   pointer is near the bottom edge (body.full / body.fullbar, set in showFull and the mousemove handler).
-   Touch devices keep the footer visible. */
-@media (hover: hover) {
-  body.full #full {
-    bottom: 0;
-  }
-  body.full #ctl {
-    z-index: 17;
-    transform: translateY(100%);
-    transition: transform var(--t-fast) ease;
-  }
-  body.full.fullbar #ctl {
-    transform: none;
-  }
-  body.full #full .fcov {
-    width: min(100%, 90vh);
-  }
-}
+/* The full-screen view covers the whole screen, the footer included: no player controls in it */
 #full .fcov {
   justify-self: end;
-  width: min(100%, calc(100vh - var(--fh,56px) - 10vh));
+  width: min(100%, 90vh);
   aspect-ratio: 1;
   border-radius: var(--r-md);
   overflow: hidden;
@@ -1758,7 +1743,7 @@ dialog * {
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><mask id="logomask"><rect width="32" height="32" fill="white"/><g fill="black"><ellipse cx="8.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 8.3 26.5)"/><ellipse cx="22.3" cy="26.5" rx="4.6" ry="3.4" transform="rotate(-20 22.3 26.5)"/><rect x="10.5" y="11" width="2.6" height="15"/><rect x="24.5" y="9" width="2.6" height="17"/><path d="M10.5 10 27.1 8v4.6L10.5 14.6z"/></g></mask><symbol id="logo" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" mask="url(#logomask)"/></symbol></defs></svg>
 <!-- Header: settings button, logo, title, search, queue button -->
 <header>
-  <button id="gear" class="ib" aria-label="Menu" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <button id="gear" class="ib" aria-label="Settings" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><use href="#logo"/></svg>
   <h1 id="ttl">BluAlbum</h1>
   <!-- Search field with the search areas (chips, only Album on by default, stored); hidden until the search button -->
@@ -1778,7 +1763,7 @@ dialog * {
 <nav id="az" aria-label="Genre filter"></nav>
 <!-- Status line: text of the view; sort order of an album view (options from SORTS, hidden in other views) -->
 <div id="stl">
-  <div id="msg">Open the menu, enter your player's IP address and tap Connect.</div>
+  <div id="msg">Open the settings, enter your player's IP address and tap Connect.</div>
   <select id="sort" aria-label="Sort albums" hidden></select>
 </div>
 <main id="grid"></main>
@@ -1864,9 +1849,10 @@ dialog * {
 </aside>
 <div id="scrim"></div>
 <!-- Settings panel -->
-<aside id="side" aria-label="Connection">
+<aside id="side" aria-label="Settings">
   <button id="sclose" class="ib sm sub" aria-label="Close settings"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
-  <h2>Connection</h2>
+  <h2>Settings</h2>
+  <h3 class="ovl">Connection</h3>
   <!-- Compact line once connected: room name, IP, "Change" shows the form again -->
   <div id="cline" hidden><span id="cname"></span><span id="cip"></span><button type="button" id="cchg">Change</button></div>
   <div id="cform">
@@ -1875,10 +1861,14 @@ dialog * {
     <p id="iphelp">The IP address of your player can be found from Help &gt; Diagnostics of your BluOS Controller app.</p>
     <button id="go" class="pri">Connect</button>
   </div>
-  <!-- Settings: source switches (filled by renderSources), cover size, design -->
+  <!-- Music sources: one switch per source (filled by renderSources) -->
   <section id="settings">
-    <h3 class="ovl">Settings</h3>
+    <h3 class="ovl">Music sources</h3>
     <div id="srcl" role="group" aria-label="Music sources"></div>
+  </section>
+  <!-- Display: cover size, design -->
+  <section id="display">
+    <h3 class="ovl">Display</h3>
     <div class="srow"><span>Cover size</span>
       <div id="sizes" role="group" aria-label="Cover size">
         <button type="button" data-size="s" title="Small" aria-label="Small covers">S</button>
@@ -3733,14 +3723,16 @@ async function loadYear() {
   if (seq !== fySeq || mine !== base || k !== fyWant || !d) return;
   $("#fy").textContent = textOf(d, "song > date");
 }
-// Opens / closes the full-screen view (only while something is playing).
+// Opens / closes the full-screen view (only while something is playing). It covers the footer, which is inert
+// meanwhile (no player controls in the full screen); the focus moves to its close button and back to the cover.
 function showFull(open) {
   if (open && !$("#ft1").textContent) return;
-  if (open) setBars();
+  const back = !open && $("#full").contains(document.activeElement);
   $("#full").hidden = !open;
   document.body.classList.toggle("full", open);
-  document.body.classList.remove("fullbar");
-  $("#cvb").setAttribute("aria-label", open ? "Close full-screen player" : "Show full-screen player");
+  $("#ctl").inert = open;
+  if (open) $("#fclose").focus();
+  else if (back) $("#cvb").focus();
   fullWake();
 }
 // Shows the close button of the full-screen view and hides it again after 2.5 s without mouse movement.
@@ -4178,7 +4170,7 @@ $("#sk").onclick = () => xml("/Skip");
   });
 }
 addEventListener("resize", () => {
-  if (qOpen || !$("#full").hidden) setBars();
+  if (qOpen) setBars();
 });
 $("#qbtn").innerHTML = ICON_PLAYLIST;
 showRepeat("2");
@@ -4296,15 +4288,10 @@ $("#cvb").onkeydown = (e) => {
     showFull($("#full").hidden);
   }
 };
-// Footer in full-screen view: slides in when the pointer touches the bottom edge (last 4 px)
-// and stays while the pointer is over the footer; any movement shows the close button.
-document.addEventListener("mousemove", (e) => {
-  if (!document.body.classList.contains("full")) return;
-  const near = e.clientY >= innerHeight - 4 || !!e.target.closest?.("#ctl");
-  document.body.classList.toggle("fullbar", near);
-  fullWake();
+// Full-screen view: any mouse movement shows its close button.
+document.addEventListener("mousemove", () => {
+  if (document.body.classList.contains("full")) fullWake();
 });
-document.documentElement.addEventListener("mouseleave", () => document.body.classList.remove("fullbar"));
 // A click anywhere on the full-screen view closes it.
 $("#full").onclick = () => showFull(false);
 // Background of the full-screen view follows the cover.

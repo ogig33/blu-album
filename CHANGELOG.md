@@ -9,7 +9,8 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 - Player: larger play / pause symbol and clearer volume buttons.
 - Design: questions (save or clear the queue, delete a playlist) appear in the app's own popup instead of the browser's.
 - Design: own symbols for previous, next and close; all symbols with the same line width.
-- Full screen: a close button at the top right, shown while the mouse moves.
+- Full screen: covers the whole screen without player controls; a close button at the top right shows while the mouse moves.
+- Settings: the menu is called Settings, with the sections Connection, Music sources and Display.
 - Player: now playing reads "Title by Artist from Album (Year)".
 - Sort order: the albums of a chip can be sorted by album title, album artist, year or randomly (the default).
 - Sort order: sorted by album artist or year, the tiles show the year in front of the artist.

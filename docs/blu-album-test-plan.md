@@ -277,9 +277,9 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | ID | Test case | Input | Expected output | Real player | Core |
 |---|---|---|---|---|---|
 | FUL-01 | Open from the footer cover | Something playing, click the footer cover | Full-screen view with cover and the lines `title1`, "by `title2`", "from `title3`" of TD-STATUS (artist and album bold), no year; cover not requested again | read | local |
-| FUL-02 | Footer only at the bottom edge | Full screen open, pointer in the middle, then at the bottom edge, then over the footer | Footer hidden; shown at the last 4 px; stays while the pointer is over it; hidden when the pointer leaves the window | read | yes |
-| FUL-03 | Close | Esc; click anywhere in the view; click the footer cover again; close button at the top right | Closed each time; the close button shows on opening and on mouse movement, hides after 2.5 s without movement | read | yes |
-| FUL-04 | Keyboard | Focus the footer cover, Enter / Space | Opens / closes the view; label changes "Show / Close full-screen player" | read | yes |
+| FUL-02 | No player controls | Full screen open, pointer at the bottom edge | The view covers the footer, also at the bottom edge; the footer is inert while the view is open and usable again after closing | read | yes |
+| FUL-03 | Close | Esc; click anywhere in the view; close button at the top right | Closed each time; the close button shows on opening and on mouse movement, hides after 2.5 s without movement | read | yes |
+| FUL-04 | Keyboard | Focus the footer cover, Enter; Space on the close button | Opens the view with the focus on the close button; Space closes it, the focus returns to the footer cover | read | yes |
 | FUL-05 | Playback stops | Full screen open, status without title | View closes by itself; cannot be opened while nothing plays | – | – |
 | FUL-06 | Background from the cover | Something playing (mock cover with one colour); new cover while the view is open; cover fails (`/Artwork` 404) | Ambient colour `--amb` = colour of the cover, view background is a gradient of it mixed with the theme background; follows the new cover; without a readable cover (also covers of other hosts, e.g. radio) no colour, plain theme background | – | – |
 | FUL-07 | Full-size cover | Something playing (TD-STATUS) | Cover asked with `&width=3000&height=3000&followRedirects=1` (`COVER_FULL`), one request for the footer and the full screen | read | yes |
@@ -329,7 +329,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 
 | ID | Test case | Input | Expected output | Real player | Core |
 |---|---|---|---|---|---|
-| SET-01 | Open and close | Menu button opens; back button, click on the scrim, Esc close | Opens / closes; `aria-expanded` follows; Esc with an open popup closes only the popup (POP-12) | read | yes |
+| SET-01 | Open and close | Settings button opens; back button, click on the scrim, Esc close | Opens / closes; `aria-expanded` follows; Esc with an open popup closes only the popup (POP-12) | read | yes |
 | SET-02 | Chip switches, filter button | Section "Filter chips" (Quality, Decades, Genres, in the order of the chip row): switch genre and quality chips off; decade chips on and off (CHP-16); click the filter button in the header, reload, connect, click it again | No switch for the Playlists chip; only All, Favourites, New, Playlists visible, no separator; switched on again → chips back; decade chips hidden when switched off. Filter button: chip row shown by default (button highlighted in the accent colour); a click hides the whole chip row, the status line stays, button not highlighted; stored across a reload; a click shows the row again | read | local |
 | SET-03 | Switches are stored | After SET-02 / CHP-16, reload | Switches keep their state (decade chips on → built again after connecting) | read | yes |
 | SET-04 | Cover size | Select S, M, L | Tile width and spacing between tiles S < M < L, more space between rows than columns; stored as `tile`; pressed segment follows | read | yes |
@@ -380,7 +380,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | LAY-01 | Readable texts, no horizontal scrolling | Every cover size in every design; Day and Night with pinned queue and open popup | Contrast ≥ 4.5 (WCAG AA) of album titles, now playing title, queue titles and artists, track count of the queue, status line, text of the selected chip, popup title and tracks; first track 8 px or more below the close button; no horizontal scrolling | read | local |
 | LAY-02 | Keyboard and screen reader labels | Queue pinned; all visible controls; Tab on the chip row | Every control has a name (`aria-label`, text, title or label); chips have `aria-pressed`, switches `aria-checked`, menu, filter and queue button `aria-expanded`; Tab moves to the next chip (Safari: Option-Tab, its default for buttons) | read | yes |
 | LAY-03 | Favicon | Open the app (no connection) | `link rel="icon"` is an embedded SVG (`data:` URI, no request): double note knocked out of a circle, dark in light mode and cream in dark mode (`prefers-color-scheme`); the image loads; the tab shows it in Chrome, Edge and Firefox (Safari shows no favicon for `file://` pages) | read | – |
-| LAY-04 | Header logo | Open the app (no connection) | Menu button first, then the app logo (double note in a circle, text colour) left of the title "BluAlbum" | read | – |
+| LAY-04 | Header logo | Open the app (no connection) | Settings button first, then the app logo (double note in a circle, text colour) left of the title "BluAlbum" | read | – |
 
 ### 4.18 Regression & session (REG)
 
