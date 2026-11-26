@@ -7,6 +7,9 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 - Design: better contrast in the day design; gold only marks what is on, selected or playing.
 - Fix: in the album popup the first track no longer touches the close button.
 - Player: larger play / pause symbol and clearer volume buttons.
+- Design: questions (save or clear the queue, delete a playlist) appear in the app's own popup instead of the browser's.
+- Design: own symbols for previous, next and close; all symbols with the same line width.
+- Full screen: a close button at the top right, shown while the mouse moves.
 - Player: now playing reads "Title by Artist from Album (Year)".
 - Sort order: the albums of a chip can be sorted by album title, album artist, year or randomly (the default).
 - Sort order: sorted by album artist or year, the tiles show the year in front of the artist.

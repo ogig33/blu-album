@@ -465,11 +465,28 @@ const eq = (a, b, msg) =>
 // Request counts: exact with the mock; at least with the real player (longer lists come in several pages)
 const eqCount = (a, b, msg) => (REAL ? ok(a >= b, `${msg}: expected at least ${b}, got ${a}`) : eq(a, b, msg));
 
+// Runs in the page (init script of start()): answers every opening of the question popup through answerAsk()
+function watchAsk() {
+  document.addEventListener("DOMContentLoaded", () => {
+    const d = document.querySelector("#askdlg"),
+      v = document.querySelector("#askv");
+    const text = (sel) => d.querySelector(sel).textContent;
+    const answer = async () => {
+      if (!d.open) return;
+      const q = { type: v.hidden ? "confirm" : "prompt", message: text("#askt"), ok: text("#askok") };
+      const a = await window.answerAsk({ ...q, value: v.hidden ? "" : v.value });
+      if (a.accept && !v.hidden && a.value != null) v.value = a.value;
+      d.querySelector(a.accept ? "#askok" : "#askno").click();
+    };
+    new MutationObserver(answer).observe(d, { attributes: true, attributeFilter: ["open"] });
+  });
+}
+
 // Opens the app with a fresh browser profile, connects to the player and waits for the default view.
 // opts: connect (false = stay on the start page), storage (localStorage before start; genre and quality chips
 // and the search areas Artist and Composer are switched on unless appDefaults or stored), appDefaults (true =
 // the app's own defaults: genre, quality and decade chips off, only the search area Album on), locale,
-// colorScheme, promptValue / dialog ("accept" | "dismiss") for prompt and confirm, unreachable (every player
+// colorScheme, promptValue / dialog ("accept" | "dismiss") for the question popup, unreachable (every player
 // request fails), blockStorage (localStorage throws), and the mock options (usb, playing, listeningModes,
 // statusPatch, overrides, mock).
 async function start(browser, opts = {}) {
@@ -485,12 +502,14 @@ async function start(browser, opts = {}) {
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  // prompt / confirm: answered as dialogs.mode says, every dialog is logged
+  // Question popup of the app (#askdlg, ask(): "confirm" without, "prompt" with a name field): answered as
+  // dialogs.mode says (with promptValue in the field, if given), every question is logged
   const dialogs = { mode: opts.dialog || "accept", value: opts.promptValue, log: [] };
-  page.on("dialog", (d) => {
-    dialogs.log.push({ type: d.type(), message: d.message(), value: d.defaultValue() });
-    return dialogs.mode === "dismiss" ? d.dismiss() : d.accept(dialogs.value);
+  await page.exposeFunction("answerAsk", (q) => {
+    dialogs.log.push(q);
+    return { accept: dialogs.mode !== "dismiss", value: dialogs.value };
   });
+  await page.addInitScript(watchAsk);
   await page.route(`http://${IP}:11000/**`, opts.unreachable ? (r) => r.abort() : player.route);
   // GitHub API (update check): records every request; answers with gh.answer = {status, body} or fails.
   const gh = { urls: [], answer: null, delay: 0 };
@@ -3436,11 +3455,8 @@ test(
       year = stOf(await t.player.get(path))("date");
     const asked = () => t.player.state.requests.filter((x) => x === path).length;
     await t.page.waitForFunction((y) => document.querySelector("#fy").textContent === y, year);
-    eq(
-      await t.page.$eval("#fy", (e) => [getComputedStyle(e, "::before").content, getComputedStyle(e, "::after").content]),
-      ['" ("', '")"'],
-      "year in brackets",
-    );
+    const around = (p) => t.page.$eval("#fy", (e, p) => getComputedStyle(e, p).content, p);
+    eq([await around("::before"), await around("::after")], ['" ("', '")"'], "year in brackets");
     eq(asked(), 1, "one request for the year");
     await t.page.click("#cvb");
     await t.settle();
@@ -3516,12 +3532,23 @@ test(
 );
 
 test(
-  "FUL-03 close by a click in the view and by the footer cover",
+  "FUL-03 close by a click in the view, by the footer cover and by the close button (shown while the mouse moves)",
   async (t) => {
     await t.page.waitForFunction((x) => document.querySelector("#ft1").textContent === x, t.st("title1"));
     await t.page.click("#cvb");
     await t.page.mouse.click(VIEWPORT.width / 2, VIEWPORT.height * 0.4);
     ok(!(await t.page.isVisible("#full")), "closed by a click in the view");
+    // close button: shown on opening, hidden after 2.5 s without mouse movement, shown again by a movement
+    const shown = () => t.page.$eval("#fclose", (b) => getComputedStyle(b).opacity === "1");
+    await t.page.click("#cvb");
+    ok(await shown(), "close button shown on opening");
+    await t.settle(2900);
+    ok(!(await shown()), "close button hidden while the mouse rests");
+    await t.page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height * 0.3);
+    await t.settle(400);
+    ok(await shown(), "close button shown again by a mouse movement");
+    await t.page.click("#fclose");
+    ok(!(await t.page.isVisible("#full")), "closed by the close button");
     await t.page.click("#cvb");
     ok(await t.page.isVisible("#full"), "open again");
     await t.page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height - 1);
@@ -3720,6 +3747,7 @@ test(
     await t.page.click("#qsave");
     await t.waitToast(new RegExp(`^Saved BluOS playlist \u201C${TEST_LIST}\u201D \\(\\d+ tracks?\\)$`));
     ok(/^Queue \d{4}-\d\d-\d\d \d\d:\d\d$/.test(t.dialogs.log[0].value), "default name " + t.dialogs.log[0].value);
+    eq([t.dialogs.log[0].type, t.dialogs.log[0].ok], ["prompt", "Save"], "question popup with a name field and Save");
     eq(t.cmds(new RegExp(`^/Save\\?name=${TEST_LIST}$`)).length, 1, "save sent");
     await t.settle();
     ok(t.reqs(/key=BluOS:$/).length > pl, "playlists reloaded");
@@ -3822,7 +3850,8 @@ test(
       eq(loads() - n, 1, "queue loads after " + name);
     }
     eq(t.cmds(/^\/Clear/).length, 1, "/Clear after confirmation");
-    ok(/Clear the whole queue/.test(t.dialogs.log.pop().message), "confirm text");
+    const q = t.dialogs.log.pop();
+    ok(/Clear the whole queue/.test(q.message) && q.ok === "Clear", "question text, button Clear");
   },
   { ...W, needs: ["queue"] },
 );
@@ -4364,7 +4393,8 @@ test(
     const n = t.reqs(/key=BluOS:$/).length;
     await t.page.click(tile + " .delp");
     await t.waitToast(`Deleted playlist \u201C${name}\u201D`);
-    ok(t.dialogs.log.pop().message.includes(name), "confirm names the playlist");
+    const q = t.dialogs.log.pop();
+    ok(q.message.includes(name) && q.ok === "Delete", "question names the playlist, button Delete");
     eq(t.cmds(/^\/Delete\?/).length, 1, "one delete");
     ok(/^\/Delete\?name=.+&service=BluOS$/.test(t.cmds(/^\/Delete\?/)[0]), "delete action of the context menu");
     await t.settle();
@@ -5050,6 +5080,9 @@ const contrastOf = (page, sel) =>
     return Math.round(((a + 0.05) / (b + 0.05)) * 10) / 10;
   });
 
+// LAY-01: titles, grey text on the page and in the queue panel, text on the accent (selected chip)
+const LAY_TEXTS = ["#nt1", "#qlist li b", "#qlist li .qt span", "#qcount", "#msg", "#az [aria-pressed=true]"];
+
 test(
   "LAY-01 popup, queue and footer: readable titles, no horizontal scrolling",
   async (t) => {
@@ -5060,8 +5093,7 @@ test(
       await t.page.keyboard.press("Escape");
       if (!(await t.page.isVisible("#qside"))) await t.openQueue();
       await t.settle(300);
-      // titles, grey text on the page and in the queue panel, text on the accent (selected chip)
-      for (const sel of ["#nt1", "#qlist li b", "#qlist li .qt span", "#qcount", "#msg", "#az button[aria-pressed=true]"]) {
+      for (const sel of LAY_TEXTS) {
         const c = await contrastOf(t.page, sel);
         ok(c >= 4.5, `${theme}: ${sel} contrast ${c}`);
       }

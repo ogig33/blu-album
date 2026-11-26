@@ -145,7 +145,7 @@ button:where(:hover:not(:disabled)) {
    Round, only the symbol in the text colour; hover tints a circle behind it and turns the symbol to the accent.
    The accent marks a state or the main action only:
    on (aria-pressed / aria-expanded): accent background only around the symbol, the button keeps its size.
-   .sm: 20 px symbol; .lg: 28 px symbol (play / pause); .sub: grey symbol;
+   .sm: 20 px symbol; .lg: 28 px symbol (previous, play / pause, next); .sub: grey symbol;
    .fill: accent circle (play / pause) */
 .ib {
   display: grid;
@@ -822,6 +822,19 @@ button {
 #full[hidden] {
   display: none;
 }
+/* Close button of the full-screen view (a click anywhere closes it too); with a mouse it shows only while the
+   mouse moves (body.fidle after 2.5 s without movement, set in the mousemove handler) */
+#fclose {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  transition: opacity var(--t-base);
+}
+@media (hover: hover) {
+  body.fidle #fclose {
+    opacity: 0;
+  }
+}
 /* With a mouse the full-screen view covers the whole screen; the footer slides in only while the
    pointer is near the bottom edge (body.full / body.fullbar, set in showFull and the mousemove handler).
    Touch devices keep the footer visible. */
@@ -1113,12 +1126,6 @@ button {
   :root {
     --bh:164px;
   }
-}
-/* Previous / next: text symbols */
-#bk,
-#sk {
-  font-size: 30px;
-  line-height: 1;
 }
 button.pri {
   background: var(--acc);
@@ -1605,18 +1612,24 @@ dialog * {
   width: 34px;
   height: 34px;
   padding: 0;
-  font-size: 22px;
-  line-height: 1;
   border-radius: 50%;
   display: grid;
   place-items: center;
 }
+#close svg,
+#apiclose svg,
+#infoclose svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
 #dlg button[hidden] {
   display: none;
 }
-/* ---------- API response popup ---------- */
+/* ---------- API response popup, about popup, question popup ---------- */
 #apidlg,
-#infodlg {
+#infodlg,
+#askdlg {
   width: min(560px, 92vw);
   padding: 20px;
   border: 1px solid var(--line);
@@ -1645,8 +1658,31 @@ dialog * {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-#infodlg {
+#infodlg,
+#askdlg {
   width: min(400px, 92vw);
+}
+/* Question popup (instead of confirm / prompt): text, optional name field, buttons at the right with the
+   confirming one last; in the markup it comes first, so Enter in the field confirms */
+#askt {
+  margin: 0 0 16px;
+  white-space: pre-line;
+}
+#askv {
+  width: 100%;
+  margin-bottom: 16px;
+  background: var(--bg);
+}
+#askv[hidden] {
+  display: none;
+}
+#askdlg .acts {
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 8px;
+}
+#askdlg .acts button {
+  min-width: 84px;
 }
 #infodlg .abt {
   text-align: center;
@@ -1734,8 +1770,8 @@ dialog * {
       <button data-in="composer" aria-pressed="false" title="Search in composers">Composer</button>
     </div>
   </div>
-  <button id="sbtn" class="ib" aria-label="Search" aria-expanded="false" aria-controls="qbox"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5.5 5.5"/></svg></button>
-  <button id="fbtn" class="ib" aria-label="Filter chips" aria-expanded="true" aria-controls="az"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h18l-7 8.5v6.5l-4 1.5v-8z"/></svg></button>
+  <button id="sbtn" class="ib" aria-label="Search" aria-expanded="false" aria-controls="qbox"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5.5 5.5"/></svg></button>
+  <button id="fbtn" class="ib" aria-label="Filter chips" aria-expanded="true" aria-controls="az"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h18l-7 8.5v6.5l-4 1.5v-8z"/></svg></button>
   <button id="qbtn" class="ib" aria-label="Queue" aria-expanded="false" aria-controls="qside"></button>
 </header>
 <!-- Genre chips (filled by openSources) -->
@@ -1748,7 +1784,7 @@ dialog * {
 <main id="grid"></main>
 <!-- Album popup -->
 <dialog id="dlg">
-  <button id="close" aria-label="Close">✕</button>
+  <button id="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   <div class="dl">
     <div class="dleft">
       <div class="cov"><img id="dimg" alt=""></div>
@@ -1761,7 +1797,7 @@ dialog * {
 </dialog>
 <!-- About popup (opened from the footer line of the settings panel): app name, version, copyright, GitHub link, update check, library stats -->
 <dialog id="infodlg">
-  <form method="dialog"><button id="infoclose" aria-label="Close">✕</button></form>
+  <form method="dialog"><button id="infoclose" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></form>
   <div class="abt">
     <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><use href="#logo"/></svg>
     <h2>BluAlbum</h2>
@@ -1776,13 +1812,22 @@ dialog * {
 </dialog>
 <!-- API response popup (shown when a player command did not succeed) -->
 <dialog id="apidlg">
-  <form method="dialog"><button id="apiclose" aria-label="Close">✕</button></form>
+  <form method="dialog"><button id="apiclose" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></form>
   <h2 id="apit"></h2>
   <dl class="kv"><dt>Request</dt><dd id="apiu"></dd><dt>Status</dt><dd id="apis"></dd></dl>
   <pre id="apib"></pre>
 </dialog>
-<!-- Full-screen now playing (opened by clicking the cover in the footer) -->
+<!-- Question popup (ask(): delete a playlist, clear or save the queue): text, name field for save, buttons -->
+<dialog id="askdlg">
+  <form method="dialog">
+    <p id="askt"></p>
+    <input id="askv" aria-labelledby="askt" hidden>
+    <div class="acts"><button id="askok" class="pri" value="ok"></button><button id="askno" value="">Cancel</button></div>
+  </form>
+</dialog>
+<!-- Full-screen now playing (opened by clicking the cover in the footer); the close button shows while the mouse moves -->
 <div id="full" hidden>
+  <button id="fclose" class="ib sub" aria-label="Close full-screen player" title="Close full-screen player"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   <div class="fcov"><img id="fimg" alt=""></div>
   <div class="ftx"><h2 id="ft1"></h2><p id="ft2"></p><p id="ft3"></p></div>
 </div>
@@ -1790,9 +1835,9 @@ dialog * {
 <footer id="ctl" role="group" aria-label="Player controls">
   <div id="prog" role="slider" tabindex="0" aria-label="Playback position" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-disabled="true"><div class="pt"><div class="pf"></div></div></div>
   <div class="tp">
-    <button id="bk" class="ib" aria-label="Previous">⏮︎</button>
+    <button id="bk" class="ib lg" aria-label="Previous"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5.5v13L9 12z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M6 5.5v13" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
     <button id="pp" class="ib fill lg" aria-label="Play/Pause"></button>
-    <button id="sk" class="ib" aria-label="Next">⏭︎</button>
+    <button id="sk" class="ib lg" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5v13L15 12z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M18 5.5v13" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
   </div>
   <div class="cv" id="cvb" role="button" tabindex="0" aria-label="Show full-screen player" title="Full-screen player"><img id="cov" alt="" hidden></div>
   <div class="np" aria-live="polite">
@@ -1811,10 +1856,10 @@ dialog * {
   <ol id="qlist"></ol>
   <div class="qf">
     <span id="qcount"></span>
-    <button id="qshuf" class="ib sm" aria-label="Shuffle" title="Shuffle" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
+    <button id="qshuf" class="ib sm" aria-label="Shuffle" title="Shuffle" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
     <button id="qrep" class="ib sm" aria-label="Repeat: off" title="Repeat: off" aria-pressed="false"></button>
-    <button id="qsave" class="ib sm" aria-label="Save queue as BluOS playlist" title="Save queue as BluOS playlist"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8 4v4h7V4M7.5 20v-6h9v6"/></svg></button>
-    <button id="qclear" class="ib sm" aria-label="Clear queue" title="Clear queue"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14M3 8.75h14M3 13.5h6M3 18.25h5" stroke-width="2.4"/><path d="M12.5 11.5l8.5 8.5M21 11.5L12.5 20" stroke-width="2.4"/></svg></button>
+    <button id="qsave" class="ib sm" aria-label="Save queue as BluOS playlist" title="Save queue as BluOS playlist"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8 4v4h7V4M7.5 20v-6h9v6"/></svg></button>
+    <button id="qclear" class="ib sm" aria-label="Clear queue" title="Clear queue"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14M3 8.75h14M3 13.5h6M3 18.25h5" stroke-width="2"/><path d="M12.5 11.5l8.5 8.5M21 11.5L12.5 20" stroke-width="2"/></svg></button>
   </div>
 </aside>
 <div id="scrim"></div>
@@ -1935,7 +1980,7 @@ const ONOFF = { ON: "On", OFF: "Off" };
 // Quality tag -> class of its metal finish (silver by default, gold for HD, bronze for MQA, copper for MP3).
 const Q_CLASS = { HD: "q-hd", MQA: "q-mqa", MP3: "q-mp3" };
 // Line icon (24 x 24, round line ends) from its SVG elements: stroke width w, more attributes of the <svg> in `more`.
-const strokeIcon = (body, w = 1.8, more = "") => '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"' + more + ">" + body + "</svg>";
+const strokeIcon = (body, w = 2, more = "") => '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"' + more + ">" + body + "</svg>";
 // Play / pause. The triangle sits slightly right of the middle so that it looks centred in a round button.
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5v13l10.5-6.5z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg>';
@@ -1944,14 +1989,14 @@ const REPEAT_PATH = '<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"
 const REPEAT = {
   2: { label: "off", icon: strokeIcon(REPEAT_PATH) },
   0: { label: "queue", icon: strokeIcon(REPEAT_PATH) },
-  1: { label: "track", icon: strokeIcon(REPEAT_PATH + '<path d="M11 10.5l1.5-1V15" stroke-width="1.6"/>') }
+  1: { label: "track", icon: strokeIcon(REPEAT_PATH + '<path d="M11 10.5l1.5-1V15" stroke-width="2"/>') }
 };
 // Add to the end of the queue (plus), remove from the queue (crossed circle), delete a playlist (trash).
 const ICON_ADD = strokeIcon('<path d="M12 5v14M5 12h14"/>', 2);
 const ICON_REMOVE = strokeIcon('<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>');
 const ICON_TRASH = strokeIcon('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>');
 // Playlist icon (queue button): list with a music note.
-const ICON_PLAYLIST = strokeIcon('<path d="M3 4h12M3 8.75h12M3 13.5h8.5M3 18.25h5" stroke-width="2.4"/><ellipse cx="15.6" cy="18.3" rx="3.9" ry="3.2" transform="rotate(-22 15.6 18.3)" fill="currentColor" stroke="none"/><path d="M18.6 17.5V5.2" stroke-width="2.2"/><path d="M17.5 4.6 21.9 2.7c.5-.2 1 .1 1 .7v3.7c0 .5-.3.8-.8.9-1.4.3-2.6.9-3.4 1.7L17.5 9z" fill="currentColor" stroke="none"/>');
+const ICON_PLAYLIST = strokeIcon('<path d="M3 4h12M3 8.75h12M3 13.5h8.5M3 18.25h5" stroke-width="2"/><ellipse cx="15.6" cy="18.3" rx="3.9" ry="3.2" transform="rotate(-22 15.6 18.3)" fill="currentColor" stroke="none"/><path d="M18.6 17.5V5.2" stroke-width="2"/><path d="M17.5 4.6 21.9 2.7c.5-.2 1 .1 1 .7v3.7c0 .5-.3.8-.8.9-1.4.3-2.6.9-3.4 1.7L17.5 9z" fill="currentColor" stroke="none"/>');
 // Heart (favourite button on a cover, Favourites chip). Favourites are managed only by the player: state and actions
 // come from the album's context menu (favourite-add / favourite-delete). Albums without these actions (e.g. on USB) have no heart.
 const HEART = '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>';
@@ -2021,6 +2066,22 @@ function toast(t) {
   e.className = "on";
   clearTimeout(toast.t);
   toast.t = setTimeout(() => e.className = "", 1800);
+}
+// Question popup in the design of the app instead of confirm() / prompt(): text, the label of the confirming
+// button, with `value` a name field. Resolves with true / false, with `value` with the entered text or null.
+function ask(text, ok, value) {
+  const d = $("#askdlg"), v = $("#askv");
+  $("#askt").textContent = text;
+  $("#askok").textContent = ok;
+  v.hidden = value == null;
+  v.value = value ?? "";
+  d.returnValue = "";
+  d.showModal();
+  if (!v.hidden) v.select();
+  return new Promise((res) => d.addEventListener("close", () => {
+    const yes = d.returnValue === "ok";
+    res(v.hidden ? yes : yes ? v.value : null);
+  }, { once: true }));
 }
 // Calls the async fn for every entry of `list`, at most n at a time; returns the results in the order of the list.
 // After a failure no further entry starts (the entries running then still end).
@@ -2145,6 +2206,8 @@ let lmSync = "", lmSeq = 0;
 // Year in the footer: track it belongs to (pid:song of /Status, "" = none), track it was read
 // for, request counter.
 let fyWant = "", fyHave = "", fySeq = 0;
+// Full-screen view: timer that hides its close button after the mouse rests.
+let fIdleT = 0;
 // Settings panel: library settings rows [label, value] and library statistics;
 // about popup: player software versions [label, value] (shown below the room name).
 // aboutCtx: ctx() for which statistics and versions were loaded (they load when the about popup opens).
@@ -3253,7 +3316,7 @@ function showPlaylists() {
 // Deletes a BluOS playlist on the player after confirmation, with the "delete" action of its context menu
 // (/Delete?name=…&service=BluOS); the queue stays. Success: toast and the playlists read again (its tile goes).
 async function deletePlaylist(p) {
-  if (!confirm("Delete the playlist \u201C" + p.t + "\u201D from the player?\nThe current queue is not changed.")) return;
+  if (!(await ask("Delete the playlist \u201C" + p.t + "\u201D from the player?\nThe current queue is not changed.", "Delete"))) return;
   if (!await rawCmd(p.menu.delete, "Deleting the playlist did not succeed", (r) => r.ok && !/<error/i.test(r.body))) return;
   toast("Deleted playlist \u201C" + p.t + "\u201D");
   loadPlaylists();
@@ -3678,6 +3741,13 @@ function showFull(open) {
   document.body.classList.toggle("full", open);
   document.body.classList.remove("fullbar");
   $("#cvb").setAttribute("aria-label", open ? "Close full-screen player" : "Show full-screen player");
+  fullWake();
+}
+// Shows the close button of the full-screen view and hides it again after 2.5 s without mouse movement.
+function fullWake() {
+  document.body.classList.remove("fidle");
+  clearTimeout(fIdleT);
+  fIdleT = setTimeout(() => document.body.classList.add("fidle"), 2500);
 }
 // Sets the background colour of the full-screen view (--amb) from the cover: the most frequent strong hue
 // (saturated, neither dark nor light), or the plain average for a grey cover. Without a readable cover
@@ -4120,7 +4190,7 @@ $("#qsave").onclick = async () => {
   if (!base) return toast("Connect first");
   const d = new Date(), pad = (n) => String(n).padStart(2, "0");
   const def = "Queue " + d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
-  const name = (prompt("Save the queue as BluOS playlist:", def) || "").trim();
+  const name = ((await ask("Save the queue as BluOS playlist:", "Save", def)) || "").trim();
   if (!name) return;
   let n = 0;
   const saved = (r) => {
@@ -4145,8 +4215,8 @@ $("#qrep").onclick = async () => {
   if (await xml("/Repeat?state=" + next)) toast("Repeat: " + REPEAT[next].label);
 };
 // Clears the whole queue after confirmation; the changed playlist id reloads the queue.
-$("#qclear").onclick = () => {
-  if (confirm("Clear the whole queue?")) xml("/Clear");
+$("#qclear").onclick = async () => {
+  if (await ask("Clear the whole queue?", "Clear")) xml("/Clear");
 };
 $("#gear").onclick = () => panel(!$("#side").classList.contains("open"), true);
 $("#scrim").onclick = $("#sclose").onclick = () => panel(false);
@@ -4227,11 +4297,12 @@ $("#cvb").onkeydown = (e) => {
   }
 };
 // Footer in full-screen view: slides in when the pointer touches the bottom edge (last 4 px)
-// and stays while the pointer is over the footer.
+// and stays while the pointer is over the footer; any movement shows the close button.
 document.addEventListener("mousemove", (e) => {
   if (!document.body.classList.contains("full")) return;
   const near = e.clientY >= innerHeight - 4 || !!e.target.closest?.("#ctl");
   document.body.classList.toggle("fullbar", near);
+  fullWake();
 });
 document.documentElement.addEventListener("mouseleave", () => document.body.classList.remove("fullbar"));
 // A click anywhere on the full-screen view closes it.
