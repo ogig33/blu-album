@@ -379,7 +379,9 @@ function createPlayer(opts = {}) {
           state.syncStat +
           "</syncStat><volume>19</volume></status>";
       // <mid> is the library version, also when nothing plays (Bruno W39, M41)
-      x = /<mid>/.test(x) ? x.replace(/<mid>\d*<\/mid>/, `<mid>${state.libId}</mid>`) : x.replace("</status>", `<mid>${state.libId}</mid></status>`);
+      x = /<mid>/.test(x)
+        ? x.replace(/<mid>\d*<\/mid>/, `<mid>${state.libId}</mid>`)
+        : x.replace("</status>", `<mid>${state.libId}</mid></status>`);
       // After /Move the playing entry is at its new position, like the real player (Bruno W34–W37)
       if (state.queueOrder)
         x = x.replace(/<song>(\d+)<\/song>/, (m, s) => `<song>${state.queueOrder.indexOf(s)}</song>`);
