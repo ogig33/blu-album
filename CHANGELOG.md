@@ -6,7 +6,7 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 - Design: one consistent style for buttons, icons, corners and shadows; every button reacts to the mouse.
 - Design: better contrast in the day design; gold only marks what is on, selected or playing.
 - Fix: in the album popup the first track no longer touches the close button.
-- Player: larger play / pause symbol and clearer volume buttons.
+- Player: larger text and play / pause symbol, clearer volume buttons.
 - Design: questions (save or clear the queue, delete a playlist) appear in the app's own popup instead of the browser's.
 - Design: own symbols for previous, next and close; all symbols with the same line width.
 - Full screen: covers the whole screen without player controls; a close button at the top right shows while the mouse moves.

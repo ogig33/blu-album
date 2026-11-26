@@ -80,6 +80,7 @@
   --serif:Georgia, serif;
   --fs-xs:12px;
   --fs-s:13px;
+  --fs-l:17px;
   /* radius: covers and tags / controls and chips / popups / pills */
   --r-sm:6px;
   --r-md:10px;
@@ -895,11 +896,13 @@ button {
 .np {
   min-width: 0;
 }
+/* Now playing in the footer: title 17 px, the "by … from …" line in the body size */
 .nt {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  font-size: var(--fs-l);
   font-weight: 600;
 }
 #nt1 {
@@ -910,7 +913,6 @@ button {
 }
 .na {
   color: var(--dim);
-  font-size: var(--fs-s);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
