@@ -1672,6 +1672,59 @@ test(
   },
 );
 
+test(
+  "CHP-22 library changed: session caches dropped, chips and playlists read again, the view stays; own heart, rescan",
+  async (t) => {
+    const check = /^\/library\/v1\/Albums\?service=LocalMusic&section=all&length=1$/;
+    const cdCached = () => t.page.evaluate(() => "__q:cd" in cache);
+    const cdAgain = async () => {
+      await t.chip("CD");
+      await t.waitMsg(/CD quality/);
+      await t.chip("Favourites");
+      await t.waitMsg(/in favourites/);
+    };
+    // Waits for k more /Status requests (the long poll asks again once an answer is shown)
+    const polls = async (k) => {
+      const n = t.reqs(/^\/Status/).length;
+      while (t.reqs(/^\/Status/).length < n + k) await t.settle(100);
+    };
+    await cdAgain();
+    const tiles = await t.tiles();
+    // A favourite changed in another client, then the window gets the focus again
+    t.player.state.libId += 65536;
+    const genres = t.reqs(/GG\/Genres/).length,
+      lists = t.reqs(/key=BluOS:$/).length;
+    await t.page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await t.page.waitForFunction(() => !("__q:cd" in cache));
+    eq(t.reqs(check).length, 1, "one request for the library id");
+    await t.settle();
+    ok(t.reqs(/GG\/Genres/).length > genres, "genre chips read again");
+    ok(t.reqs(/key=BluOS:$/).length > lists, "playlists read again");
+    eq(await t.tiles(), tiles, "the view stays");
+    eq(await t.page.getAttribute('#az button[aria-label="Favourites"]', "aria-pressed"), "true", "chip stays pressed");
+    await t.page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await t.settle();
+    eq(t.reqs(check).length, 1, "no second check within a minute");
+    // Own heart: the next id is taken without dropping anything
+    await cdAgain();
+    const tile = "#grid .item:nth-child(2)";
+    await t.page.hover(tile);
+    await t.page.click(tile + " .favc");
+    await t.waitToast(/favourites/);
+    await t.chip("New");
+    await t.waitMsg(/recently added/);
+    ok(await cdCached(), "own favourite change keeps the caches");
+    // Rescan: <indexing> counts, then 0 again with a new library id
+    t.player.state.statusPatch.indexing = "500";
+    await polls(2);
+    ok(await cdCached(), "no check while indexing");
+    t.player.state.libId = 41;
+    t.player.state.statusPatch.indexing = "0";
+    await t.page.waitForFunction(() => !("__q:cd" in cache));
+    eq(t.reqs(check).length, 2, "library id read again when the rescan ended");
+  },
+);
+
 // ---------- 4.4 Album grid (GRD) ----------
 test(
   "GRD-02 random album tile first, number of albums, no popup",

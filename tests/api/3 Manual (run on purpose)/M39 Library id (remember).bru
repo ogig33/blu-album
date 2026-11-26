@@ -1,0 +1,54 @@
+meta {
+  name: M39 Library id (remember)
+  type: http
+  seq: 39
+}
+
+get {
+  url: http://{{host}}:11000/library/v1/Albums?service=LocalMusic&section=all&length=1
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Manual requests run only with the environment variable runManual = true
+  if (bru.getEnvVar("runManual") !== "true") { bru.runner.skipRequest(); return; }
+  // Does the root attribute id of the /library/v1 answers change when the library changes? Remembers the id, the album
+  // count of the index and the newest album (New); M40 and M41 compare with it. Also kept in fixtures/verify-library-id.json
+  // (survives a restart of Bruno). Read only; needs Developer mode (axios).
+  const axios = require("axios");
+  const L = "http://" + bru.getEnvVar("host") + ":11000/library/v1/Albums?service=LocalMusic";
+  const get = async (q) => String((await axios.get(L + q, { responseType: "text", transformResponse: (x) => x, headers: { "Accept-Language": "en" } })).data || "");
+  const idx = await get("&section=all&length=1"), neu = await get("&recent=1");
+  const first = neu.match(/<alb>([^<]*)<\/alb>\s*<art>([^<]*)<\/art>/);
+  const snap = {
+    at: new Date().toISOString(),
+    id: (idx.match(/<albums\b[^>]*\sid="(\d+)"/) || [])[1] || "",
+    newId: (neu.match(/<albums\b[^>]*\sid="(\d+)"/) || [])[1] || "",
+    albums: [...idx.matchAll(/<section name="[^"]*" length="(\d+)"/g)].reduce((n, m) => n + +m[1], 0),
+    newest: first ? first[1] + " - " + first[2] : ""
+  };
+  bru.setVar("libSnap", JSON.stringify(snap));
+  try {
+    const fs = require("fs"), path = require("path");
+    const dir = path.join(bru.cwd(), "fixtures");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "verify-library-id.json"), JSON.stringify(snap, null, 2));
+  } catch (e) {
+    console.log("Not saved to a file (switch the JavaScript sandbox to Developer mode): " + e.message);
+  }
+  const hex = (v) => v + " = 0x" + (+v).toString(16) + " (high " + (+v >>> 16) + ", low " + (+v & 0xffff) + ")";
+  console.log("Library id " + hex(snap.id) + ", id of New " + snap.newId + ", " + snap.albums + " albums, newest: " + snap.newest);
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  const snap = JSON.parse(bru.getVar("libSnap") || "{}");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("root carries a numeric id", () => expect(body).to.match(/<albums\b[^>]*\sid="\d+"/));
+  test("id of New = id of the index", () => expect(snap.newId).to.equal(snap.id));
+}

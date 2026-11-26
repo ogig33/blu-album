@@ -73,6 +73,9 @@ function createPlayer(opts = {}) {
     // Like the real player (Bruno S44), a change of the mode raises <syncStat> in /Status.
     listeningMode: opts.listeningModes === false ? null : "MUSIC",
     syncStat: 533,
+    // Library version: root id of every /library/v1 answer of the library (USB: the recorded 1). Like the real player
+    // (Bruno M39–M41), every favourite added or removed raises it by 65536; a test sets it for a rescan.
+    libId: 458791,
     // Values that replace (or add) tags of the recorded /Status, e.g. { quality: "hd", canSeek: "0" }
     statusPatch: { ...(opts.statusPatch || {}) },
     // Generated queue of this many songs instead of fixture 20 (paging with start / end like the player)
@@ -312,6 +315,14 @@ function createPlayer(opts = {}) {
     const secs = decades.map((k) => `<section name="${k}" length="${counts[k]}"></section>`).join("");
     return `<albums length="1" section="all" sort="decade" service="${svc}"><sections>${secs}</sections></albums>`;
   };
+  // Like the real player, the root of every library answer carries the service and the library version (state.libId)
+  const libVersion = (x, q) =>
+    q.get("service") === USB
+      ? x
+      : x.replace(/<(albums|songs)\b([^>]*)>/, (m, tag, at) => {
+          const rest = at.replace(/ (id|service)="[^"]*"/g, "");
+          return `<${tag}${rest} id="${state.libId}" service="${LIB}">`;
+        });
   // Generated queue (state.queueSize songs), the part start..end as the player pages it
   const genQueue = (q) => {
     const n = state.queueSize,
@@ -335,6 +346,7 @@ function createPlayer(opts = {}) {
     const o = override(pq);
     if (o && (o.status || o.body !== undefined))
       return { status: o.status || 200, type: o.type || "text/xml", body: o.body || "", delay: o.delay, held: o.held };
+    if (/^\/(Add|Delete)Favourite\?/.test(pq)) state.libId += 65536;
     let a = mockAnswer(p, q, lang);
     if (o && o.edit && typeof a === "string") a = o.edit(a);
     if (o && (o.delay || o.held))
@@ -346,7 +358,7 @@ function createPlayer(opts = {}) {
     if (/^\/images\/((USB|Library)Icon|settings\/icon_[a-z]+-mode-active)\.png$/.test(p))
       return { type: "image/png", body: PNG };
     if (p === "/Browse") return browse(q.get("key"), lang);
-    if (p === "/library/v1/Albums") return library(q);
+    if (p === "/library/v1/Albums") return libVersion(library(q), q);
     if (p === "/library/v1/Songs") {
       let x = q.get("service") === USB ? fx("26") : discSongs(fx("25"));
       for (const [t, ar] of Object.entries(state.songArtists))
@@ -354,7 +366,7 @@ function createPlayer(opts = {}) {
           new RegExp("<art>[^<]*</art>(\\s*<alb>[^<]*</alb>\\s*<title>" + t + "</title>)"),
           "<art>" + ar + "</art>$1",
         );
-      return x;
+      return libVersion(x, q);
     }
     if (p === "/Status") {
       let x = state.playing

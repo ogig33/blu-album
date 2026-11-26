@@ -1,0 +1,82 @@
+meta {
+  name: M41 Reindex and follow the library id
+  type: http
+  seq: 41
+}
+
+get {
+  url: http://{{host}}:11000/library/v1/Albums?service=LocalMusic&section=all&length=1
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  // Manual requests run only with the environment variable runManual = true
+  if (bru.getEnvVar("runManual") !== "true") { bru.runner.skipRequest(); return; }
+  // Starts a library rescan (/Reindex) and reads every 5 s the library id, the album count, the newest album and
+  // indexing of /Status; logs every change with the seconds since /Reindex. Ends 90 s after the last change, at the
+  // latest after 15 minutes. Changes the library index (as M02); needs Developer mode (axios).
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const get = async (p) => String((await axios.get(H + p, { timeout: 10000, responseType: "text", transformResponse: (x) => x, headers: { "Accept-Language": "en" } })).data || "");
+  const L = "/library/v1/Albums?service=LocalMusic";
+  const hex = (v) => v + " = 0x" + (+v).toString(16) + " (high " + (+v >>> 16) + ", low " + (+v & 0xffff) + ")";
+  let id = "", maxIndexing = 0;
+  const read = async () => {
+    try {
+      const idx = await get(L + "&section=all&length=1"), neu = await get(L + "&recent=1"), st = await get("/Status");
+      const first = neu.match(/<alb>([^<]*)<\/alb>\s*<art>([^<]*)<\/art>/);
+      const indexing = (st.match(/<indexing>([^<]*)</) || [])[1] || "-";
+      id = (idx.match(/<albums\b[^>]*\sid="(\d+)"/) || [])[1] || "0";
+      maxIndexing = Math.max(maxIndexing, parseInt(indexing) || 0);
+      return "id " + hex(id) +
+        ", " + [...idx.matchAll(/<section name="[^"]*" length="(\d+)"/g)].reduce((n, m) => n + +m[1], 0) + " albums" +
+        ", newest " + (first ? first[1] + " - " + first[2] : "-") + ", indexing " + indexing;
+    } catch (e) {
+      return "error (" + (e.code || e.message) + ")";
+    }
+  };
+  const log = ["before: " + await read()];
+  bru.setVar("libIdBefore", id);
+  log.push("/Reindex: " + (await get("/Reindex")).replace(/<\?xml[^>]*>\s*/, "").trim());
+  const at = Date.now();
+  let last = "", lastChange = 0;
+  while (Date.now() - at < 900000) {
+    const state = await read();
+    if (state !== last) {
+      log.push(Math.round((Date.now() - at) / 1000) + " s: " + state);
+      if (last) lastChange = Date.now();
+      last = state;
+    }
+    if (lastChange && Date.now() - lastChange > 90000) break;
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+  log.push("end after " + Math.round((Date.now() - at) / 1000) + " s" + (lastChange ? "" : " (no change seen)"));
+  bru.setVar("libReindexLog", log.join("\n"));
+  bru.setVar("libMaxIndexing", String(maxIndexing));
+  console.log(log.join("\n"));
+  try {
+    const fs = require("fs"), path = require("path");
+    const dir = path.join(bru.cwd(), "fixtures");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "verify-library-id-reindex.txt"), log.join("\n") + "\n");
+  } catch (e) {
+    console.log("Log not saved (switch the JavaScript sandbox to Developer mode): " + e.message);
+  }
+}
+
+tests {
+  const body = String(res.getBody() || "");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("rescan started", () => expect(bru.getVar("libReindexLog") || "").to.match(/\/Reindex: <indexing>1<\/indexing>/));
+  test("root carries a numeric id", () => expect(body).to.match(/<albums\b[^>]*\sid="\d+"/));
+  test("indexing of /Status counted the files during the rescan", () => expect(+bru.getVar("libMaxIndexing")).to.be.above(0));
+  test("library id changed after the rescan", () => {
+    const after = (body.match(/<albums\b[^>]*\sid="(\d+)"/) || [])[1];
+    expect(after).to.not.equal(bru.getVar("libIdBefore"));
+  });
+}

@@ -47,9 +47,9 @@ Do not build these; when asked, point to the alternative.
 - **Lean and Modular code structure.** Structure the code so that features reuse shared functions as much as possible.
 - **One implementation per feature.** No second implementation as a fallback. Only the variant verified against the real player (Bruno) is implemented.
 - **Avoid hard-coding.** Derive as much of the app logic as possible from API answers, e.g. source names, play / action URLs, quality. Accepted exceptions are the configuration constants (see "Code conventions").
-- **Avoid self-built API URLs.** Play / queue / favourite URLs come from `/Browse`; the only exception are the `/library/v1` lists (New, Favourites, quality, decades, genres, album artist search), built by the fixed pattern in `libAlbum()`.
+- **Avoid self-built API URLs.** Play / queue / favourite URLs come from `/Browse`; the only exception are the `/library/v1` lists (New, Favourites, quality, decades, genres, album artist search, library version check), built by the fixed pattern in `libAlbum()`.
 - **Store changes at the player.** Favourites, playlists and every other change the player supports are stored there, so they persist across sessions and are visible in other player clients. localStorage only for conveniences (see "Code conventions").
-- **Expose API errors.** Show failed player requests to the user (network error, HTTP status other than 200, `<e>` answer) with the endpoint URL and the error answer. Exceptions: expected failures – `/audioPreset` on players without listening modes, status polling (aborted or retried), missing covers, statistic lists that are not available.
+- **Expose API errors.** Show failed player requests to the user (network error, HTTP status other than 200, `<e>` answer) with the endpoint URL and the error answer. Exceptions: expected failures – `/audioPreset` on players without listening modes, status polling (aborted or retried), library version check (tried again on the next check), missing covers, statistic lists that are not available.
 - **Check layout changes in Safari** as well (see "Known pitfalls").
 
 ## Documentation
@@ -119,6 +119,7 @@ Do not build these; when asked, point to the alternative.
 ## Decisions
 
 - **No genre in the album popup:** would be useful, but no endpoint gives the genre of an album; it would need the album lists of all genres (`genre=…&section=all`, 1 request per genre and source: 37 requests, 245 KB, about 2 s for the owner's library and USB drive).
+- **No album link from the player bar and the queue:** `/Status` and `/Playlist` carry no album reference (no browse key, no album artist, no album id; `fn` leads to no album); a match by album title in the app would be too unreliable.
 - **No player controls in the album popup:** play / queue are on the cover in the album grid (hover); keeps the popup simple.
 - **No player controls in the full screen:** it covers the footer (inert meanwhile); the footer sliding in at the bottom edge irritated (removed 2026-11-26). Close: button at the top right, click, Esc.
 - **No track duration in the player bar:** shown in the queue panel; keeps the player bar uncluttered.

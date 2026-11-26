@@ -125,7 +125,8 @@ GET /Status?timeout=<seconds>&etag=<etag>
 | `groupName`, `groupVolume` | only on the primary player of a group |
 | `battery` (`level`, `charging`, `icon`) | players with a battery |
 | `alarmsecondsremaining` | seconds left of a playing alarm |
-| `notifyurl`, `canMovePlayback`, `indexing`, `mid`, `mode`, `sid`, `cursor`, `settingsGroupId` | further elements; `settingsGroupId` empty, purpose unknown |
+| `indexing` | `0`; during a library rescan the number of files read so far (in steps of 500) |
+| `notifyurl`, `canMovePlayback`, `mid`, `mode`, `sid`, `cursor`, `settingsGroupId` | further elements; `settingsGroupId` empty, purpose unknown |
 
 **Notes**
 
@@ -1382,7 +1383,8 @@ Lists and cover art of the local library and the USB drive, answered by the libr
 
 - `service`: `LocalMusic` (local library) or the id of the USB drive (e.g. `1A2B_3C4D`); other services answer `<error>no collection</error>`.
 - Answered on port 11000 and on port 11004 (target of the redirects of the [service functions](#10-service-functions)).
-- The root of every answer carries `id` (library: a fixed number, USB: `1`), `service` and all filters passed as attributes.
+- The root of every answer carries `id`, `service` and all filters passed as attributes.
+- `id` of the library is the version of the library index, the same in every answer: it changes when a rescan ends (also without changed files; the old value stays during the scan) and with every favourite added or removed. Compare it for equality only: the upper 16 bits count the favourite changes and start again at 0 after a rescan. USB: always `1`.
 - Paging with `<nextlink>` (full URL of the next page).
 
 ### `GET /library/v1/Albums`
@@ -2392,7 +2394,8 @@ No parameters.
 **Notes**
 
 - "Reindex music collection" in `/Settings`; the rescan runs in the background.
-- `indexing` of `/Status` does **not** show the rescan; how to follow its progress is not known.
+- Progress: `indexing` of [`/Status`](#get-status) counts the files read and is `0` again at the end; then the library `id` changes (see [Library functions](#11-library-functions)).
+- With new or changed files the count may stand still for minutes before the end, and library requests may answer late meanwhile.
 
 ### `GET /Services`
 

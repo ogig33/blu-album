@@ -17,7 +17,7 @@ Every function of the app (`blualbum.html`) as a test case, grouped into test bl
 |---|---|---|---|---|---|
 | CON | 4.1 Connection & start | Start page, IP form, connect, errors, time limit, compact connection line, changing the player | 14 | 10 | 9 |
 | SRC | 4.2 Music sources | Source detection, one switch per source, stored per player | 6 | 3 | 5 |
-| CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results, sort order | 21 | 14 | 19 |
+| CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results, sort order, library changes | 22 | 14 | 19 |
 | GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons, status line | 11 | 8 | 8 |
 | FAV | 4.5 Favourites | Heart on the cover, toggling via the player, no local favourites | 6 | 5 | 6 |
 | ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache, artist links (several artists, track artists) | 5 | 4 | 5 |
@@ -33,7 +33,7 @@ Every function of the app (`blualbum.html`) as a test case, grouped into test bl
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 4 | 3 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 2 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **190** | **129** | **150** |
+| | | **Total** | **191** | **129** | **150** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -166,6 +166,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | CHP-19 | Outdated failure of All or an artist | Delayed HTTP 500 for All (sections, albums) or the favourite state of an artist; meanwhile click New. All failing while selected | New stays, no error popup. Selected All: the error stays in the status line | – | yes |
 | CHP-20 | Outdated source selection | Delayed failure of Favourites or delayed answer of CD; meanwhile open the sources again | No error over the new selection; old list not in its cache | – | local |
 | CHP-21 | Sort order of the album views | App defaults; default view Favourites; choose every sort order; All with "Year, newest first" and "Year, oldest first"; New; search and clear; Playlists; reload + connect | Select at the right of the status line, options of `SORTS`, default "Random" (every album of the view); album title A–Z / Z–A, album artist A–Z / Z–A (an artist's albums by year), year newest / oldest first (albums without a year last), equal values by album title; status line unchanged; stored (`sort`). Album artist and year orders: the tiles show "<year> · <artist>" (without a year only the artist), other orders only the artist; years of Favourites and All from `/library/v1/Albums?service=<svc>&section=all` (1 request per source, once), years = TD-YEARS. New: newest first, select disabled with "Newest added". Hidden in the search results and in Playlists, shown again after clearing the search; after reload + connect the stored order | read | – |
+| CHP-22 | Library changed | CD and Favourites; another client changes a favourite (library id raised), window focused twice; CD again, own heart, New; rescan: `indexing` > 0, then 0 with a new library id | One request `/library/v1/Albums?service=LocalMusic&section=all&length=1` on focus (not again within a minute); session caches dropped (CD not cached); genre chips and playlists read again; tiles and pressed chip unchanged. Own heart: caches kept. Rescan: no request while indexing, the id read again at its end, caches dropped | – | – |
 
 ### 4.4 Album grid (GRD)
 
