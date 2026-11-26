@@ -4,7 +4,7 @@
 
 **Album player for BluOS devices.** A single HTML file that turns the local music library of a BluOS player (Bluesound, NAD) into an album wall: browse your albums by cover, search them, filter them, look at the details and play them, right from your browser.
 
-![BluAlbum: album wall filtered by CD quality, with the player bar at the bottom](docs/screenshots/screenshot.png)
+![BluAlbum: album wall filtered by CD quality, with the player bar at the bottom](docs/screenshots/light-main-view.jpg)
 
 ## Features
 
