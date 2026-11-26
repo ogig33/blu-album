@@ -3010,7 +3010,10 @@ test(
     if (st("title2") === st("artist") && st("title3") === st("album"))
       eq(
         await nowStyles(t.page, "#nt2"),
-        [[st("title2"), false], [st("title3"), false]],
+        [
+          [st("title2"), false],
+          [st("title3"), false],
+        ],
         "artist and album highlighted, not bold",
       );
     const q = /^MP3\b/.test(st("streamFormat")) ? "MP3" : { cd: "CD", hd: "HD", hr: "HD" }[st("quality")] || "";
@@ -3505,7 +3508,10 @@ test(
     if (t.st("title2") === t.st("artist") && t.st("title3") === t.st("album"))
       eq(
         await nowStyles(t.page, "#full .ftx"),
-        [[t.st("title2"), true], [t.st("title3"), true]],
+        [
+          [t.st("title2"), true],
+          [t.st("title3"), true],
+        ],
         "artist and album bold",
       );
     ok(!(await t.page.$("#full #fy")), "no year in the full screen");
