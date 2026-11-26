@@ -1,0 +1,81 @@
+meta {
+  name: W39 Library id in Status follows a favourite
+  type: http
+  seq: 138
+}
+
+get {
+  url: http://{{host}}:11000/Status
+  body: none
+  auth: none
+}
+
+settings {
+  encodeUrl: false
+}
+
+script:pre-request {
+  const axios = require("axios");
+  const H = "http://" + bru.getEnvVar("host") + ":11000";
+  const get = async (p) => String((await axios.get(H + p, { responseType: "text", transformResponse: (x) => x, validateStatus: () => true, timeout: 30000, headers: { "Accept-Language": "en" } })).data || "");
+  const dec = (v) => v.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  const attr = (tag, n) => { const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"')); return m ? dec(m[1]) : ""; };
+  const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+  const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
+  const menuOf = async (key) => Object.fromEntries(tagsOf(await browse(key), "item").map((t) => [attr(t, "type"), attr(t, "actionURL")]));
+  const libId = async () => ((await get("/library/v1/Albums?service=LocalMusic&section=all&length=1")).match(/<albums\b[^>]*\sid="(\d+)"/) || [])[1] || "";
+  const status = async (q = "") => {
+    const s = await get("/Status" + q);
+    return { mid: (s.match(/<mid>(\d*)</) || [])[1] || "", etag: (s.match(/<status\b[^>]*\setag="([^"]*)"/) || [])[1] || "" };
+  };
+  // Is <mid> of /Status the library version (root id of the /library/v1 answers), and does the long poll answer when
+  // it changes? Favourites the first library album that is no favourite with the /AddFavourite of its context menu and
+  // removes it again with /DeleteFavourite (menu key with &isFavourite=1); each time a long poll with the etag from
+  // before is open. Changes no queue, runs without W16.
+  const r = { skipped: true };
+  bru.setVar("w39", JSON.stringify(r));
+  const albKey = tagsOf(await browse("LocalMusic:"), "item").map((t) => attr(t, "browseKey")).find((k) => /:bySection:Album\//.test(k));
+  const secKey = albKey ? attr(tagsOf(await browse(albKey), "item")[0] || "", "browseKey") : "";
+  const alb = secKey ? tagsOf(await browse(secKey), "item").find((t) => attr(t, "type") === "album" && !/isFavourite=1/.test(attr(t, "contextMenuKey"))) : "";
+  if (!alb) { console.log("No library album without favourite – skipped"); bru.runner.skipRequest(); return; }
+  r.skipped = false;
+  r.album = attr(alb, "text");
+  const cm = attr(alb, "contextMenuKey");
+  // One change: long poll open, the command, then mid of the long poll answer, the library id and the time it took
+  const step = async (url, word) => {
+    const s = await status();
+    const poll = status("?timeout=20&etag=" + encodeURIComponent(s.etag));
+    await new Promise((z) => setTimeout(z, 1000));
+    const t = Date.now();
+    const ok = new RegExp("<favourite\\b[^>]*>" + word + "<").test(await get(url));
+    const p = await poll;
+    return { url, ok, before: s.mid, after: p.mid, lib: await libId(), ms: Date.now() - t };
+  };
+  r.start = { mid: (await status()).mid, lib: await libId() };
+  r.add = await step((await menuOf(cm))["favourite-add"] || "", "added");
+  r.del = await step((await menuOf(cm + "&isFavourite=1"))["favourite-delete"] || "", "deleted");
+  bru.setVar("w39", JSON.stringify(r));
+}
+
+script:post-response {
+  console.log(bru.getVar("w39"));
+}
+
+tests {
+  const r = JSON.parse(bru.getVar("w39"));
+  const body = String(res.getBody() || "");
+  test("HTTP 200", () => expect(res.getStatus()).to.equal(200));
+  test("mid of /Status = library id", () => {
+    expect(r.start.mid).to.match(/^\d+$/);
+    expect(r.start.mid).to.equal(r.start.lib);
+  });
+  for (const [k, s] of [["add", r.add], ["delete", r.del]]) {
+    test(k + ": command of the context menu succeeds", () => expect(s.ok).to.equal(true));
+    test(k + ": mid changes with the library id", () => {
+      expect(s.after).to.not.equal(s.before);
+      expect(s.after).to.equal(s.lib);
+    });
+    test(k + ": the long poll answers at once (< 5 s)", () => expect(s.ms).to.be.below(5000));
+  }
+  test("mid of the current /Status = library id", () => expect((body.match(/<mid>(\d*)</) || [])[1]).to.equal(r.del.lib));
+}

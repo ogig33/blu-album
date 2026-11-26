@@ -126,11 +126,12 @@ GET /Status?timeout=<seconds>&etag=<etag>
 | `battery` (`level`, `charging`, `icon`) | players with a battery |
 | `alarmsecondsremaining` | seconds left of a playing alarm |
 | `indexing` | `0`; during a library rescan the number of files read so far (in steps of 500) |
-| `notifyurl`, `canMovePlayback`, `mid`, `mode`, `sid`, `cursor`, `settingsGroupId` | further elements; `settingsGroupId` empty, purpose unknown |
+| `mid` | version of the library index (= `id` of the library in [`/library/v1`](#11-library-functions) answers); changes with it: when a rescan ends and with every favourite added or removed; the library's also while a USB drive, radio or an input plays |
+| `notifyurl`, `canMovePlayback`, `mode`, `sid`, `cursor`, `settingsGroupId` | further elements; `settingsGroupId` empty, purpose unknown |
 
 **Notes**
 
-- Without parameters the answer comes at once; with `timeout` the player holds the request up to `timeout` seconds and answers at once on a change (title, position jump, volume, shuffle, repeat, `pid`).
+- Without parameters the answer comes at once; with `timeout` the player holds the request up to `timeout` seconds and answers at once on a change (title, position jump, volume, shuffle, repeat, `pid`, `mid`).
 - Clients advance `secs` themselves while `state` is `play` or `stream`.
 - `quality` is `hd` here but `hr` in the library filter. MP3 files report their bitrate; recognise MP3 by `streamFormat`.
 - One long poll on `/Status` *or* [`/SyncStatus`](#get-syncstatus) is usually enough: `syncStat` changes whenever `/SyncStatus` changes.
@@ -1384,7 +1385,7 @@ Lists and cover art of the local library and the USB drive, answered by the libr
 - `service`: `LocalMusic` (local library) or the id of the USB drive (e.g. `1A2B_3C4D`); other services answer `<error>no collection</error>`.
 - Answered on port 11000 and on port 11004 (target of the redirects of the [service functions](#10-service-functions)).
 - The root of every answer carries `id`, `service` and all filters passed as attributes.
-- `id` of the library is the version of the library index, the same in every answer: it changes when a rescan ends (also without changed files; the old value stays during the scan) and with every favourite added or removed. Compare it for equality only: the upper 16 bits count the favourite changes and start again at 0 after a rescan. USB: always `1`.
+- `id` of the library is the version of the library index, the same in every answer: it changes when a rescan ends (also without changed files; the old value stays during the scan) and with every favourite added or removed. Compare it for equality only: the upper 16 bits count the favourite changes and start again at 0 after a rescan. USB: always `1`. The same value is `mid` of [`/Status`](#get-status).
 - Paging with `<nextlink>` (full URL of the next page).
 
 ### `GET /library/v1/Albums`
