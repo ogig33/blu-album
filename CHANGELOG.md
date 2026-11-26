@@ -2,6 +2,9 @@
 
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
+## Unreleased
+- Album popup: a click on the cover shows it in full screen.
+
 ## 0.13.0
 - Design: one consistent style for buttons, icons, corners and shadows; every button reacts to the mouse.
 - Design: better contrast in the day design; gold only marks what is on, selected or playing.

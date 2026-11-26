@@ -18,7 +18,7 @@
 - **Playlists:** BluOS and library playlists play, add to queue, list tracks 
 - **Queue:** shuffle, repeat, reorder tracks by drag and drop, remove tracks, clear
 - **Player bar:** play/pause, previous/next, seek, volume, show current player listening mode
-- **Full-screen view:** focus on album art and current track
+- **Full-screen view:** focus on album art and current track; any album cover in full screen from its popup
 - **Settings:** select music sources, enable filtering options, cover size, appearance
 
 ## Use it

@@ -21,7 +21,7 @@ Every function of the app (`blualbum.html`) as a test case, grouped into test bl
 | GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons, status line | 11 | 8 | 8 |
 | FAV | 4.5 Favourites | Heart on the cover, toggling via the player, no local favourites | 6 | 5 | 6 |
 | ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache, artist links (several artists, track artists) | 5 | 4 | 5 |
-| POP | 4.7 Album popup | Details, technical data, track list, playing a track, closing | 20 | 10 | 17 |
+| POP | 4.7 Album popup | Details, technical data, track list, playing a track, closing, cover in full screen | 21 | 11 | 17 |
 | SRH | 4.8 Search | Player search, albums of found composers, groups by album title / artist / composer, search areas, search button, typing rules, empty field, errors | 13 | 4 | 12 |
 | FTR | 4.9 Player footer | Now playing, quality tag, transport, progress, volume, listening mode, long polling | 19 | 10 | 12 |
 | FUL | 4.10 Full screen | Full-screen now playing view, background from the cover, full-size cover | 8 | 6 | 6 |
@@ -33,7 +33,7 @@ Every function of the app (`blualbum.html`) as a test case, grouped into test bl
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 4 | 3 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 2 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **189** | **128** | **150** |
+| | | **Total** | **190** | **129** | **150** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -228,6 +228,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | POP-18 | Same title on two discs | Like POP-16; the first track of disc 2 gets the title of track 1 and another artist | Artist shown only on the first track of disc 2 (song of the same position) | – | – |
 | POP-19 | Outdated popup failure | Delayed HTTP 500 for the track list or songs of album A; meanwhile open album B | Tracks of B stay; no error popup | – | local |
 | POP-20 | Closed popup | Delayed HTTP 500 for album tracks, songs or playlist tracks; close the popup. Close and open another album at once | No error popup; the album opened at once still loads | – | yes |
+| POP-21 | Cover in full screen | Popup of TD-ALB-LIB, click the loaded cover; click anywhere; Enter on the cover, Esc | Cover is a button (cursor zoom-in); the view shows it drawn in its own size, on a background in its colour, without a new `/Artwork` request; a click or Esc closes only the view, the popup stays open; with Enter the focus is on its close button | read | – |
 
 ### 4.8 Search (SRH)
 

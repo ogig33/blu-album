@@ -817,27 +817,64 @@ button {
   gap: 4vw;
   padding: 5vh 5vw;
   --amb-at: 25% 50%;
+  cursor: pointer;
+}
+/* Background of the full-screen views (now playing, cover of the album popup) */
+#full,
+#covdlg {
   background:
     radial-gradient(130% 130% at var(--amb-at), color-mix(in oklab, var(--amb) 45%, var(--bg)), color-mix(in oklab, var(--amb) 12%, var(--bg))),
     var(--bg);
   transition: --amb 1.2s;
-  cursor: pointer;
 }
 #full[hidden] {
   display: none;
 }
-/* Close button of the full-screen view (a click anywhere closes it too); with a mouse it shows only while the
+/* Close button of the full-screen views (a click anywhere closes them too); with a mouse it shows only while the
    mouse moves (body.fidle after 2.5 s without movement, set in the mousemove handler) */
-#fclose {
+#fclose,
+#covclose {
   position: absolute;
   top: 16px;
   right: 16px;
   transition: opacity var(--t-base);
 }
 @media (hover: hover) {
-  body.fidle #fclose:not(:focus-visible) {
+  body.fidle :is(#fclose, #covclose):not(:focus-visible) {
     opacity: 0;
   }
+}
+/* ---------- Cover in full screen ----------
+   Opened by a click on the loaded cover of the album popup (#dcov.zoom); a dialog above the popup. The cover is
+   drawn at most in its own size (no blurry enlargement of small covers), within 90 % of the window. */
+#dcov.zoom {
+  cursor: zoom-in;
+}
+#covdlg {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  --amb-at: 50% 50%;
+  cursor: zoom-out;
+}
+#covdlg[open] {
+  display: grid;
+  place-items: center;
+}
+#covdlg::backdrop {
+  background: var(--bg);
+}
+#covimg {
+  display: block;
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: var(--r-md);
+  box-shadow: var(--sh3);
 }
 /* The full-screen view covers the whole screen, the footer included: no player controls in it */
 #full .fcov {
@@ -1774,13 +1811,18 @@ dialog * {
   <button id="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   <div class="dl">
     <div class="dleft">
-      <div class="cov"><img id="dimg" alt=""></div>
+      <div class="cov" id="dcov" title="Show cover in full screen" aria-label="Show cover in full screen"><img id="dimg" alt=""></div>
       <div class="info"><h2 id="dt"></h2><div class="meta"><p><span id="da"></span><span id="dy"></span></p><p id="dlen"></p><p id="dtech"></p><p id="ds" class="ovl"></p></div></div>
     </div>
     <div class="dright">
       <ol id="tracks"></ol>
     </div>
   </div>
+</dialog>
+<!-- Cover in full screen (click on the cover of the album popup): the loaded cover drawn on a canvas, close button -->
+<dialog id="covdlg" aria-label="Cover">
+  <button id="covclose" class="ib sub" aria-label="Close cover" title="Close cover"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  <canvas id="covimg" role="img"></canvas>
 </dialog>
 <!-- About popup (opened from the footer line of the settings panel): app name, version, copyright, GitHub link, update check, library stats -->
 <dialog id="infodlg">
@@ -3114,6 +3156,7 @@ async function toggleFav(a) {
 // Opens the album popup: details and the track list; for a playlist (a.pl) its tracks (playlistTracks()).
 // Play, add to queue and the favourite heart are on the cover in the grid, not in the popup.
 async function openAlbum(a) {
+  zoomable(false); // until the new cover is loaded
   showImg($("#dimg"), imgUrl(a.img, COVER_FULL));
   $("#dt").textContent = a.t;
   const da = $("#da");
@@ -3743,11 +3786,34 @@ function fullWake() {
   clearTimeout(fIdleT);
   fIdleT = setTimeout(() => document.body.classList.add("fidle"), 2500);
 }
-// Sets the background colour of the full-screen view (--amb) from the cover: the most frequent strong hue
+// The cover of the album popup can be shown in full screen (once it is loaded): pointer, role and keyboard focus.
+function zoomable(on) {
+  const c = $("#dcov");
+  c.classList.toggle("zoom", on);
+  c.tabIndex = on ? 0 : -1;
+  if (on) c.setAttribute("role", "button");
+  else c.removeAttribute("role");
+}
+// Shows the cover of the album popup in full screen: drawn from the loaded image (nothing is requested again)
+// at most in its own size, on a background in its colour. Opened with the mouse, the close button gets no focus
+// ring (like the album popup); with the keyboard it keeps the focus.
+function showCover(e) {
+  const img = $("#dimg"), c = $("#covimg");
+  if (!$("#dcov").classList.contains("zoom") || !img.naturalWidth) return;
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  c.getContext("2d").drawImage(img, 0, 0);
+  c.setAttribute("aria-label", "Cover of " + $("#dt").textContent);
+  ambient(img, $("#covdlg"));
+  $("#covdlg").showModal();
+  if (e?.type === "click") $("#covclose").blur();
+  fullWake();
+}
+// Sets the background colour of a full-screen view (--amb of f) from the cover: the most frequent strong hue
 // (saturated, neither dark nor light), or the plain average for a grey cover. Without a readable cover
 // (null, or a cover of another host: the canvas is tainted) the theme background stays.
-function ambient(img) {
-  const f = $("#full"), w = 32, c = document.createElement("canvas");
+function ambient(img, f = $("#full")) {
+  const w = 32, c = document.createElement("canvas");
   c.width = c.height = w;
   const x = c.getContext("2d");
   let d;
@@ -4233,6 +4299,19 @@ $("#dlg").addEventListener("close", () => {
 $("#dlg").onclick = (e) => {
   if (e.target === $("#dlg")) $("#dlg").close();
 };
+// Cover of the album popup: once loaded, a click or Enter / Space shows it in full screen.
+$("#dimg").addEventListener("load", () => zoomable(true));
+$("#dimg").addEventListener("error", () => zoomable(false));
+$("#dcov").onclick = showCover;
+$("#dcov").onkeydown = (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    showCover();
+  }
+};
+// The cover in full screen closes with a click anywhere (the close button included) or Esc; the canvas is emptied.
+$("#covdlg").onclick = () => $("#covdlg").close();
+$("#covdlg").addEventListener("close", () => $("#covimg").width = 0);
 $("#q").oninput = () => {
   clearTimeout(searchTimer);
   const n = $("#q").value.trim().length;
@@ -4290,9 +4369,9 @@ $("#cvb").onkeydown = (e) => {
     showFull($("#full").hidden);
   }
 };
-// Full-screen view: any mouse movement shows its close button.
+// Full-screen views (now playing, cover): any mouse movement shows their close button.
 document.addEventListener("mousemove", () => {
-  if (document.body.classList.contains("full")) fullWake();
+  if (document.body.classList.contains("full") || $("#covdlg").open) fullWake();
 });
 // A click anywhere on the full-screen view closes it.
 $("#full").onclick = () => showFull(false);

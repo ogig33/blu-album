@@ -2518,6 +2518,42 @@ test("POP-14 open popup keeps the page behind it still", async (t) => {
   );
 });
 
+test(
+  "POP-21 cover in full screen: click or Enter on the loaded cover, no new request, closes back to the popup",
+  async (t) => {
+    await t.all();
+    await openLibAlbum(t);
+    await t.page.waitForFunction(() => document.querySelector("#dcov").classList.contains("zoom"));
+    eq(
+      await t.page.$eval("#dcov", (e) => [e.getAttribute("role"), e.tabIndex, getComputedStyle(e).cursor]),
+      ["button", 0, "zoom-in"],
+      "loaded cover is a button",
+    );
+    const covers = () => t.reqs(/^\/Artwork\?/).length,
+      n = covers();
+    const view = () => t.page.$eval("#covdlg", (d) => d.open);
+    const popup = () => t.page.$eval("#dlg", (d) => d.open);
+    await t.page.click("#dcov");
+    ok(await view(), "cover in full screen");
+    const own = await t.page.evaluate(() => {
+      const i = document.querySelector("#dimg"),
+        c = document.querySelector("#covimg");
+      return c.width === i.naturalWidth && c.height === i.naturalHeight;
+    });
+    ok(own, "drawn in its own size");
+    eq(covers(), n, "no new cover request");
+    await t.page.mouse.click(5, 5);
+    ok(!(await view()) && (await popup()), "a click closes it, the popup stays open");
+    await t.page.focus("#dcov");
+    await t.page.keyboard.press("Enter");
+    ok(await view(), "opened with Enter");
+    eq(await t.page.evaluate(() => document.activeElement.id), "covclose", "focus on the close button");
+    await t.page.keyboard.press("Escape");
+    ok(!(await view()) && (await popup()), "Esc closes only the cover");
+  },
+  R,
+);
+
 // ---------- 4.8 Search (SRH) ----------
 // Search result lines: the status line (first group) and the line before every further group in the grid
 const searchLines = async (t) => [
