@@ -3251,7 +3251,8 @@ async function openAlbum(a) {
   }
   // Tracks with play links from /Browse; details per song (year, quality, format, artist) from
   // /library/v1/Songs of the same album (service and album/artist query taken from the album key).
-  // Both answers are kept per album for the session (popCache), so opening it again sends no request.
+  // Both answers are kept per album for the session (popCache), so opening it again sends no request; not an empty
+  // track list (e.g. answered during a rescan of the library): it is asked again next time.
   const seq = ++dlgSeq, svc = a.key.split(":")[0], q = a.key.split("?")[1] || "", mine = ctx();
   if (a.pl) return playlistTracks(a, seq);
   try {
@@ -3262,11 +3263,11 @@ async function openAlbum(a) {
         return null;
       })
     ]);
-    if (sd && mine === ctx()) popCache[a.key] = [bd, sd];
-    if (seq !== dlgSeq) return;
     const tr = items(bd).filter((i) => attr(i, "type") === "track");
+    if (sd && tr.length && mine === ctx()) popCache[a.key] = [bd, sd];
+    if (seq !== dlgSeq) return;
     const songs = sd ? [...sd.querySelectorAll("song")] : [];
-    ol.innerHTML = "";
+    ol.innerHTML = tr.length ? "" : "<li style='padding:10px;color:var(--dim)'>No tracks</li>";
     albumDetails(songs);
     // Song details per track by position: the track list comes in the order of the songs (disc, track),
     // titles may repeat on other discs (Bruno E32). The disc of a track is the discno of its song.

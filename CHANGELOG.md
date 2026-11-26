@@ -5,6 +5,7 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 ## Unreleased
 - Album popup: a click on the cover shows it in full screen.
 - Library: after a rescan or a favourite changed in another app, the albums are read again without reconnecting.
+- Fix: an album popup without tracks (e.g. during a library rescan) shows "No tracks" and is read again when opened next.
 
 ## 0.13.0
 - Design: one consistent style for buttons, icons, corners and shadows; every button reacts to the mouse.

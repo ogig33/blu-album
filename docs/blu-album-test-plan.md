@@ -230,6 +230,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | POP-19 | Outdated popup failure | Delayed HTTP 500 for the track list or songs of album A; meanwhile open album B | Tracks of B stay; no error popup | – | local |
 | POP-20 | Closed popup | Delayed HTTP 500 for album tracks, songs or playlist tracks; close the popup. Close and open another album at once | No error popup; the album opened at once still loads | – | yes |
 | POP-21 | Cover in full screen | Popup of TD-ALB-LIB, click the loaded cover; click anywhere; Enter on the cover, Esc | Cover is a button (cursor zoom-in); the view shows it drawn in its own size, on a background in its colour, without a new `/Artwork` request; a click or Esc closes only the view, the popup stays open; with Enter the focus is on its close button | read | – |
+| POP-22 | Empty track list | Mock answers the album's `/Browse` once without tracks; close, open the album again | "No tracks" in the list, no error popup; opened again: `/Browse` requested again, tracks shown | – | – |
 
 ### 4.8 Search (SRH)
 

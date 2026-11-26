@@ -2476,6 +2476,20 @@ test("POP-13 track list or songs fail", async (t) => {
   eq(await t.page.textContent("#dtech"), "", "no technical data");
 });
 
+test("POP-22 empty track list: message, not kept in the session cache", async (t) => {
+  await t.all();
+  t.player.state.overrides.push({ match: /MG\/LocalMusic-Album/, body: '<browse type="tracks"></browse>', times: 1 });
+  await openAlbumBy(t, "x.key === a.key", TD.ALB_LIB);
+  await t.page.waitForFunction(() => /No tracks/.test(document.querySelector("#tracks").textContent));
+  eq(await t.page.$$eval("#tracks li.tr", (x) => x.length), 0, "no track rows");
+  ok(!(await t.page.$("#apidlg[open]")), "no error popup");
+  const n = t.reqs(/^\/Browse.*MG\/LocalMusic-Album/).length;
+  await t.page.click("#close");
+  await openLibAlbum(t);
+  eq(t.reqs(/^\/Browse.*MG\/LocalMusic-Album/).length, n + 1, "opened again: track list requested again");
+  eq(await trackRows(t), TD.TRK.map(trackRow), "tracks shown");
+});
+
 test("POP-19 outdated failure of the album popup is dropped: track list, songs", async (t) => {
   await t.all();
   const [a, b] = TD.ALL.map((x) => x.browseKey);
