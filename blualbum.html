@@ -1988,8 +1988,6 @@ const CONNECT_TIMEOUT = 5000;
 // 100 s) or when the visible page had no tick for more than WAKE_GAP ms (the computer slept): a connection broken
 // during the sleep may never answer, and the footer would keep the state from before.
 const POLL_LIMIT = 115e3, WAKE_GAP = 10e3;
-// Library version check when the page is shown again or gets the focus: at most once per minute (ms).
-const LIB_CHECK_GAP = 60e3;
 const NO_REPLY_MSG = "The player did not answer. Please check the IP address and that the player is switched on and in the same network.";
 // Keys of the views (activeKey) and of their albums in the cache; a genre view uses the genre name.
 // lib: every album of the enabled sources with year and album artist (cache only: decade chips, album artist search).
@@ -2219,10 +2217,9 @@ let lazyObs = null, lazyTok = 0, coverObs = null, cutObs = null;
 let playlistsKey = "", plSeq = 0, plBtn = null, plCount = null, playlists = [];
 // Decade chips: ctx() for which they were built or are loading ("" = not yet).
 let dcCtx = "";
-// Library version: root id of the /library/v1 answers of the library ("" = not read yet), see libVersion().
-// libOwn: the app changed a favourite itself (the next id is taken as it is), libIdx: <indexing> of the latest
-// /Status, libCheckAt: time (ms) of the latest check when the page was shown again.
-let libVer = "", libOwn = false, libIdx = 0, libCheckAt = 0;
+// Library version: <mid> of /Status ("" = not read yet), see libVersion(). libOwn: the app changed a favourite itself
+// (the next version is taken as it is).
+let libVer = "", libOwn = false;
 // Playback position: secs at time t (ms), so the current position can be interpolated between status updates.
 let pos = { secs: 0, total: 0, t: 0, playing: false, canSeek: false };
 // Volume slider: drag state and rate limiting (at most one request per 150 ms while dragging).
@@ -2265,7 +2262,6 @@ function resetPlayerState() {
   fyWant = fyHave = "";
   libVer = "";
   libOwn = false;
-  libIdx = 0;
   playlistsKey = "";
   playlists = [];
   plCount = null;
@@ -2322,32 +2318,18 @@ async function api(path, init) {
   if (!r.ok) throw Object.assign(new Error("Player responded with " + r.status), { url, status, body });
   const d = new DOMParser().parseFromString(body, "text/xml");
   if (d.documentElement.tagName === "e") throw Object.assign(new Error(d.querySelector("message")?.textContent || "Player error"), { url, status, body });
-  if (path.startsWith("/library/v1/") && url === base + path) libVersion(d);
   return d;
 }
-// The root id of every /library/v1 answer of the library is the version of its index (USB: always 1): it changes when
-// a rescan ends and with every favourite added or removed (Bruno M39–M41). A new id drops what the session read from
-// the library (libChanged()), except after the app's own heart.
-function libVersion(d) {
-  const root = d.documentElement, id = root.getAttribute("id");
-  if (root.getAttribute("service") !== SVC_LIBRARY || !id || id === libVer) return;
+// <mid> of every /Status answer is the version of the library index (= root id of the /library/v1 answers of the
+// library): it changes when a rescan ends and with every favourite added or removed, and the long poll answers at once
+// (Bruno W39, M41). A new version drops what the session read from the library (libChanged()), except after the app's
+// own heart.
+function libVersion(id) {
+  if (!id || id === libVer) return;
   const changed = libVer && !libOwn;
   libVer = id;
   libOwn = false;
   if (changed) libChanged();
-}
-// Reads the library version (index of the library, 1 request, see libVersion()): when a rescan has ended and when the
-// page is shown again. Not shown on failure (like the status polling; the next check tries again). False: no library.
-function checkLib() {
-  if (!srcs.some((x) => x.svc === SVC_LIBRARY && x.albumsKey)) return false;
-  api("/library/v1/Albums?service=" + SVC_LIBRARY + "&section=all&length=1").catch(() => {});
-  return true;
-}
-// The page is shown again or gets the focus (e.g. back from another app that started a rescan): checks the library
-// version, at most once per LIB_CHECK_GAP.
-function libBack() {
-  if (document.hidden || Date.now() - libCheckAt < LIB_CHECK_GAP) return;
-  if (checkLib()) libCheckAt = Date.now();
 }
 // apiRaw(): {ok, status, body} without throwing; used where the raw answer is shown to the user.
 async function apiRaw(path) {
@@ -3203,8 +3185,10 @@ async function refreshFav(a, report = apiFail) {
 // menu is read again. Returns false on failure.
 async function toggleFav(a) {
   const f = favOf(a);
-  if (!f.url || !await xml(f.url)) return false;
-  libOwn = true; // the library version changes with it (libVersion())
+  if (!f.url) return false;
+  // The library version changes with it (libVersion()); set before the command, the status may tell it first
+  libOwn = true;
+  if (!await xml(f.url)) return libOwn = false;
   toast(f.on ? "Removed from favourites" : "Added to favourites");
   const k = a.cm.replace(/([?&])isFavourite=1(&|$)/, (m, p, q) => q ? p : "");
   a.cm = f.on ? k : k + "&isFavourite=1";
@@ -3745,10 +3729,7 @@ function showNow(d) {
     lmSync = sync;
     loadListeningMode();
   }
-  // A library rescan counts the files read in <indexing>, 0 again at its end (Bruno M41): check the library version
-  const idx = +g("indexing") || 0;
-  if (libIdx && !idx) checkLib();
-  libIdx = idx;
+  libVersion(g("mid"));
   // Shuffle (0 / 1) and repeat state of the queue
   $("#qshuf").setAttribute("aria-pressed", g("shuffle") === "1");
   showRepeat(g("repeat"));
@@ -4255,8 +4236,6 @@ setInterval(() => {
   tickProg();
   watchPoll();
 }, 250);
-document.addEventListener("visibilitychange", libBack);
-window.addEventListener("focus", libBack);
 $("#prog").addEventListener("click", (e) => {
   const r = $("#prog").getBoundingClientRect();
   seekTo((e.clientX - r.left) / r.width * pos.total);

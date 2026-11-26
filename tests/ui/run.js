@@ -1690,21 +1690,16 @@ test(
     };
     await cdAgain();
     const tiles = await t.tiles();
-    // A favourite changed in another client, then the window gets the focus again
+    // A favourite changed in another client: the next /Status carries the new library version (<mid>)
     t.player.state.libId += 65536;
     const genres = t.reqs(/GG\/Genres/).length,
       lists = t.reqs(/key=BluOS:$/).length;
-    await t.page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await t.page.waitForFunction(() => !("__q:cd" in cache));
-    eq(t.reqs(check).length, 1, "one request for the library id");
     await t.settle();
     ok(t.reqs(/GG\/Genres/).length > genres, "genre chips read again");
     ok(t.reqs(/key=BluOS:$/).length > lists, "playlists read again");
     eq(await t.tiles(), tiles, "the view stays");
     eq(await t.page.getAttribute('#az button[aria-label="Favourites"]', "aria-pressed"), "true", "chip stays pressed");
-    await t.page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    await t.settle();
-    eq(t.reqs(check).length, 1, "no second check within a minute");
     // Own heart: the next id is taken without dropping anything
     await cdAgain();
     const tile = "#grid .item:nth-child(2)";
@@ -1714,14 +1709,16 @@ test(
     await t.chip("New");
     await t.waitMsg(/recently added/);
     ok(await cdCached(), "own favourite change keeps the caches");
-    // Rescan: <indexing> counts, then 0 again with a new library id
+    // Rescan: <indexing> counts with the old version, then 0 again with a new one
     t.player.state.statusPatch.indexing = "500";
     await polls(2);
-    ok(await cdCached(), "no check while indexing");
+    ok(await cdCached(), "caches kept while indexing");
     t.player.state.libId = 41;
     t.player.state.statusPatch.indexing = "0";
     await t.page.waitForFunction(() => !("__q:cd" in cache));
-    eq(t.reqs(check).length, 2, "library id read again when the rescan ended");
+    await t.page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await t.settle();
+    eq(t.reqs(check).length, 0, "no request of its own for the library version");
   },
 );
 
