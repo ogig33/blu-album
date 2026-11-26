@@ -1,4 +1,4 @@
-# BluAlbum
+# <picture><source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.svg"><img src="docs/logo.svg" alt="" width="32" height="32" align="absmiddle"></picture> BluAlbum
 
 [![Proudly Vibe Coded](https://vibecoded.fyi/badges/flat/main/proudly-vibe-coded.svg)](https://vibecoded.fyi/) [![UI tests](https://github.com/ogig33/blu-album/actions/workflows/ui-tests.yml/badge.svg?branch=main)](https://github.com/ogig33/blu-album/actions/workflows/ui-tests.yml) [![Lint](https://github.com/ogig33/blu-album/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/ogig33/blu-album/actions/workflows/lint.yml) [![Format](https://github.com/ogig33/blu-album/actions/workflows/format.yml/badge.svg?branch=main)](https://github.com/ogig33/blu-album/actions/workflows/format.yml) [![CodeQL](https://github.com/ogig33/blu-album/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)](https://github.com/ogig33/blu-album/actions/workflows/github-code-scanning/codeql)
 
