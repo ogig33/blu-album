@@ -35,7 +35,8 @@ Do not build these; when asked, point to the alternative.
 - `docs/blu-album-test-plan.md` – test plan: every function of the app as test cases per block (input, expected output, real player, core), test environments, test data dictionary; update it when a function or a UI test changes.
 - `tests/api/README.md` – Bruno collection: setup, folders, request prefixes, fixtures.
 - `tests/ui/README.md` – Playwright UI tests: run options, GitHub Actions matrix, updating fixtures.
-- `README.md` "Development" – overview of tests and GitHub workflows (UI tests, lint, format).
+- `README.md` "Development" – overview of tests and GitHub workflows (UI tests, lint, format, pages).
+- `site/index.html` – website on GitHub Pages: one static page, no subpages, plain wording (no sales tone), only the main screenshot (dark / light); published by `.github/workflows/pages.yml` with `docs/screenshots/*-main-view.jpg`.
 - Top of the `<script>` in `blualbum.html` – module overview (order of the modules).
 
 ## Development principles
@@ -62,6 +63,7 @@ Do not build these; when asked, point to the alternative.
   - BluAlbum API usage `docs/blu-album-api-usage.md`.
   - BluAlbum music library end user guidance `docs/blu-album-library-guidance.md`
   - BluAlbum test case in `docs/blu-album-test-plan.md`.
+  - Feature list and requirements of the website `site/index.html` (like the README).
 - **`docs/bluos-api.md`:** API facts only, independent of BluAlbum.
   - Structure: per category a one-sentence description, the overview table (Endpoint | Function | Official | Verified), optionally a "Common …" block; per endpoint one `###` with request line (all parameters), parameter table, **Response format**, response keys table, **Notes** (only facts that help in the endpoint's context). Basics only for rules of every endpoint.
   - Not in it: answer or image sizes (→ `docs/blu-album-api-usage.md`), dates and versions per statement, verification logs, Bruno IDs, values of the test player, how the BluOS Controller calls endpoints, client advice, personal-data notes.

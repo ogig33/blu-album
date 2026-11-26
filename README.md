@@ -60,6 +60,8 @@ Checks on GitHub (`.github/workflows`, configs in `.github/lint`):
 - `lint.yml` – ESLint (recommended rules) for the script in `blualbum.html`, `tests/ui` and `tests/tools`.
 - `format.yml` – Prettier (`printWidth` 120) for the test scripts `tests/**/*.js`; `blualbum.html` keeps its compact style. Push / PR only check; run by hand with input `fix` to format, commit and start UI tests and lint for that commit.
 
+Website: [`site/index.html`](site/index.html) is the page at https://ogig33.github.io/blu-album/ (static HTML, no build step); `pages.yml` publishes it together with the main screenshots from `docs/screenshots`.
+
 See [`CHANGELOG.md`](CHANGELOG.md) for the version history.
 
 ## License

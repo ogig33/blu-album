@@ -1,0 +1,47 @@
+# Website of BluAlbum on GitHub Pages (https://ogig33.github.io/blu-album/): site/index.html plus the main
+# screenshots from docs/screenshots, published as they are (no build step).
+# Needs Settings → Pages → Source "GitHub Actions" once.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", docs/screenshots/dark-main-view.jpg, docs/screenshots/light-main-view.jpg, .github/workflows/pages.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a running one is finished, not cancelled
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Put the page and its screenshots together
+        run: |
+          mkdir -p _site/img
+          cp -r site/. _site/
+          cp docs/screenshots/dark-main-view.jpg docs/screenshots/light-main-view.jpg _site/img/
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
