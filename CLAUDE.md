@@ -151,3 +151,4 @@ Do not build these; when asked, point to the alternative.
 - App names used in `page.evaluate()` belong in `APP_GLOBALS` (`.github/lint/eslint.config.mjs`) and must not be assigned: ESLint fails, and only on GitHub.
 - `--player`: GRD-06, FAV-04 and POP-06 fail on the fixed 400 ms wait; repeat with `UI_SLOW=8` before chasing a bug.
 - GitHub macOS runners: SET-02 (Chrome loses localStorage) and SRH-11 (WebKit page error on reload) fail now and then; re-run before chasing a bug.
+- Prettier (only on GitHub) breaks lines over 120 characters and always puts nested array literals (`[[a, b], [c, d]]`) one element per line; a red Format check is fixed by the workflow itself (Actions → Format → Run workflow with "fix", commits the result; pull afterwards).
