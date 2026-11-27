@@ -1852,6 +1852,7 @@ Group players; the primary player selects the source, secondary players follow.
 | `GET /AddSlave` | add players to a group | ✓ | |
 | `GET, POST /proxyToSlave` | forward a request to a group member | | ✓ |
 | `GET /RemoveSlave` | remove players from a group | ✓ | |
+| `GET /SetMaster` | answers like `/SyncStatus`; effect not known | | ✓ |
 | `GET, POST /SlaveVolume` | level trim of a member of a fixed group | | ✓ |
 
 ### `GET /AddSlave`
@@ -1927,6 +1928,22 @@ The [`/SyncStatus`](#get-syncstatus) answer of the primary player.
 - To leave a group, a player calls `/RemoveSlave` with its own address.
 - `zoneUngroup` of `/SyncStatus` and the "Delete fixed group" button in `/Settings` use it.
 
+### `GET /SetMaster`
+
+```
+GET /SetMaster
+```
+
+No parameters.
+
+**Response format**
+
+The answer of [`/SyncStatus`](#get-syncstatus) (XML, also with `Accept: text/javascript`).
+
+**Notes**
+
+- On the primary of a fixed group the grouping stays the same; the effect on other players is not known.
+
 ### `GET, POST /SlaveVolume`
 
 ```
@@ -1963,6 +1980,7 @@ Settings, alarms, sleep timer, library index, diagnostics and the web pages of t
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
+| `POST /AddShare` | add a network share to the library (port 80) | | ✓ |
 | `GET /Alarms` | list, create, change and delete alarms | | ✓ |
 | `GET, POST /alsa_setting` | listening mode and tone controls | | ✓ |
 | `GET /apmode` | web page "Force Hotspot Mode" (port 80) | | |
@@ -1980,11 +1998,14 @@ Settings, alarms, sleep timer, library index, diagnostics and the web pages of t
 | `GET /GitVersion` | BluOS version | | ✓ |
 | `GET /LastScanCode` | last received IR code | | ✓ |
 | `GET /Name` | read or change the player name | | ✓ |
+| `GET /PlayTestSound` | play / stop a test sound (pink noise) | | ✓ |
 | `POST /reboot` | soft reboot (port 80) | ✓ | ✓ |
 | `GET /redirectToCp` | redirect to a page of the web interface | | ✓ |
 | `GET /Reindex` | rescan the music library | | ✓ |
+| `POST /RemoveShare` | remove a network share from the library (port 80) | | ✓ |
 | `GET /Services` | self-description of the sources | | ✓ |
 | `GET /services` | web page "Configure Music Services" (port 80) | | ✓ |
+| `GET /SetInitialized` | purpose unknown; no effect on a player that is set up | | ✓ |
 | `GET, POST /setting` | change a simple setting | | ✓ |
 | `GET /Settings` | settings tree of the player | ✓ | ✓ |
 | `GET /settings/sendSupportRequest` | web page "Send support request" (port 80) | | ✓ |
@@ -2001,6 +2022,31 @@ Settings, alarms, sleep timer, library index, diagnostics and the web pages of t
 | `POST /upload_playlists_api` | restore the BluOS playlists (port 80) | | ✓ |
 | `GET /Version` | API version | | ✓ |
 | `GET /wificfg` | web page for the Wi-Fi settings (port 80) | | ✓ |
+
+### `POST /AddShare`
+
+```
+POST http://<player>:80/AddShare   (form fields sharename, username, password)
+```
+
+| Parameter | Meaning |
+|---|---|
+| `sharename` | network share for the library, e.g. `\\nas\Music` |
+| `username`, `password` | account for the share |
+
+**Response format**
+
+When the share cannot be mounted:
+
+```xml
+<error><message>Addshare failed</message></error>
+```
+
+**Notes**
+
+- `application/x-www-form-urlencoded`; the answer comes only after the mount attempt, for an unreachable share after minutes.
+- A share that cannot be mounted is not stored ([`/Shares`](#get-shares) unchanged).
+- Remove a share with [`/RemoveShare`](#post-removeshare).
 
 ### `GET /Alarms`
 
@@ -2416,6 +2462,28 @@ GET /Name?set=<name>
 |---|---|
 | `name` | player name (= `name` of [`/SyncStatus`](#get-syncstatus)) |
 
+### `GET /PlayTestSound`
+
+```
+GET /PlayTestSound?sound=<0|1>&volume=<n>&type=pinknoise
+```
+
+| Parameter | Meaning |
+|---|---|
+| `sound` | `1` = play the test sound, `0` = stop it |
+| `volume` | volume of the test sound (e.g. `20`) |
+| `type` | `pinknoise` = pink noise |
+
+**Response format**
+
+```xml
+<testsound></testsound>
+```
+
+**Notes**
+
+- Stops the playback: meanwhile `/Status` has `state` `stream` and `title1` "Alarm"; after `sound=0` the queue does not resume (`state` `connecting`), the queue (`pid`) and the volume are unchanged.
+
 ### `POST /reboot`
 
 ```
@@ -2476,6 +2544,28 @@ No parameters.
 - "Reindex music collection" in `/Settings`; the rescan runs in the background.
 - Progress: `indexing` of [`/Status`](#get-status) counts the files read and is `0` again at the end; then the library `id` changes (see [Library functions](#11-library-functions)).
 - With new or changed files the count may stand still for minutes before the end, and library requests may answer late meanwhile.
+
+### `POST /RemoveShare`
+
+```
+POST http://<player>:80/RemoveShare   (form field sharename)
+```
+
+| Parameter | Meaning |
+|---|---|
+| `sharename` | share as in [`/Shares`](#get-shares) |
+
+**Response format**
+
+For a share that is not in `/Shares`:
+
+```xml
+<error><message>Share not found</message></error>
+```
+
+**Notes**
+
+- `application/x-www-form-urlencoded`. Counterpart of [`/AddShare`](#post-addshare).
 
 ### `GET /Services`
 
@@ -2559,6 +2649,22 @@ HTML page "Configure Music Services" with one link per streaming and radio servi
 
 - Lower case, port 80 only; not the same as [`/Services`](#get-services).
 - Opened through `/redirectToCp`. Its links lead to `/credentials?service=<service>&noheader=1&schemaVersion=<n>&playnum=1` (sign-in of a service) and `/spotifyinfo?service=Spotify&…`.
+
+### `GET /SetInitialized`
+
+```
+GET /SetInitialized
+```
+
+No parameters.
+
+**Response format**
+
+HTTP 200, a single space as body (no XML).
+
+**Notes**
+
+- On a player that is set up already (`initialized="true"` in [`/SyncStatus`](#get-syncstatus)) nothing changes.
 
 ### `GET, POST /setting`
 
