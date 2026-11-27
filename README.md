@@ -64,10 +64,6 @@ npm install --prefix .github/lint --no-save --no-package-lock prettier@3.10.1 es
 .github/lint/node_modules/.bin/prettier --config .github/lint/prettier.json --check "tests/**/*.js"
 ```
 
-Website: [`site/index.html`](site/index.html) is the page at https://ogig33.github.io/blu-album/ (static HTML, no build step); `pages.yml` publishes it together with the main screenshots from `docs/screenshots`.
-
-See [`CHANGELOG.md`](CHANGELOG.md) for the version history.
-
 ## License
 
 [MIT](LICENSE) © 2026 Ingmar Gebert

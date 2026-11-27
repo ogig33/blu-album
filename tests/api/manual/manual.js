@@ -1881,6 +1881,8 @@ request("M45 AddShare and RemoveShare (test share, port 80)", {
     vars.m45 = JSON.stringify({ share, leftover, before });
     req.body = "sharename=" + encodeURIComponent(share) + "&username=guest&password=";
     req.headers["Content-Type"] = "application/x-www-form-urlencoded";
+    // AddShare answers only after the failed mount, several minutes
+    req.timeout = 600000;
   },
   async post(req, res) {
     const H80 = "http://" + env.host + ":80";

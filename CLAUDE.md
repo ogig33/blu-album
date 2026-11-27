@@ -36,7 +36,7 @@ Do not build these; when asked, point to the alternative.
 - `docs/blu-album-test-plan.md` – test plan: every function of the app as test cases per block (input, expected output, real player, core), test environments, test data dictionary; update it when a function or a UI test changes.
 - `tests/api/README.md` – API tests against the real player (Node.js only): setup, runs, request prefixes, every request per folder, fixtures (git-ignored, like `config.json`).
 - `tests/ui/README.md` – Playwright UI tests: run options, GitHub Actions matrix, updating fixtures.
-- `README.md` "Development" – overview of tests and GitHub workflows (UI tests, lint, format, pages).
+- `README.md` "Development" – overview of tests (UI, API) and GitHub workflows (UI tests, lint, format), local lint and format.
 - `site/index.html` – website on GitHub Pages: one static page, no subpages, plain wording (no sales tone), only the main screenshot (dark / light); published by `.github/workflows/pages.yml` with `docs/screenshots/*-main-view.jpg`.
 - Top of the `<script>` in `blualbum.html` – module overview (order of the modules).
 
