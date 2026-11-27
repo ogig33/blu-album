@@ -4137,7 +4137,8 @@ async function loadVersions() {
   renderLib();
 }
 // Update check (about popup, on click): compares the latest GitHub release with APP.version.
-// Only this request leaves the home network, and only when the user asks for it.
+// The only request of the app to the internet, and only when the user asks for it (apart from
+// now-playing images of other hosts, e.g. radio, which the player names in /Status).
 async function checkUpdate() {
   const msg = $("#updmsg"), b = $("#updb");
   const num = (v) => String(v).replace(/^v/, "").split(".").map((x) => parseInt(x, 10) || 0);

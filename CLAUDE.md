@@ -23,7 +23,7 @@ Do not build these; when asked, point to the alternative.
 - Artist / composer browser – use search instead; browsing is not appealing without pictures.
 - Song browser – use search instead; any meaningful library has too many songs to browse.
 - Folder browser – BluAlbum expects a tagged library.
-- Album data from the internet (e.g. missing cover art, lyrics, album details, artist pictures, artist details). The only request leaving the home network is the update check in the about popup, on click.
+- Album data from the internet (e.g. missing cover art, lyrics, album details, artist pictures, artist details). Only two kinds of requests leave the home network: the update check in the about popup (on click) and the now-playing image when the player names an internet host for it (`/Status`, e.g. radio).
 - Changing the player configuration (e.g. player grouping, listening modes, reindexing the library) – use the BluOS Controller app. Showing such values (e.g. the listening mode icon in the player bar) is fine.
 - Mobile devices – they do not open local HTML files properly; there is no user-friendly solution (only third-party apps).
 
