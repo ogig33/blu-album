@@ -1,6 +1,6 @@
 # BluAlbum – test plan
 
-Every function of the app (`blualbum.html`) as a test case, grouped into test blocks, with input, expected output and the scope of its UI test in `tests/ui/run.js`. The API behaviour of the player itself is tested by the Bruno collection (`tests/api`).
+Every function of the app (`blualbum.html`) as a test case, grouped into test blocks, with input, expected output and the scope of its UI test in `tests/ui/run.js`. The API behaviour of the player itself is tested by the owner's private Bruno collection.
 
 ## 1. How to read this plan
 

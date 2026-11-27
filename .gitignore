@@ -1,7 +1,6 @@
-# Recorded player answers with personal details (sanitized copies live in tests/ui/fixtures)
-tests/api/fixtures/
-# Local tools of the owner (library tagging scripts), not published
-/tools/
+# Private content of the owner, not published: Bruno collection with its recorded answers
+# (sanitized copies live in tests/ui/fixtures), API tools, private notes, library tagging scripts
+/private/
 # Website assembled by .github/workflows/pages.yml
 _site/
 # Node / Playwright
@@ -10,6 +9,3 @@ test-results/
 playwright-report/
 # macOS
 .DS_Store
-# Private notes, not published
-docs/blu-album-api-usage.md
-docs/powernode-n331-analysis.md

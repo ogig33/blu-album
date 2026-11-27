@@ -1,4 +1,4 @@
-// ESLint configuration for BluAlbum: the script in blualbum.html and the test tools.
+// ESLint configuration for BluAlbum: the script in blualbum.html and the UI tests.
 // Used only by the GitHub workflow .github/workflows/lint.yml, which installs ESLint into this
 // folder and runs it from the repository root with --config (nothing to install locally).
 import js from "@eslint/js";

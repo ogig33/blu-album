@@ -48,16 +48,11 @@ Everything is in [`blualbum.html`](blualbum.html): CSS, HTML and plain JavaScrip
 step and no dependencies. The script is split into modules, listed at its top.
 
 Tests:
-- [`tests/api`](tests/api) – [Bruno](https://www.usebruno.com/) collection with contract tests
-  for every player request the app uses (read-only and write tests) and exploration requests.
 - [`tests/ui`](tests/ui) – Playwright tests of the user interface in Chrome, Safari (WebKit), Edge and Firefox against a mock player that answers with recorded (and sanitized) player responses. No player needed. Locally `npm test` runs 50 core tests; GitHub Actions runs all of them on macOS, Windows and Linux at three window sizes.
-- [`tests/tools/sanitize-fixtures.js`](tests/tools/sanitize-fixtures.js) – copies recorded
-  answers to the UI tests and removes personal details.
-- [`tests/tools/crawl-endpoints.js`](tests/tools/crawl-endpoints.js) – walks the player's answers read-only (`node tests/tools/crawl-endpoints.js <player IP>`) and lists endpoints, parameters and answer fields that `docs/bluos-api.md` does not describe yet; the full result goes to `tests/api/fixtures/crawl-endpoints.json`.
 
 Checks on GitHub (`.github/workflows`, configs in `.github/lint`):
 - `ui-tests.yml` – the UI tests, see [`tests/ui`](tests/ui/README.md#github-actions).
-- `lint.yml` – ESLint (recommended rules) for the script in `blualbum.html`, `tests/ui` and `tests/tools`.
+- `lint.yml` – ESLint (recommended rules) for the script in `blualbum.html` and `tests/ui`.
 - `format.yml` – Prettier (`printWidth` 120) for the test scripts `tests/**/*.js`; `blualbum.html` keeps its compact style. Push / PR only check; run by hand with input `fix` to format, commit and start UI tests and lint for that commit.
 
 Website: [`site/index.html`](site/index.html) is the page at https://ogig33.github.io/blu-album/ (static HTML, no build step); `pages.yml` publishes it together with the main screenshots from `docs/screenshots`.

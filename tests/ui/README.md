@@ -68,11 +68,8 @@ Every job keeps the screenshots of the main views (and of failed tests) as an ar
 ## Update the fixtures
 Before recording, at least one favourite album must be in the first album section of the library (e.g. "1" by Peter Gabriel): the mock lists the albums of an artist from that section only, ART-01 and SRH-13 need a favourite among them.
 
-1. Run the Bruno folder "1 Read (safe)" (`tests/api`) with `saveFixtures = true`.
-   The answers are stored in `tests/api/fixtures/` (ignored by git, they contain
-   details of your network and library).
-2. Copy them here without personal details:
-   `node tests/tools/sanitize-fixtures.js` (from the repository root).
+1. The owner records the answers with the private Bruno collection (folder "1 Read (safe)", `saveFixtures = true`); they contain details of the network and library.
+2. A private tool copies them here without personal details.
 
 Expected values such as the current title are read from the fixtures, so the tests
 keep working with new recordings.

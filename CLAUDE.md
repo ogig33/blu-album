@@ -30,10 +30,11 @@ Do not build these; when asked, point to the alternative.
 ## Where to look
 
 - `docs/bluos-api.md` – BluOS API reference (chapter 10: service functions `/Albums`, `/Playlists`, `/Songs` … and `/Artwork`, dispatched by `service`; chapter 11: library functions `/library/v1`): every endpoint with parameters, answers, verified state and pitfalls (answer language, `hd` / `hr`, MP3 quality, favourite state, genres, `/Delete` forms, CORS of `/Artwork`, …). **Look up an endpoint here before using or changing a player request.**
-- `docs/blu-album-api-usage.md` – every click of the app with its requests, measurements and endpoint choices. Private, git-ignored: missing in worktrees, cloud sessions and clones.
+- `private/` – the owner's private content, git-ignored and never published (missing in worktrees, cloud sessions and clones): `bruno/` (Bruno collection with its fixtures), `tools/` (API tools), `docs/` (private notes), `library-tools/` (library tagging scripts). Keep every API test script, API tool and private note there; public files only say that they exist.
+- `private/docs/blu-album-api-usage.md` – every click of the app with its requests, measurements and endpoint choices.
 - `docs/blu-album-library-guidance.md` – how users should tag their library and set "Optimize Artwork" for the best experience with BluAlbum.
 - `docs/blu-album-test-plan.md` – test plan: every function of the app as test cases per block (input, expected output, real player, core), test environments, test data dictionary; update it when a function or a UI test changes.
-- `tests/api/README.md` – Bruno collection: setup, folders, request prefixes, fixtures.
+- `private/bruno/README.md` – Bruno collection: setup, folders, request prefixes, fixtures.
 - `tests/ui/README.md` – Playwright UI tests: run options, GitHub Actions matrix, updating fixtures.
 - `README.md` "Development" – overview of tests and GitHub workflows (UI tests, lint, format, pages).
 - `site/index.html` – website on GitHub Pages: one static page, no subpages, plain wording (no sales tone), only the main screenshot (dark / light); published by `.github/workflows/pages.yml` with `docs/screenshots/*-main-view.jpg`.
@@ -60,14 +61,14 @@ Do not build these; when asked, point to the alternative.
 - **Keep wording short:** precise, no lengthy explanations, examples only where needed.
 - **Keep documentation up-to-date** - any change with impact on docs must be reflected there 
   - BluOS API reference `docs/bluos-api.md`.
-  - BluAlbum API usage `docs/blu-album-api-usage.md`.
+  - BluAlbum API usage `private/docs/blu-album-api-usage.md`.
   - BluAlbum music library end user guidance `docs/blu-album-library-guidance.md`
   - BluAlbum test case in `docs/blu-album-test-plan.md`.
   - Feature list and requirements of the website `site/index.html` (like the README).
 - **`docs/bluos-api.md`:** API facts only, independent of BluAlbum.
   - Structure: per category a one-sentence description, the overview table (Endpoint | Function | Official | Verified), optionally a "Common …" block; per endpoint one `###` with request line (all parameters), parameter table, **Response format**, response keys table, **Notes** (only facts that help in the endpoint's context). Basics only for rules of every endpoint.
-  - Not in it: answer or image sizes (→ `docs/blu-album-api-usage.md`), dates and versions per statement, verification logs, Bruno IDs, values of the test player, how the BluOS Controller calls endpoints, client advice, personal-data notes.
-- **`docs/blu-album-api-usage.md`:** the requests of every click of BluAlbum with measured data.
+  - Not in it: answer or image sizes (→ `private/docs/blu-album-api-usage.md`), dates and versions per statement, verification logs, Bruno IDs, values of the test player, how the BluOS Controller calls endpoints, client advice, personal-data notes.
+- **`private/docs/blu-album-api-usage.md`:** the requests of every click of BluAlbum with measured data.
   - Structure: measurement conditions (date, app and BluOS version, library) once at the top, overview of every click; per app area a chapter with a one-sentence description and one table (Trigger | Requests | Count | Data | Cache | Purpose), below it only facts needed for the requests; then endpoint choices and open proposals.
   - Not in it: endpoints the app does not use, code internals (variable and function names), done or decided proposals (→ CHANGELOG, CLAUDE.md "Decisions"), statements repeated from CLAUDE.md or `bluos-api.md`.
 
@@ -75,15 +76,16 @@ Do not build these; when asked, point to the alternative.
 
 - Workflow for a change:
   - analyze change using materials in "where to look" section
-  - Verify unknown API behaviour if needed in Bruno (`tests/api`)
+  - Verify unknown API behaviour if needed in Bruno (`private/bruno`)
   - Adapt or add the UI test (and `tests/ui/mock-player.js`).
   - Change the code → local core tests green (`npm test` in `tests/ui`).
   - CHANGELOG line (only for changes of the app).
   - Before a push: all UI tests green (`npm run test:all` in `tests/ui`).
 - After a firmware update:
-  - Run the whole Bruno collection, environment "Home" (details in `tests/api/README.md`).
-  - Fixtures with personal data stay in `tests/api/fixtures/` (git-ignored); copy them with `tests/tools/sanitize-fixtures.js`.
-  - Find new endpoints with `node tests/tools/crawl-endpoints.js <player IP>` (read-only, compares with `docs/bluos-api.md`); verify each finding in Bruno before documenting it.
+  - Run the whole Bruno collection, environment "Home" (details in `private/bruno/README.md`).
+  - Fixtures with personal data stay in `private/bruno/fixtures/`; copy them to `tests/ui/fixtures` with `private/tools/sanitize-fixtures.js`.
+  - Find new endpoints with `node private/tools/crawl-endpoints.js <player IP>` (read-only, compares with `docs/bluos-api.md`); verify each finding in Bruno before documenting it.
+  - Then `node private/tools/build-wordlist.js` (no requests): requests of the BluOS Controller app missing in `docs/bluos-api.md`, and the wordlists for ffuf (never request `denied.txt` unchecked).
 - Test methodology:
   - The test plan has at most 150 core test cases; `tests/ui/run.js` stops when this limit or the local limit of 50 is exceeded. Both limits are reached (2026-11-23): extend an existing case or add a case outside the core ("–").
   - UI tests: local tests performs only a subset of 50 core tests with core browsers (Safari, Chrome), run within 5 mins
