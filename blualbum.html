@@ -2003,7 +2003,7 @@ const SEARCH_MIN = 3, SEARCH_DELAY = 800;
 const TILE = { s: "110px", m: "150px", l: "220px" };
 // Cover size asked from /Artwork for the album popup and now playing (footer and full screen): the player
 // scales its stored cover to it but never beyond the original, so this gets the full resolution up to
-// 3000 px; larger originals are scaled down to it (Bruno E31).
+// 3000 px; larger originals are scaled down to it (API test E31).
 // The grid asks without a size (at most 600 px). The stored cover has 600 px when "Optimize Artwork" is on.
 const COVER_FULL = 3000;
 // File formats of /library/v1/Songs (atype) and which of them are lossy (no bit depth shown).
@@ -2157,7 +2157,7 @@ function imgUrl(p, size) {
 // Shows an image URL from imgUrl() in an <img> ("" removes the image). Images of the player are read
 // with fetch() and shown as a blob URL: Firefox upgrades <img src="http://…"> on a file:// page to https
 // (mixed content) and the player has no https; fetch() is not upgraded and the player allows it
-// (Access-Control-Allow-Origin: *, Bruno E24). URLs of other hosts (now playing) are set directly.
+// (Access-Control-Allow-Origin: *, API test E24). URLs of other hosts (now playing) are set directly.
 // The blob URL is released once the image is decoded. A failed load fires the element's "error" event.
 // `img` may be an array: the image is fetched once for all of them (now playing: footer and full screen).
 async function showImg(img, url) {
@@ -2293,7 +2293,7 @@ const ctx = () => base + "|" + epoch;
 
 // All requests go through api() or apiRaw(); they ask for English answers (the UI language): with the
 // browser's own Accept-Language, e.g. German, the player answers the track list of some albums with an
-// empty menu (Bruno E25 / E26).
+// empty menu (API tests E25 / E26).
 const PLAYER_HEADERS = { "Accept-Language": "en" };
 // Status and body of a request without an answer: fetch() rejects with a TypeError on network errors,
 // with a TimeoutError when the time limit of the connect request (CONNECT_TIMEOUT) has passed.
@@ -2322,7 +2322,7 @@ async function api(path, init) {
 }
 // <mid> of every /Status answer is the version of the library index (= root id of the /library/v1 answers of the
 // library): it changes when a rescan ends and with every favourite added or removed, and the long poll answers at once
-// (Bruno W39, M41). A new version drops what the session read from the library (libChanged()), except after the app's
+// (API tests W39, M41). A new version drops what the session read from the library (libChanged()), except after the app's
 // own heart.
 function libVersion(id) {
   if (!id || id === libVer) return;
@@ -2579,7 +2579,7 @@ async function libChanged() {
 // Chip label of a decade: "1980" -> "80s"; the full decade when two decades share the short form (1920s, 2020s).
 const decLabel = (k, all) => (all.filter((x) => x.slice(2) === k.slice(2)).length > 1 ? k : k.slice(2)) + "s";
 // Decade chips (setting, off by default), behind a separator after the quality chips: the decades of the
-// player's decade index (/library/v1/Albums with section=all&length=1&sort=decade, Bruno E41 / E42: one section
+// player's decade index (/library/v1/Albums with section=all&length=1&sort=decade, API tests E41 / E42: one section
 // per decade, albums without a year left out), 1 request per source; decades of all sources combined.
 async function decadeChips() {
   if ($("#dsw").getAttribute("aria-checked") !== "true" || dcCtx === ctx()) return;
@@ -2667,7 +2667,7 @@ function libAlbum(e, svc) {
     t,
     a: ar,
     n: attr(e, "tracks"),
-    // Year of the album (sectioned lists only, Bruno E34; "" without a year tag); undefined in the other lists
+    // Year of the album (sectioned lists only, API test E34; "" without a year tag); undefined in the other lists
     // (looked up for the year sort orders, see sortView())
     y: e.closest("section") ? attr(e, "date") : undefined,
     img: "/Artwork?service=" + svc + "&" + q,
@@ -2695,7 +2695,7 @@ async function libAlbums(svc, filter, max) {
   return out.slice(0, max);
 }
 // Filters like quality and genre need a section: section=all answers every A-Z section of the source at once
-// (1 request, A-Z, no paging, Bruno E43 / E44).
+// (1 request, A-Z, no paging, API tests E43 / E44).
 // filter "" = every album of the source, with its year (decade chips).
 async function libSectionAlbums(x, filter) {
   if (!x.albumsKey) return [];
@@ -2882,7 +2882,7 @@ const loadFavourites = (btn) => loadLibView(VIEW.fav, btn, { filter: "category=F
 // Quality chip (q: filter value of QUALITIES).
 const loadQuality = (btn, q, name) => loadLibView(VIEW.quality(q), btn, { filter: "quality=" + q, label: name + " albums", done: "in " + name + " quality", empty: "No " + name + " albums.", sectioned: true });
 // Every album of the enabled sources with year and album artist: the sectioned /library/v1/Albums list without a
-// filter (1 request per source, Bruno E34, E43), read once per source selection into the cache (a promise,
+// filter (1 request per source, API tests E34, E43), read once per source selection into the cache (a promise,
 // shared by the decade chips and the album artist search).
 function libAllAlbums() {
   const c = cache;
@@ -2908,7 +2908,7 @@ async function loadDecade(dec, btn) {
 }
 // Albums of an artist on one source: the artist's browse menu (key <svc>:MG/LocalMusic-Artist?artist=…)
 // links to all albums of the artist, with the player's play URLs and context menus (2 requests).
-// This list does not mark favourites (Bruno E17), so for the library the player's favourites are read
+// This list does not mark favourites (API test E17), so for the library the player's favourites are read
 // in parallel (1 request) and the context menu of each favourite is read with &isFavourite=1, which
 // gives the player's URL for removing it (1 request per favourite of the artist).
 async function artistAlbums(x, name, report) {
@@ -3254,7 +3254,7 @@ async function openAlbum(a) {
     ol.innerHTML = tr.length ? "" : "<li style='padding:10px;color:var(--dim)'>No tracks</li>";
     albumDetails(songs);
     // Song details per track by position: the track list comes in the order of the songs (disc, track),
-    // titles may repeat on other discs (Bruno E32). The disc of a track is the discno of its song.
+    // titles may repeat on other discs (API test E32). The disc of a track is the discno of its song.
     const sgs = songs.length === tr.length ? songs : [];
     const discs = new Set(sgs.map((x) => textOf(x, "discno")).filter(Boolean)).size;
     const secs = totalSecs(tr);
@@ -3497,7 +3497,7 @@ async function loadQueue() {
         moveEntry(from, to);
         it.focus();
       };
-      // The changed playlist id in /Status reloads the queue (checked in Bruno, 2 Write #25).
+      // The changed playlist id in /Status reloads the queue (checked in the API tests, C25).
       li.append(el("button", { className: "rm", innerHTML: ICON_REMOVE, "aria-label": "Remove from queue", onclick: () => xml("/Delete?id=" + li.dataset.id) }));
       qDrag(li);
       ol.append(li);
@@ -3515,7 +3515,7 @@ async function loadQueue() {
     }
   }
 }
-// Moves queue entry `from` to position `to` (0-based; `to` = its position afterwards, Bruno W34–W37: the entry
+// Moves queue entry `from` to position `to` (0-based; `to` = its position afterwards, API tests W34–W37: the entry
 // is taken out, then inserted): /Move?new=<to>&old=<from>. The rows are reordered and renumbered at once and
 // the playing entry keeps its mark (the player moves its position the same way); the changed playlist id in
 // /Status then reloads the queue. Not successful: popup and the queue is read again.
@@ -3723,7 +3723,7 @@ function showNow(d) {
     qPid = pid;
     if (qOpen) loadQueue();
   } else markCur(false);
-  // A new listening mode raises syncStat (Bruno S44): read /audioPreset on connect and on every change
+  // A new listening mode raises syncStat (API test S44): read /audioPreset on connect and on every change
   const sync = g("syncStat");
   if (sync && sync !== lmSync) {
     lmSync = sync;
@@ -3805,7 +3805,7 @@ function watchPoll() {
   if (pollCtl && (slept || now - pollAt > POLL_LIMIT)) pollStatus();
 }
 // Year after the album in the footer: /Status has none, the queue entry of the playing track has it as <date>
-// (Bruno E33). Read once per track.
+// (API test E33). Read once per track.
 async function loadYear() {
   const k = fyWant, mine = base;
   if (!k || k === fyHave) return;
@@ -3904,7 +3904,7 @@ async function searchAlbums(key) {
 }
 // Albums with songs of the composers a search found: composers list (paged) -> each composer's browse menu ->
 // its link to the albums (2 requests per composer). The player's albums list of a search does not match
-// composers (Bruno E37).
+// composers (API test E37).
 async function composerAlbums(key) {
   const comps = await fetchItems(key, "composer");
   const lists = await Promise.all(comps.map(async (c) => {
@@ -3946,7 +3946,7 @@ const searchIn = (k) => $(`#sin [data-in=${k}]`).getAttribute("aria-pressed") ==
 // Uses the player's own search (Enter, or while typing, see SEARCH_MIN / SEARCH_DELAY).
 // The result comes in groups, each A-Z by title and each album once: album title (the term is in the title),
 // album artist (the albums whose album artist has the term, matched here in libAllAlbums(), because the player's
-// search does not match the album artist, Bruno E40), track artist (the rest of the search's albums list)
+// search does not match the album artist, API test E40), track artist (the rest of the search's albums list)
 // and composer (the albums of the composers found). The status line names the first group, a line in the grid every further group.
 // Only the groups of the search areas that are on; an area that is off costs no request (albums list only for
 // title or artist, every album of the library only for artist, composers only for composer).

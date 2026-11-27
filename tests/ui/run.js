@@ -1961,7 +1961,7 @@ test(
       2 * TD.SRC.length,
       "artist menu + albums link per source",
     );
-    // The artist list does not mark favourites (Bruno E17): the app compares with the player's favourites
+    // The artist list does not mark favourites (API test E17): the app compares with the player's favourites
     // (library only) and reads the context menu of each favourite with &isFavourite=1.
     eq(
       r.filter((x) => /^\/library\/v1\/Albums\?/.test(x) && !/start=/.test(x)),
@@ -2222,7 +2222,7 @@ test(
 );
 
 // Browsers send the system language as Accept-Language; with German the player answers the track list
-// of an album with an empty menu (Bruno E25), so the app asks in English (E26).
+// of an album with an empty menu (API test E25), so the app asks in English (E26).
 test(
   "POP-11 track list also in a browser set to German",
   async (t) => {
@@ -2312,7 +2312,7 @@ test("POP-08 artist per track only where it differs from the album artist", asyn
   ok((await t.page.textContent("#tracks li:nth-child(2)")).includes(TD.OTHER_ARTIST), "on track 2");
 });
 
-// Multi-disc albums (Bruno E32): the recorded album split into two discs by the mock (state.discs).
+// Multi-disc albums (API test E32): the recorded album split into two discs by the mock (state.discs).
 // Disc 1 = the first half of the tracks, disc 2 = the rest.
 const twoDiscs = (s) => (s.discs = TD.TRK.map((_, i) => (i < Math.ceil(TD.TRK.length / 2) ? 1 : 2)));
 // Rows of the track list as the user reads them: disc headers and [number, title, duration] per track
@@ -5370,7 +5370,7 @@ async function views(t) {
 if (SHOTS) test("ENV views: screenshots of the main views", views, R);
 
 // ---------- real player: save and restore its state (write tests) ----------
-// Like the Bruno folder "2 Write": the queue is saved as a playlist before the write tests and loaded
+// Like the write folder of the API tests: the queue is saved as a playlist before the write tests and loaded
 // again after each of them; playback position, pause state, shuffle, repeat and volume are set back.
 // name: the playlist that keeps the queue. An input (e.g. HDMI) cannot be restored: the queue is restored paused.
 async function saveState(get, name) {

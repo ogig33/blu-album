@@ -1,6 +1,9 @@
-# Private content of the owner, not published: Bruno collection with its recorded answers
-# (sanitized copies live in tests/ui/fixtures), API tools, private notes, library tagging scripts
+# Private content of the owner, not published: API tools, private notes, library tagging scripts
 /private/
+# API tests: the player address and the recorded answers (details of the network and library;
+# sanitized copies live in tests/ui/fixtures)
+/tests/api/config.json
+/tests/api/fixtures/
 # Website assembled by .github/workflows/pages.yml
 _site/
 # Node / Playwright

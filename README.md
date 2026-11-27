@@ -49,11 +49,20 @@ step and no dependencies. The script is split into modules, listed at its top.
 
 Tests:
 - [`tests/ui`](tests/ui) – Playwright tests of the user interface in Chrome, Safari (WebKit), Edge and Firefox against a mock player that answers with recorded (and sanitized) player responses. No player needed. Locally `npm test` runs 50 core tests; GitHub Actions runs all of them on macOS, Windows and Linux at three window sizes.
+- [`tests/api`](tests/api) – contract tests of the BluOS API against a real player (Node.js only, no packages); they record the player answers the UI tests use. Run only on your own player: the write tests interrupt playback (and restore everything), the manual ones (reboot, rescan, firmware upgrade …) run only on request.
 
 Checks on GitHub (`.github/workflows`, configs in `.github/lint`):
 - `ui-tests.yml` – the UI tests, see [`tests/ui`](tests/ui/README.md#github-actions).
-- `lint.yml` – ESLint (recommended rules) for the script in `blualbum.html` and `tests/ui`.
+- `lint.yml` – ESLint (recommended rules) for the script in `blualbum.html`, `tests/ui` and `tests/api`.
 - `format.yml` – Prettier (`printWidth` 120) for the test scripts `tests/**/*.js`; `blualbum.html` keeps its compact style. Push / PR only check; run by hand with input `fix` to format, commit and start UI tests and lint for that commit.
+
+Lint and format locally (optional; installs into `.github/lint/node_modules`, git-ignored, the versions of the workflows):
+
+```
+npm install --prefix .github/lint --no-save --no-package-lock prettier@3.10.1 eslint@10.15.0 @eslint/js@10.0.1 eslint-plugin-html@8.2.1 globals@17.14.0
+.github/lint/node_modules/.bin/eslint --config .github/lint/eslint.config.mjs blualbum.html tests/ui tests/api
+.github/lint/node_modules/.bin/prettier --config .github/lint/prettier.json --check "tests/**/*.js"
+```
 
 Website: [`site/index.html`](site/index.html) is the page at https://ogig33.github.io/blu-album/ (static HTML, no build step); `pages.yml` publishes it together with the main screenshots from `docs/screenshots`.
 

@@ -9,7 +9,7 @@ Every function of the app is a test case in the test plan `docs/blu-album-test-p
 ## Files
 - `run.js` – the test scenarios and a small test runner
 - `mock-player.js` – the mock player (fixtures + derived answers, records all commands)
-- `fixtures/` – recorded player answers (`NN-name.xml`, `NN` = number of the Bruno request `ANN` / `CNN`),
+- `fixtures/` – recorded player answers (`NN-name.xml`, `NN` = number of the API test request `ANN` / `CNN`),
   with personal details removed
 
 ## Run
@@ -68,8 +68,8 @@ Every job keeps the screenshots of the main views (and of failed tests) as an ar
 ## Update the fixtures
 Before recording, at least one favourite album must be in the first album section of the library (e.g. "1" by Peter Gabriel): the mock lists the albums of an artist from that section only, ART-01 and SRH-13 need a favourite among them.
 
-1. The owner records the answers with the private Bruno collection (folder "1 Read (safe)", `saveFixtures = true`); they contain details of the network and library.
-2. A private tool copies them here without personal details.
+1. Record the answers with the API tests against a player: `PLAYER=<IP address> node --test tests/api/read.test.js` (from the repository root, see [`tests/api`](../api/README.md)); they go to `tests/api/fixtures/` (git-ignored) and contain details of the network and library.
+2. `node tests/api/sanitize-fixtures.js` copies them here without personal details.
 
 Expected values such as the current title are read from the fixtures, so the tests
 keep working with new recordings.

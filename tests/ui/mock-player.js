@@ -1,6 +1,6 @@
 // Players for the UI tests.
 // createPlayer(): mock BluOS player. Answers every request of the app from the fixtures recorded with the
-// Bruno collection (fixtures/NN-*.xml) and records all requests and commands (play, add, favourites ...).
+// private API tests (fixtures/NN-*.xml) and records all requests and commands (play, add, favourites ...).
 // createRecorder(): the real player (run.js --player). Passes every request of the app through to the
 // player and records it the same way.
 // Both offer get(path): the answer of the player as text (null when unsuccessful); run.js builds its
@@ -61,20 +61,20 @@ function createPlayer(opts = {}) {
     repeat: "2",
     songArtists: {}, // title -> artist, overrides the artist of single songs (compilation test)
     // Multi-disc album: disc number per recorded track of the library album (e.g. [1, 1, 2, 2]), null = as
-    // recorded. Like the real player (Bruno E32), /library/v1/Songs gets <discno>, /Browse keeps the order
+    // recorded. Like the real player (API test E32), /library/v1/Songs gets <discno>, /Browse keeps the order
     // without a disc marker, and the track number starts again at 1 on every disc (discRunOn: runs on).
     discs: null,
     discRunOn: false,
     playing: opts.playing !== false,
-    // Playlist id (<pid> in /Status, id of /Playlist). Like the real player (Bruno 2 Write), it changes
+    // Playlist id (<pid> in /Status, id of /Playlist). Like the real player (API tests, write folder), it changes
     // when the queue changes: add, remove, shuffle, clear, load. Loading a broken playlist keeps it.
     pid: 485,
     // Listening mode (/audioPreset, fixture 27). null = player without listening modes (answers 404).
-    // Like the real player (Bruno S44), a change of the mode raises <syncStat> in /Status.
+    // Like the real player (API test S44), a change of the mode raises <syncStat> in /Status.
     listeningMode: opts.listeningModes === false ? null : "MUSIC",
     syncStat: 533,
     // Library version: root id of every /library/v1 answer of the library (USB: the recorded 1). Like the real player
-    // (Bruno M39–M41), every favourite added or removed raises it by 65536; a test sets it for a rescan.
+    // (API tests M39–M41), every favourite added or removed raises it by 65536; a test sets it for a rescan.
     libId: 458791,
     // Values that replace (or add) tags of the recorded /Status, e.g. { quality: "hd", canSeek: "0" }
     statusPatch: { ...(opts.statusPatch || {}) },
@@ -161,7 +161,7 @@ function createPlayer(opts = {}) {
     if (/:Album\/%2Flibrary%2Fv1%2FAlbums%3Fartist=/.test(key)) {
       if (key.startsWith(USB)) return '<browse type="albums"></browse>';
       const name = decodeURIComponent(art.replace(/\+/g, " "));
-      // Like the real player (Bruno E17), the artist list does not mark favourites: no isFavourite,
+      // Like the real player (API test E17), the artist list does not mark favourites: no isFavourite,
       // no &isFavourite=1 in the context menu key, favourite-add also for favourites.
       return fx("07").replace(/\s*<item [^>]*type="album">[\s\S]*?<\/contextMenu>\s*<\/item>/g, (it) =>
         (it.match(/ text2="([^"]*)"/) || [])[1]?.replace(/&amp;/g, "&") === name
@@ -174,7 +174,7 @@ function createPlayer(opts = {}) {
           : "",
       );
     }
-    // Like the real player (Bruno E25 / E26): with a non-English Accept-Language (e.g. a German browser)
+    // Like the real player (API tests E25 / E26): with a non-English Accept-Language (e.g. a German browser)
     // the track list of an album is an empty menu.
     if (/MG\/LocalMusic-Album/.test(key))
       return /^en\b/i.test(lang)
@@ -187,7 +187,7 @@ function createPlayer(opts = {}) {
       return favMenu(fx("09"), key.includes("isFavourite=1"));
     }
     // Search: composers of the term (none here; tests override the list), a composer's browse menu with the
-    // link to the albums with his songs (like the real player, Bruno E38) and that album list (library: the
+    // link to the albums with his songs (like the real player, API test E38) and that album list (library: the
     // recorded albums, USB: none)
     if (/:Composer\/%2Flibrary%2Fv1%2FComposers%3Fexpr=/.test(key)) return '<browse type="composers"></browse>';
     if (/MG\/LocalMusic-Composer\?/.test(key)) {
@@ -205,7 +205,7 @@ function createPlayer(opts = {}) {
         /\s*<item browseKey="BluOS:MG[^>]* text="([^"]*)"[\s\S]*?<\/contextMenu>\s*<\/item>/g,
         (m, n) => (state.deletedPlaylists.includes(n.replace(/&amp;/g, "&")) ? "" : m),
       );
-    // Track list of a BluOS playlist (Bruno A28): every playlist gets the recorded tracks under its own name.
+    // Track list of a BluOS playlist (API test A28): every playlist gets the recorded tracks under its own name.
     // Like the real player, 10 tracks per page with nextKey; page 2 (offset=10) holds PL_PAGE2 more tracks,
     // without autoplayURL, the playURL carries listindex (from 0 again) and offset.
     const pln = (key.match(/^BluOS:MG\/BluOS-Playlist\?playlist=(.*)$/) || [])[1];
@@ -224,7 +224,7 @@ function createPlayer(opts = {}) {
         );
       return `<browse serviceIcon="/images/BluOSIcon.png" serviceName="BluOS" type="tracks" playURL="/Load?service=BluOS&amp;name=${pl2}">${tracks.join("")}</browse>`;
     }
-    // Library playlists (Bruno A29 / A30): the library has the recorded ones, no favourite whatever the recording
+    // Library playlists (API tests A29 / A30): the library has the recorded ones, no favourite whatever the recording
     // had, the USB drive none (like the real player); the track list of every library playlist is the recorded
     // one, all tracks in one answer.
     if (/:Playlist\/%2Flibrary%2Fv1%2FPlaylists%3F/.test(key))
@@ -234,7 +234,7 @@ function createPlayer(opts = {}) {
             .replace(/ isFavourite="true"/g, "")
             .replace(/\?isFavourite=1&amp;/g, "?");
     if (/MG\/LocalMusic-Playlist\?/.test(key)) return fx("30");
-    // Context menu of a library playlist (Bruno W38): the recorded one, with the favourite state of the key's
+    // Context menu of a library playlist (API test W38): the recorded one, with the favourite state of the key's
     // isFavourite flag
     if (/CM\/LocalMusic-Playlist\?/.test(key)) {
       const menu = (fx("29").match(/<contextMenu>([\s\S]*?)<\/contextMenu>/) || [])[1] || "";
@@ -277,7 +277,7 @@ function createPlayer(opts = {}) {
     if (q.get("section")) return yearSection(svc, q.get("section"));
     return "<albums></albums>";
   };
-  // Albums of a genre (genre= with section=all, Bruno E44): the same albums as the genre's /Browse lists of the
+  // Albums of a genre (genre= with section=all, API test E44): the same albums as the genre's /Browse lists of the
   // mock, i.e. fixture 07 for the library and none for the USB drive.
   const genreSection = (svc) => {
     if (svc === USB) return "<albums><sections></sections></albums>";
@@ -289,9 +289,9 @@ function createPlayer(opts = {}) {
     const list = `<section name="#">${albums.join("")}</section>`;
     return `<albums section="all" service="${svc}"><sections>${list}</sections></albums>`;
   };
-  // A section without a filter: like the real player (Bruno E34) every album with a year tag has date="<year>".
+  // A section without a filter: like the real player (API test E34) every album with a year tag has date="<year>".
   // Library: the albums of fixture 13 in section A; USB: USB_YEARS in section S; all other sections are empty.
-  // section=all answers every section at once (Bruno E43).
+  // section=all answers every section at once (API test E43).
   const yearSection = (svc, sec) => {
     if (svc !== USB) {
       const filled = sec === "A" || sec === "all";
@@ -303,7 +303,7 @@ function createPlayer(opts = {}) {
     const list = sec === "S" || sec === "all" ? `<section name="S">${albums.join("")}</section>` : "";
     return `<albums limit="500" section="${sec}" service="${USB}"><sections>${list}</sections></albums>`;
   };
-  // Decade index of a source (section=all&length=1&sort=decade, Bruno E41 / E42): no albums, one section per
+  // Decade index of a source (section=all&length=1&sort=decade, API tests E41 / E42): no albums, one section per
   // decade counted from the years of yearSection(); albums without a year are left out.
   const decadeIndex = (svc) => {
     const counts = {};
@@ -378,11 +378,11 @@ function createPlayer(opts = {}) {
         : '<status etag="idle"><state>stop</state><syncStat>' +
           state.syncStat +
           "</syncStat><volume>19</volume></status>";
-      // <mid> is the library version, also when nothing plays (Bruno W39, M41)
+      // <mid> is the library version, also when nothing plays (API tests W39, M41)
       x = /<mid>/.test(x)
         ? x.replace(/<mid>\d*<\/mid>/, `<mid>${state.libId}</mid>`)
         : x.replace("</status>", `<mid>${state.libId}</mid></status>`);
-      // After /Move the playing entry is at its new position, like the real player (Bruno W34–W37)
+      // After /Move the playing entry is at its new position, like the real player (API tests W34–W37)
       if (state.queueOrder)
         x = x.replace(/<song>(\d+)<\/song>/, (m, s) => `<song>${state.queueOrder.indexOf(s)}</song>`);
       for (const [tag, v] of Object.entries(state.statusPatch)) {
@@ -396,7 +396,7 @@ function createPlayer(opts = {}) {
     if (p === "/Playlist") {
       if (state.queueSize) return genQueue(q);
       if (state.queueEmpty) return `<playlist length="0" id="${state.pid}"></playlist>`;
-      // Only the songs start..end, like the real player (Bruno A20, E33)
+      // Only the songs start..end, like the real player (API tests A20, E33)
       const s = +q.get("start") || 0,
         e = q.has("end") ? +q.get("end") : Infinity;
       let x = fx("20");
@@ -429,7 +429,7 @@ function createPlayer(opts = {}) {
       return "<repeat>" + state.repeat + "</repeat>";
     }
     if (p === "/Save") return "<saved><entries>12</entries></saved>";
-    // Moving a queue entry: like the real player (Bruno W34–W37) the entry is taken out of the queue and
+    // Moving a queue entry: like the real player (API tests W34–W37) the entry is taken out of the queue and
     // inserted at position `new`
     if (p === "/Move") {
       const ids = state.queueOrder || [...fx("20").matchAll(/<song [^>]*id="(\d+)">/g)].map((m) => m[1]);

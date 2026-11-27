@@ -30,11 +30,11 @@ Do not build these; when asked, point to the alternative.
 ## Where to look
 
 - `docs/bluos-api.md` – BluOS API reference (chapter 10: service functions `/Albums`, `/Playlists`, `/Songs` … and `/Artwork`, dispatched by `service`; chapter 11: library functions `/library/v1`): every endpoint with parameters, answers, verified state and pitfalls (answer language, `hd` / `hr`, MP3 quality, favourite state, genres, `/Delete` forms, CORS of `/Artwork`, …). **Look up an endpoint here before using or changing a player request.**
-- `private/` – the owner's private content, git-ignored and never published (missing in worktrees, cloud sessions and clones): `bruno/` (Bruno collection with its fixtures), `tools/` (API tools), `docs/` (private notes), `library-tools/` (library tagging scripts). Keep every API test script, API tool and private note there; public files only say that they exist.
+- `private/` – the owner's private content, git-ignored and never published (missing in worktrees, cloud sessions and clones): `tools/` (API tools), `docs/` (private notes), `library-tools/` (library tagging scripts). Keep every API tool, private note and the owner's library scripts there; public files only say that they exist. The API tests are public (`tests/api`); their fixtures and `config.json` (player address) are git-ignored.
 - `private/docs/blu-album-api-usage.md` – every click of the app with its requests, measurements and endpoint choices.
 - `docs/blu-album-library-guidance.md` – how users should tag their library and set "Optimize Artwork" for the best experience with BluAlbum.
 - `docs/blu-album-test-plan.md` – test plan: every function of the app as test cases per block (input, expected output, real player, core), test environments, test data dictionary; update it when a function or a UI test changes.
-- `private/bruno/README.md` – Bruno collection: setup, folders, request prefixes, fixtures.
+- `tests/api/README.md` – API tests against the real player (Node.js only): setup, runs, request prefixes, every request per folder, fixtures (git-ignored, like `config.json`).
 - `tests/ui/README.md` – Playwright UI tests: run options, GitHub Actions matrix, updating fixtures.
 - `README.md` "Development" – overview of tests and GitHub workflows (UI tests, lint, format, pages).
 - `site/index.html` – website on GitHub Pages: one static page, no subpages, plain wording (no sales tone), only the main screenshot (dark / light); published by `.github/workflows/pages.yml` with `docs/screenshots/*-main-view.jpg`.
@@ -47,7 +47,7 @@ Do not build these; when asked, point to the alternative.
 - **One file.** All app components (HTML, CSS, JavaScript, SVG icons) are embedded in one HTML file.
 - **No dependencies.** Do not add libraries or packages to BluAlbum (supply chain and vulnerability risk).
 - **Lean and Modular code structure.** Structure the code so that features reuse shared functions as much as possible.
-- **One implementation per feature.** No second implementation as a fallback. Only the variant verified against the real player (Bruno) is implemented.
+- **One implementation per feature.** No second implementation as a fallback. Only the variant verified against the real player (API tests) is implemented.
 - **Avoid hard-coding.** Derive as much of the app logic as possible from API answers, e.g. source names, play / action URLs, quality. Accepted exceptions are the configuration constants (see "Code conventions").
 - **Avoid self-built API URLs.** Play / queue / favourite URLs come from `/Browse`; the only exception are the `/library/v1` lists (New, Favourites, quality, decades, genres, album artist search), built by the fixed pattern in `libAlbum()`.
 - **Store changes at the player.** Favourites, playlists and every other change the player supports are stored there, so they persist across sessions and are visible in other player clients. localStorage only for conveniences (see "Code conventions").
@@ -56,7 +56,7 @@ Do not build these; when asked, point to the alternative.
 
 ## Documentation
 
-- **English is the main language.** UI and project documents (README, CHANGELOG, `docs/`, test READMEs, Bruno and code comments) are in English.
+- **English is the main language.** UI and project documents (README, CHANGELOG, `docs/`, test READMEs, API test and code comments) are in English.
 - **No hard wraps in Markdown.** Each paragraph and list item is one line; line breaks only between blocks.
 - **Keep wording short:** precise, no lengthy explanations, examples only where needed.
 - **Keep documentation up-to-date** - any change with impact on docs must be reflected there 
@@ -68,7 +68,7 @@ Do not build these; when asked, point to the alternative.
 - **`docs/bluos-api.md`:** API facts only, independent of BluAlbum.
   - Structure: per category a one-sentence description, the overview table (Endpoint | Function | Official | Verified), optionally a "Common …" block; per endpoint one `###` with request line (all parameters), parameter table, **Response format**, response keys table, **Notes** (only facts that help in the endpoint's context). Basics only for rules of every endpoint.
   - Only endpoints verified to exist; no paths that answer 404 (a non-existing endpoint, a short form), no unverified guesses. An endpoint that exists but whose purpose is unknown is listed with "purpose unknown" and its observed answer.
-  - Not in it: answer or image sizes (→ `private/docs/blu-album-api-usage.md`), dates and versions per statement, verification logs, Bruno IDs, values of the test player, how the BluOS Controller calls endpoints, client advice, personal-data notes.
+  - Not in it: answer or image sizes (→ `private/docs/blu-album-api-usage.md`), dates and versions per statement, verification logs, API test IDs, values of the test player, how the BluOS Controller calls endpoints, client advice, personal-data notes.
 - **`private/docs/blu-album-api-usage.md`:** the requests of every click of BluAlbum with measured data.
   - Structure: measurement conditions (date, app and BluOS version, library) once at the top, overview of every click; per app area a chapter with a one-sentence description and one table (Trigger | Requests | Count | Data | Cache | Purpose), below it only facts needed for the requests; then endpoint choices and open proposals.
   - Not in it: endpoints the app does not use, code internals (variable and function names), done or decided proposals (→ CHANGELOG, CLAUDE.md "Decisions"), statements repeated from CLAUDE.md or `bluos-api.md`.
@@ -77,22 +77,22 @@ Do not build these; when asked, point to the alternative.
 
 - Workflow for a change:
   - analyze change using materials in "where to look" section
-  - Verify unknown API behaviour if needed in Bruno (`private/bruno`)
+  - Verify unknown API behaviour if needed in the API tests (`tests/api`)
   - Adapt or add the UI test (and `tests/ui/mock-player.js`).
   - Change the code → local core tests green (`npm test` in `tests/ui`).
   - CHANGELOG line (only for changes of the app).
   - Before a push: all UI tests green (`npm run test:all` in `tests/ui`).
 - After a firmware update:
-  - Run the whole Bruno collection, environment "Home" (details in `private/bruno/README.md`).
-  - Fixtures with personal data stay in `private/bruno/fixtures/`; copy them to `tests/ui/fixtures` with `private/tools/sanitize-fixtures.js`.
-  - Find new endpoints with `node private/tools/crawl-endpoints.js <player IP>` (read-only, compares with `docs/bluos-api.md`); verify each finding in Bruno before documenting it.
+  - Run the API tests `read.test.js` and `write.test.js` (details in `tests/api/README.md`).
+  - Fixtures with personal data stay in `tests/api/fixtures/` (git-ignored); copy them to `tests/ui/fixtures` with `node tests/api/sanitize-fixtures.js`.
+  - Find new endpoints with `node private/tools/crawl-endpoints.js <player IP>` (read-only, compares with `docs/bluos-api.md`); verify each finding in the API tests before documenting it.
   - Then `node private/tools/build-wordlist.js` (no requests): requests of the BluOS Controller app missing in `docs/bluos-api.md`, and the wordlists for ffuf (never request `denied.txt` unchecked).
 - Test methodology:
   - The test plan has at most 150 core test cases; `tests/ui/run.js` stops when this limit or the local limit of 50 is exceeded. Both limits are reached (2026-11-23): extend an existing case or add a case outside the core ("–").
   - UI tests: local tests performs only a subset of 50 core tests with core browsers (Safari, Chrome), run within 5 mins
   - UI remote tests: github runs the full test case scope with all browsers (Safari, Chrome, Edge and Firefox) and OSes (macos, Linux, Windows)
   - UI tests must not assume a window size (use `VIEWPORT`).
-  - Lint (ESLint) and format (Prettier, test scripts only; `blualbum.html` keeps its compact style) run **only on GitHub**; the owner does not run them locally.
+  - Lint (ESLint: `blualbum.html`, `tests/ui`, `tests/api`) and format (Prettier, test scripts only; `blualbum.html` keeps its compact style) run on GitHub; locally with the commands in README "Development" when `.github/lint/node_modules` is installed (the owner installed it 2026-11-27).
 
 
 ## Git and publishing
@@ -151,13 +151,14 @@ Do not build these; when asked, point to the alternative.
 
 - Safari collapses a flex child with an indefinite height to 0 (happened with the popup track list) – avoid flex sizing for scrolling lists, use a max-height.
 - Safari may keep an old version of the local file: reload without cache (⌥⌘R) before chasing a "bug".
-- The player's search does not find albums by their album artist, only by title and track artists (Bruno E40, `docs/bluos-api.md`): albums of "Various" or "Putumayo Presents" whose tracks carry other artists are found only by the app's own album artist match. Test search behaviour with albums whose album artist is on none of their tracks.
+- The player's search does not find albums by their album artist, only by title and track artists (API test E40, `docs/bluos-api.md`): albums of "Various" or "Putumayo Presents" whose tracks carry other artists are found only by the app's own album artist match. Test search behaviour with albums whose album artist is on none of their tracks.
 - MQA comes in FLAC: format, bit depth and sample rate do not rule it out. An empty MQA chip is the BluOS bug (see Decisions), not an app bug.
 - `section=all` fails silently: `category`, `recent` and `composer` are ignored (all albums), its index (`length=1`) counts 0 with `artist` / `expr`, Songs and Composers list nothing, in a browse key only the first section answers (`docs/bluos-api.md`).
 - The context menu key of a library playlist carries `isFavourite=1` right after `?` (album keys: at the end); switching the flag must keep the key valid (`toggleFav()`).
 - Library playlists: their tracks come only from `/Browse` (`/library/v1/Songs?playlist=` answers empty); the USB drive lists none on the test player.
 - The `close` event of `<dialog>` arrives late: the next album may be open already, check `dlg.open` in the handler.
-- App names used in `page.evaluate()` belong in `APP_GLOBALS` (`.github/lint/eslint.config.mjs`) and must not be assigned: ESLint fails, and only on GitHub.
+- App names used in `page.evaluate()` belong in `APP_GLOBALS` (`.github/lint/eslint.config.mjs`) and must not be assigned: ESLint fails (on GitHub; locally only with ESLint installed).
+- Loading a module of `tests/api` (`require`, `node -e`) runs its requests against the player: `node:test` starts every registered test. Check API test files with `node --check` only; `write/` and `manual/` change the player.
 - `--player`: GRD-06, FAV-04 and POP-06 fail on the fixed 400 ms wait; repeat with `UI_SLOW=8` before chasing a bug.
 - GitHub macOS runners: SET-02 (Chrome loses localStorage) and SRH-11 (WebKit page error on reload) fail now and then; re-run before chasing a bug.
-- Prettier (only on GitHub) breaks lines over 120 characters and always puts nested array literals (`[[a, b], [c, d]]`) one element per line; a red Format check is fixed by the workflow itself (Actions → Format → Run workflow with "fix", commits the result; pull afterwards).
+- Prettier breaks lines over 120 characters and always puts nested array literals (`[[a, b], [c, d]]`) one element per line; a red Format check is fixed by the workflow itself (Actions → Format → Run workflow with "fix", commits the result; pull afterwards).

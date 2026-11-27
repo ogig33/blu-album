@@ -1,6 +1,6 @@
 # BluAlbum – test plan
 
-Every function of the app (`blualbum.html`) as a test case, grouped into test blocks, with input, expected output and the scope of its UI test in `tests/ui/run.js`. The API behaviour of the player itself is tested by the owner's private Bruno collection.
+Every function of the app (`blualbum.html`) as a test case, grouped into test blocks, with input, expected output and the scope of its UI test in `tests/ui/run.js`. The API behaviour of the player itself is tested by the API tests in `tests/api` (Node.js, against a real player).
 
 ## 1. How to read this plan
 
@@ -224,7 +224,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | POP-13 | Track list fails | Mock answers HTTP 500 for the album's `/Browse` | Empty list, popup "Loading the tracks did not succeed" with the `/Browse` request; songs missing (`/library/v1/Songs` fails) → popup "Loading the album details did not succeed", no year / technical data, tracks still shown | – | yes |
 | POP-14 | Page behind stays still | Page scrollable; popup open; mouse wheel over the backdrop and over the track list (also past its end) | Only the popup content scrolls; the page keeps its scroll position; after closing the page scrolls again | – | – |
 | POP-15 | Full-size cover | Open the popup of TD-ALB-LIB | Cover asked with `&width=3000&height=3000&followRedirects=1` (`COVER_FULL`); grid covers without a size | read | yes |
-| POP-16 | Multi-disc album | Mock state `discs`: TD-TRK split into disc 1 (first half) and disc 2, numbers start again at 1 per disc (like Bruno E32) | Header "Disc N" (shown in capitals) before the tracks of each disc; numbers as in TD-TRK per disc; album details "2 discs · total time"; a click on the first track of disc 2 plays it | – | yes |
+| POP-16 | Multi-disc album | Mock state `discs`: TD-TRK split into disc 1 (first half) and disc 2, numbers start again at 1 per disc (like API test E32) | Header "Disc N" (shown in capitals) before the tracks of each disc; numbers as in TD-TRK per disc; album details "2 discs · total time"; a click on the first track of disc 2 plays it | – | yes |
 | POP-17 | Multi-disc album numbered across the discs | Like POP-16, mock state `discRunOn`: numbers run on over both discs | Disc 2 header before the first song with `discno` 2; numbers run on | – | – |
 | POP-18 | Same title on two discs | Like POP-16; the first track of disc 2 gets the title of track 1 and another artist | Artist shown only on the first track of disc 2 (song of the same position) | – | – |
 | POP-19 | Outdated popup failure | Delayed HTTP 500 for the track list or songs of album A; meanwhile open album B | Tracks of B stay; no error popup | – | local |
