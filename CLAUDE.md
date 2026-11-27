@@ -67,6 +67,7 @@ Do not build these; when asked, point to the alternative.
   - Feature list and requirements of the website `site/index.html` (like the README).
 - **`docs/bluos-api.md`:** API facts only, independent of BluAlbum.
   - Structure: per category a one-sentence description, the overview table (Endpoint | Function | Official | Verified), optionally a "Common …" block; per endpoint one `###` with request line (all parameters), parameter table, **Response format**, response keys table, **Notes** (only facts that help in the endpoint's context). Basics only for rules of every endpoint.
+  - Only endpoints verified to exist; no paths that answer 404 (a non-existing endpoint, a short form), no unverified guesses.
   - Not in it: answer or image sizes (→ `private/docs/blu-album-api-usage.md`), dates and versions per statement, verification logs, Bruno IDs, values of the test player, how the BluOS Controller calls endpoints, client advice, personal-data notes.
 - **`private/docs/blu-album-api-usage.md`:** the requests of every click of BluAlbum with measured data.
   - Structure: measurement conditions (date, app and BluOS version, library) once at the top, overview of every click; per app area a chapter with a one-sentence description and one table (Trigger | Requests | Count | Data | Cache | Purpose), below it only facts needed for the requests; then endpoint choices and open proposals.

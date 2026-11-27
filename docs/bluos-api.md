@@ -28,7 +28,10 @@ All known BluOS HTTP endpoints by category: the official *BluOS Custom Integrati
 ## 1. Basics
 
 - **Requests:** `http://<player>:11000/Volume?level=20`; parameters are URL-encoded (UTF-8). The HTTP method is given at each endpoint. Answers are UTF-8 XML unless the endpoint says otherwise.
-- **Port:** 11000 is the control API of every player. Endpoints on another port (80: web pages of the player; 11004: library server) show it in their request line.
+- **Port:** 11000 is the control API of every player. Endpoints on another port (80: web pages of the player; 11004: library server) show it in their request line. 11001 is the target of the [`/Settings`](#get-settings) redirect.
+- **TLS:** 11005 answers the API of port 11000 over HTTPS, 443 the web pages of port 80; 11007 is a further TLS port (purpose unknown). The certificate is self-signed (`CN=BluOS Authorization`); [`/cert-bootstrap/manifest`](#get-cert-bootstrapmanifest) lists the TLS ports.
+- **Unknown paths:** HTTP 404 with the text `404 page not found` (`text/plain`). Paths are case-sensitive.
+- **No JSON:** `Accept: application/json`, `format=json` or a `.json` suffix do not change an XML answer; the few JSON answers are marked at their endpoint.
 - **Errors:** HTTP errors or an `<error>` root element (one `<message>`, zero or more `<detail>`) instead of the expected root; check the root element name.
 - **Unknown elements:** answers may contain more elements and attributes than listed here; ignore unknown ones.
 - **Relative URIs** in answers (`playURL`, `actionURL`, `image`, …) are absolute paths, resolved against the player address. Invoke them as they are; do not parse or build them.
@@ -1228,6 +1231,7 @@ Lists and cover art of every music service, answered by the service named in `se
 | `GET /Genres` | genres of a service | | ✓ |
 | `GET /Playlists` | playlists of a service; the BluOS playlists | | ✓ |
 | `GET /Songs` | songs of a service; tracks of a BluOS playlist | | ✓ |
+| `GET /Works` | works of a classical music service | | ✓ |
 
 ### `GET /Albums`, `/Artists`, `/Composers`, `/Folders`, `/Genres`
 
@@ -1257,7 +1261,7 @@ GET /Genres?service=<svc>&…
 
 - They appear in the keys of [`/Browse`](#get-browse) (e.g. `/Albums?service=Tidal&category=masters`).
 - For the library call [`/library/v1/…`](#11-library-functions) directly on port 11000 instead of following the redirect.
-- `/Search` does not exist as a short form (HTTP 404); every service searches through `/Browse` with its `searchKey`.
+- Every service searches through `/Browse` with its `searchKey`.
 
 ### `GET /Artwork`
 
@@ -1288,12 +1292,13 @@ The image (HTTP 200, e.g. `image/jpeg`). Without `followRedirects=1` a library s
 ### `GET /Playlists`
 
 ```
-GET /Playlists?service=BluOS&sort=<alpha|recent>&playlist=<name>&playlistid=&myPlaylists=1
+GET /Playlists?service=BluOS&sort=<alpha|recent>&playlist=<name>&playlistid=&myPlaylists=1&imported=1
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `service` | `BluOS`; none or `LocalMusic` answer the same, the USB id HTTP 404; other services see [`/Albums`](#get-albums-artists-composers-folders-genres) |
+| `imported` | `1` = HTTP **302** to `http://<player>:11004/library/v1/Playlists?imported=1` (the library playlists, [`/library/v1/Playlists`](#get-libraryv1playlists)) |
 | `sort` | `alpha` (default, A → Z, upper case before lower case) or `recent` ("Date added"); any other non-empty value sorts like `recent` |
 | `playlist` | only this playlist (exact name, case-sensitive); unknown: `<error service="BluOS"><message>not found</message></error>` |
 | `playlistid` | no effect |
@@ -1361,6 +1366,27 @@ GET /Songs?service=BluOS&playlist=<name>&offset=<n>
 
 - 10 tracks per page. With `playlist` answered on port 11000 whatever the `service`.
 - Without `playlist`: dispatched like [`/Albums`](#get-albums-artists-composers-folders-genres) (library → [`/library/v1/Songs`](#get-libraryv1songs); `BluOS` → `<error service="BluOS"><message>not found</message></error>`).
+
+### `GET /Works`
+
+```
+GET /Works?service=Idagio&composerid=<id>&workid=<id>&sort=popular
+```
+
+| Parameter | Meaning |
+|---|---|
+| `service` | the service that answers (classical music service, e.g. `Idagio`) |
+| `composerid` | works of a composer |
+| `workid` | one work |
+| `sort` | e.g. `popular` |
+
+**Response format**
+
+Without a login of the service: `<error service="Idagio"><message>logged out</message></error>`. The answer with a login is not known.
+
+**Notes**
+
+- Linked from the sample screen [`/ui/testing`](#get-uitesting) (`resultType="Work"`); the parameters are taken from there.
 
 ---
 
@@ -1694,13 +1720,15 @@ GET /library/v1/Playlists?service=<svc>&imported=1&category=FAVOURITES
 ### `GET /library/v1/Search`
 
 ```
-GET /library/v1/Search?service=<svc>&expr=<text>
+GET /library/v1/Search?service=<svc>&expr=<text>&quality=<quality>&genre=<genre>
 ```
 
 | Parameter | Meaning |
 |---|---|
 | `service` | `LocalMusic` or the USB id |
 | `expr` | search term |
+| `quality` | only hits of a quality (e.g. `hr`, `cd`): songs of the quality, albums of the quality list of [`/library/v1/Albums`](#get-libraryv1albums), their track artists; `hr` and `hd` answer the same; an unknown value answers no hits |
+| `genre` | only hits of the genre (as in [`/library/v1/Genres`](#get-libraryv1genres)): songs, albums of the genre list of `/library/v1/Albums`, their track artists |
 
 **Response format**
 
@@ -1742,8 +1770,9 @@ GET /library/v1/Search?service=<svc>&expr=<text>
 
 **Notes**
 
-- At most 25 hits per type, no `nextlink`; the search through `/Browse` returns all hits.
+- At most 25 hits per type, no `nextlink`; the search through `/Browse` returns all hits. `listindex`, `start`, `end` and `limit` do not page: `listindex=<n>` is only echoed as `start="<n>" end="<n+20>"` on the root.
 - Matches like the search through `/Browse`: albums by title and track artists, **not by the album artist**.
+- An album hit shows the track artist in `art` for some albums, where `/library/v1/Albums` shows the album artist.
 
 ### `GET /library/v1/Songs`
 
@@ -1939,6 +1968,8 @@ Settings, alarms, sleep timer, library index, diagnostics and the web pages of t
 | `GET /apmode` | web page "Force Hotspot Mode" (port 80) | | |
 | `GET, POST /audiomodes` | audio and Bluetooth modes | ✓ | ✓ |
 | `GET /audioPreset` | current listening mode and its choices | | ✓ |
+| `GET /BTDevices` | Bluetooth devices of the player | | ✓ |
+| `GET /cert-bootstrap/manifest` | TLS ports of the player (port 80) | | ✓ |
 | `GET /Dataexport` | system log of the player (port 80) | | ✓ |
 | `GET, POST /delete_index` | web page "Rebuild Index": confirmation, then rebuild (port 80) | | ✓ |
 | `GET /diag` | diagnostic report (port 80) | | ✓ |
@@ -1961,6 +1992,7 @@ Settings, alarms, sleep timer, library index, diagnostics and the web pages of t
 | `GET /Shares` | network shares of the library (port 80) | | ✓ |
 | `GET /ShowIRCodes` | IR codes learned from a remote control | | ✓ |
 | `GET /Sleep` | step the sleep timer | | ✓ |
+| `GET /spotifyconnect` | Spotify Connect device information (JSON) | | ✓ |
 | `GET /statistics` | switch the statistics collection (port 80) | | ✓ |
 | `GET /triggercfg` | web page for learning IR codes (port 80) | | ✓ |
 | `GET /update` | firmware upgrade notification with its choices | | ✓ |
@@ -2122,6 +2154,53 @@ No parameters.
 - Only players with listening modes have it; their [`/SyncStatus`](#get-syncstatus) carries `audioPresetUrl`.
 - Change the mode with `/alsa_setting?preset=<name>`.
 - `/Status` does not name the mode, but a change ends its long poll with `syncStat` + 1 as the only change: read `/audioPreset` again when `syncStat` changes.
+
+### `GET /BTDevices`
+
+```
+GET /BTDevices
+```
+
+No parameters.
+
+**Response format**
+
+```xml
+<btdevices etag="14" connecting="false"></btdevices>
+```
+
+| Element / attribute | Meaning |
+|---|---|
+| `etag` | change counter |
+| `connecting` | `true` while a Bluetooth device connects |
+
+**Notes**
+
+- Empty without a paired Bluetooth device; the child elements of a device are not known.
+
+### `GET /cert-bootstrap/manifest`
+
+```
+GET http://<player>:80/cert-bootstrap/manifest
+```
+
+No parameters.
+
+**Response format**
+
+JSON (`Cache-Control: no-store`):
+
+```json
+{"tlsPorts":[443,11005,11007]}
+```
+
+| Key | Meaning |
+|---|---|
+| `tlsPorts` | ports that answer over HTTPS with the player's self-signed certificate |
+
+**Notes**
+
+- The web pages of port 80 use it to have the certificate accepted in the browser, one port after another (`https://<player>:<port>/cert-accept?next=/`).
 
 ### `GET /Dataexport`
 
@@ -2478,7 +2557,7 @@ HTML page "Configure Music Services" with one link per streaming and radio servi
 
 **Notes**
 
-- Lower case, port 80 only (port 11000: 404); not the same as [`/Services`](#get-services).
+- Lower case, port 80 only; not the same as [`/Services`](#get-services).
 - Opened through `/redirectToCp`. Its links lead to `/credentials?service=<service>&noheader=1&schemaVersion=<n>&playnum=1` (sign-in of a service) and `/spotifyinfo?service=Spotify&…`.
 
 ### `GET, POST /setting`
@@ -2577,6 +2656,7 @@ GET /Settings?id=<menu id>&schemaVersion=<n>&view=web&expand=1
 **Notes**
 
 - Endpoints in `url`: [`/setting`](#get-post-setting), [`/audiomodes`](#get-post-audiomodes), [`/alsa_setting`](#get-post-alsa_setting), [`/SlaveVolume`](#get-post-slavevolume), [`/proxyToSlave`](#get-post-proxytoslave), [`/Reindex`](#get-reindex), [`/RemoveSlave`](#get-removeslave), and on port 80 [`/sharecfg`](#get-sharecfg), [`/wificfg`](#get-wificfg), [`/triggercfg`](#get-triggercfg), [`/download_playlists_api`](#get-download_playlists_api), [`/upload_playlists_api`](#post-upload_playlists_api).
+- On port 11000 the answer is HTTP **301** to the same request on port 11001 (`http://<player>:11001/Settings?…`).
 - Menu pages: top level (alarms, sleep timer, room name, amplifier standby, fixed group, library, playlists), `audio`, `audioPreset`, `zone`, `zone_player-<address and port without dots>` (per group member), `player`, `proximity`, `ir_remote`, `bluos_remote`, `library`, `managePlaylists`, `capture`, `capture-inputN`.
 
 ### `GET /settings/sendSupportRequest`
@@ -2693,6 +2773,36 @@ No parameters.
 **Notes**
 
 - Each call steps the timer: 15 → 30 → 45 → 60 → 90 min → off. To only read it, use `sleep` of [`/Status`](#get-status).
+
+### `GET /spotifyconnect`
+
+```
+GET /spotifyconnect?action=getInfo
+```
+
+| Parameter | Meaning |
+|---|---|
+| `action` | `getInfo` = device information of Spotify Connect |
+
+**Response format**
+
+JSON of the Spotify Connect ZeroConf API:
+
+```json
+{"status":101,"statusString":"OK","spotifyError":0,"version":"2.9.0","deviceID":"…","publicKey":"…","remoteName":"Living Room","brandDisplayName":"Bluesound","modelDisplayName":"POWERNODE","libraryVersion":"…","groupStatus":"NONE","deviceType":"AVR","productID":101,"scope":"streaming"}
+```
+
+| Key | Meaning |
+|---|---|
+| `status`, `statusString`, `spotifyError` | `101` / `OK` / `0` = no error |
+| `version`, `libraryVersion` | ZeroConf API and Spotify library version |
+| `deviceID`, `publicKey` | device id and key for the Spotify login |
+| `remoteName`, `brandDisplayName`, `modelDisplayName`, `deviceType` | name shown in Spotify, brand, model, type |
+| `groupStatus` | `NONE` = not grouped |
+
+**Notes**
+
+- The mDNS service `_spotify-connect._tcp` announces it (`CPath=/spotifyconnect`, port 11000).
 
 ### `GET /statistics`
 
@@ -2902,6 +3012,7 @@ Ready-made screens and menus of the BluOS Controller (BluOS 4), whose entries ca
 | `GET /ui/myPlaylistsRow` | row "My playlists" of the home screen per source | | ✓ |
 | `GET /ui/News` | news screen | | ✓ |
 | `GET /ui/nowPlayingCM` | context menu of the playing item | | ✓ |
+| `GET /ui/playlist` | playlists (empty without parameters) | | ✓ |
 | `GET /ui/presets` | preset screen | | ✓ |
 | `GET /ui/prf` | run a player request for the BluOS Controller | | ✓ |
 | `GET /ui/Queue` | queue screen | | ✓ |
@@ -2910,6 +3021,8 @@ Ready-made screens and menus of the BluOS Controller (BluOS 4), whose entries ca
 | `GET /ui/resolveSoviURL` | resolve a "Sovi" URL (meaning not known) | | ✓ |
 | `GET /ui/Search` | search screen | | ✓ |
 | `GET /ui/Sources` | list of sources (navigation drawer) | | ✓ |
+| `GET /ui/testing` | sample screen with every element and action type | | ✓ |
+| `GET /ui/work` | works (empty without parameters) | | ✓ |
 
 **Common answer format**
 
@@ -2936,7 +3049,7 @@ Ready-made screens and menus of the BluOS Controller (BluOS 4), whose entries ca
 
 | Element / attribute | Meaning |
 |---|---|
-| `action` `type` | `player-link` (send the player request in `URI`), `browse` (load another `/ui` screen or a context menu), `context-browse`, `webpage` (open a web page, e.g. `/redirectToCp?…`), `setting` (open `/Settings?id=…`), `confirmation` (ask first, then send `URI`), `deep-link` (navigation inside the BluOS Controller, e.g. `/settings`, `/add-preset`, `/edit-queue`, `/reorder-presets`, `/customise-screen` – not player endpoints), `reorder`, `add` |
+| `action` `type` | `player-link` (send the player request in `URI`), `browse` (load another `/ui` screen or a context menu), `context-browse`, `webpage` (open a web page, e.g. `/redirectToCp?…`), `setting` (open `/Settings?id=…`), `confirmation` (ask first, then send `URI`), `deep-link` (navigation inside the BluOS Controller, e.g. `/settings`, `/add-preset`, `/edit-queue`, `/reorder-presets`, `/customise-screen` – not player endpoints), `app-link` (open another app, see [`/ui/testing`](#get-uitesting)), `reorder`, `add` |
 | `row` `noReorder="true"` | the row cannot be moved in "Customise Home" |
 | `teaser` `closable="true"` | the teaser card can be closed |
 | `customiseScreen` `text` | entry "Customise Home" (deep link `/customise-screen`) |
@@ -3400,6 +3513,24 @@ No parameters.
 | `contextMenu` (`title`, `subTitle`, `image`) | the playing item |
 | `item` > `action` | menu entry with its request |
 
+### `GET /ui/playlist`
+
+```
+GET /ui/playlist
+```
+
+Parameters not known.
+
+**Response format**
+
+```xml
+<playlists service=""></playlists>
+```
+
+**Notes**
+
+- Without parameters an empty list in the format of [`/Playlists`](#get-playlists).
+
 ### `GET /ui/presets`
 
 ```
@@ -3633,6 +3764,66 @@ No parameters.
 | `row` "Inputs" > `input` | inputs with their play requests |
 | `row` > `service` | music sources with their browse screens |
 
+### `GET /ui/testing`
+
+```
+GET /ui/testing
+```
+
+No parameters.
+
+**Response format**
+
+```xml
+<screen version="1" screenTitle="test page" id="screen-test" refreshOnPlayerChange="true">
+  <row id="teaser" scrollable="true" solidBackground="false">
+    <teaser title="Teaser with options" body="…" backgroundImage="/images/ui/ic_teaser_upgrade.png" closable="true">
+      <action type="webpage" URI="/Preset?id=1"/>
+      <closeAction><action type="webpage" URI="/Preset?id=2"/></closeAction>
+    </teaser>
+  </row>
+  <row id="testing-links" title="Links with actions" solidBackground="true">
+    <link>
+      <title>Spotify app</title>
+      <text>type="app-link"</text>
+      <action type="app-link" androidPackage="com.spotify.music" androidAction="android.intent.action.VIEW" iosApp="spotify:open"
+              itunesUrl="https://itunes.apple.com/…" desktopApp="spotify:open" desktopInstall="https://spotify.com/download"/>
+    </link>
+    <!-- more links -->
+  </row>
+  <!-- rows with sources, small and large thumbnails, buttons, recently played -->
+</screen>
+```
+
+| Element / attribute | Meaning |
+|---|---|
+| `teaser` > `closeAction` | action sent when the teaser card is closed |
+| `link` (`title`, `text`, `action`) | a sample of each action type |
+| `action type="app-link"` | open another app: `androidPackage` + `androidAction` (Android), `iosApp` + `itunesUrl` (iOS, App Store link), `desktopApp` + `desktopInstall` (desktop, download link) |
+
+**Notes**
+
+- A sample screen with every element and action type; its presets, sources and titles are fixed samples, not the player's.
+- Its links use [`/Works`](#get-works) of the service Idagio.
+
+### `GET /ui/work`
+
+```
+GET /ui/work
+```
+
+Parameters not known.
+
+**Response format**
+
+```xml
+<works service=""></works>
+```
+
+**Notes**
+
+- Without parameters an empty list; counterpart of [`/Works`](#get-works).
+
 ---
 
 ## 15. MCP server
@@ -3709,4 +3900,3 @@ GET  /mcp   (event stream from the server)
 - **Paging skips one result per page:** a page has 50 results, but `next_key` continues at `start=51` (then 102 …).
 - Every tool is annotated `readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: true`, also the reading ones.
 - For the local library only the search: no browsing, no filters (genre, quality, decade, favourites), no track list of an album, no covers (only the `/Artwork` path).
-- `/mcp/`, `/sse` and `/.well-known/mcp.json` answer 404; on port 80 `/mcp` is not the MCP server.
