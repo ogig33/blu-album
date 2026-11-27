@@ -1396,6 +1396,7 @@ Lists and cover art of the local library and the USB drive, answered by the libr
 
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
+| `GET /library/v1/AddFavourite` | purpose unknown (empty answer) | | ✓ |
 | `GET /library/v1/Albums` | albums by section, newest, favourites, quality, genre, artist | | ✓ |
 | `GET /library/v1/Artists` | artist names | | ✓ |
 | `GET /library/v1/Artwork` | album cover from the library server | | ✓ |
@@ -1413,6 +1414,22 @@ Lists and cover art of the local library and the USB drive, answered by the libr
 - The root of every answer carries `id`, `service` and all filters passed as attributes.
 - `id` of the library is the version of the library index, the same in every answer: it changes when a rescan ends (also without changed files; the old value stays during the scan) and with every favourite added or removed. Compare it for equality only: the upper 16 bits count the favourite changes and start again at 0 after a rescan. USB: always `1`. The same value is `mid` of [`/Status`](#get-status).
 - Paging with `<nextlink>` (full URL of the next page).
+
+### `GET /library/v1/AddFavourite`
+
+```
+GET /library/v1/AddFavourite
+```
+
+Parameters not known.
+
+**Response format**
+
+HTTP 200 with an empty body.
+
+**Notes**
+
+- Purpose not known; unlike the other library endpoints the answer has no XML. Library favourites are added with [`/AddFavourite`](#get-addfavourite).
 
 ### `GET /library/v1/Albums`
 
@@ -1850,6 +1867,8 @@ Group players; the primary player selects the source, secondary players follow.
 | Endpoint | Function | Official | Verified |
 |---|---|:---:|:---:|
 | `GET /AddSlave` | add players to a group | ✓ | |
+| `GET /GetUnpairedSlaves` | purpose unknown (HTTP 400 on the primary of a fixed group) | | ✓ |
+| `GET /MovePlayback` | purpose unknown | | ✓ |
 | `GET, POST /proxyToSlave` | forward a request to a group member | | ✓ |
 | `GET /RemoveSlave` | remove players from a group | ✓ | |
 | `GET /SetMaster` | answers like `/SyncStatus`; effect not known | | ✓ |
@@ -1886,6 +1905,42 @@ GET /AddSlave?slave=<ip>&port=<port>&group=<name>&slaves=<ip1>,<ip2>&ports=<p1>,
 
 - Send to the primary player. Use `slave` + `port` or `slaves` + `ports`.
 - Fixed groups (home theatre, stereo pairs) are set up in the BluOS Controller.
+
+### `GET /GetUnpairedSlaves`
+
+```
+GET /GetUnpairedSlaves
+```
+
+Parameters not known.
+
+**Response format**
+
+HTTP 400 with an empty body on the primary of a fixed group.
+
+**Notes**
+
+- Purpose not known.
+
+### `GET /MovePlayback`
+
+```
+GET /MovePlayback
+```
+
+Parameters not known.
+
+**Response format**
+
+Without parameters:
+
+```xml
+<state>stop</state>
+```
+
+**Notes**
+
+- Purpose not known. Without parameters it stops the playback a moment after the answer; the queue keeps its songs, its id (`pid` of `/Status`) goes up by 1.
 
 ### `GET, POST /proxyToSlave`
 
@@ -1995,13 +2050,16 @@ Settings, alarms, sleep timer, library index, diagnostics and the web pages of t
 | `GET /Doorbell` | play the doorbell chime | ✓ | ✓ |
 | `GET /download_playlists_api` | backup of the BluOS playlists (port 80) | | ✓ |
 | `GET /error` | read and clear the last error message | | ✓ |
+| `GET /ExternalSource` | purpose unknown | | ✓ |
 | `GET /GitVersion` | BluOS version | | ✓ |
+| `GET /images/…` | static images of the answers (icons) | | ✓ |
 | `GET /LastScanCode` | last received IR code | | ✓ |
 | `GET /Name` | read or change the player name | | ✓ |
 | `GET /PlayTestSound` | play / stop a test sound (pink noise) | | ✓ |
 | `POST /reboot` | soft reboot (port 80) | ✓ | ✓ |
 | `GET /redirectToCp` | redirect to a page of the web interface | | ✓ |
 | `GET /Reindex` | rescan the music library | | ✓ |
+| `GET /Removable` | purpose unknown (empty answer) | | ✓ |
 | `POST /RemoveShare` | remove a network share from the library (port 80) | | ✓ |
 | `GET /Services` | self-description of the sources | | ✓ |
 | `GET /services` | web page "Configure Music Services" (port 80) | | ✓ |
@@ -2014,6 +2072,7 @@ Settings, alarms, sleep timer, library index, diagnostics and the web pages of t
 | `GET /ShowIRCodes` | IR codes learned from a remote control | | ✓ |
 | `GET /Sleep` | step the sleep timer | | ✓ |
 | `GET /spotifyconnect` | Spotify Connect device information (JSON) | | ✓ |
+| `GET /state` | purpose unknown (empty answer) | | ✓ |
 | `GET /statistics` | switch the statistics collection (port 80) | | ✓ |
 | `GET /triggercfg` | web page for learning IR codes (port 80) | | ✓ |
 | `GET /update` | firmware upgrade notification with its choices | | ✓ |
@@ -2406,6 +2465,28 @@ GET /error?<counter>&clear=1&counter=<counter>
 
 - Holds the message of a failed command (e.g. `/Back` on a radio station); the counter counts up.
 
+### `GET /ExternalSource`
+
+```
+GET /ExternalSource?id=<id>
+```
+
+| Parameter | Meaning |
+|---|---|
+| `id` | required; values not known |
+
+**Response format**
+
+Without `id`:
+
+```xml
+<error>missing "id" parameter</error>
+```
+
+**Notes**
+
+- Purpose not known.
+
 ### `GET /GitVersion`
 
 ```
@@ -2423,6 +2504,22 @@ No parameters.
 | Element | Meaning |
 |---|---|
 | `version` | BluOS version |
+
+### `GET /images/…`
+
+```
+GET /images/<path>
+```
+
+No parameters.
+
+**Response format**
+
+The image (e.g. `image/png`); a folder answers HTTP 404 `Invalid extension` (`text/plain`).
+
+**Notes**
+
+- The paths of `icon`, `image` and similar attributes in answers, e.g. `/images/players/P130_nt.png` of [`/SyncStatus`](#get-syncstatus).
 
 ### `GET /LastScanCode`
 
@@ -2544,6 +2641,22 @@ No parameters.
 - "Reindex music collection" in `/Settings`; the rescan runs in the background.
 - Progress: `indexing` of [`/Status`](#get-status) counts the files read and is `0` again at the end; then the library `id` changes (see [Library functions](#11-library-functions)).
 - With new or changed files the count may stand still for minutes before the end, and library requests may answer late meanwhile.
+
+### `GET /Removable`
+
+```
+GET /Removable
+```
+
+Parameters not known.
+
+**Response format**
+
+HTTP 200 with an empty body.
+
+**Notes**
+
+- Purpose not known.
 
 ### `POST /RemoveShare`
 
@@ -2909,6 +3022,22 @@ JSON of the Spotify Connect ZeroConf API:
 **Notes**
 
 - The mDNS service `_spotify-connect._tcp` announces it (`CPath=/spotifyconnect`, port 11000).
+
+### `GET /state`
+
+```
+GET /state
+```
+
+Parameters not known.
+
+**Response format**
+
+HTTP 200 with an empty body.
+
+**Notes**
+
+- Purpose not known; not the playback state (that is `state` of [`/Status`](#get-status)).
 
 ### `GET /statistics`
 
