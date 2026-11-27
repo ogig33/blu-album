@@ -30,6 +30,7 @@ All known BluOS HTTP endpoints by category: the official *BluOS Custom Integrati
 - **Requests:** `http://<player>:11000/Volume?level=20`; parameters are URL-encoded (UTF-8). The HTTP method is given at each endpoint. Answers are UTF-8 XML unless the endpoint says otherwise.
 - **Port:** 11000 is the control API of every player. Endpoints on another port (80: web pages of the player; 11004: library server) show it in their request line. Port 11004 sends no CORS headers (11000 sends `Access-Control-Allow-Origin: *`). 11001 is the target of the [`/Settings`](#get-settings) redirect.
 - **TLS:** 11005 answers the API of port 11000 over HTTPS, 443 the web pages of port 80; 11007 is a further TLS port (purpose unknown). The certificate is self-signed (`CN=BluOS Authorization`); [`/cert-bootstrap/manifest`](#get-cert-bootstrapmanifest) lists the TLS ports.
+- **Discovery:** players announce the mDNS (Bonjour) service `_musc._tcp` on port 11000; TXT record keys `model` (model code), `version` (BluOS version), `mac`, `zs` (purpose unknown).
 - **Unknown paths:** HTTP 404 with the text `404 page not found` (`text/plain`). Paths are case-sensitive.
 - **No JSON:** `Accept: application/json`, `format=json` or a `.json` suffix do not change an XML answer; the few JSON answers are marked at their endpoint.
 - **Errors:** HTTP errors or an `<error>` root element (one `<message>`, zero or more `<detail>`) instead of the expected root; check the root element name.
