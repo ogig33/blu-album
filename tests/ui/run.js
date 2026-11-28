@@ -25,6 +25,7 @@ const path = require("path");
 const { pathToFileURL } = require("url");
 const { chromium, webkit, firefox, devices } = require("playwright");
 const { createPlayer, createRecorder, fx, USB } = require("./mock-player");
+const { createLibrary } = require("./big-library");
 const fs = require("fs");
 
 // ---------- options ----------
@@ -1156,6 +1157,156 @@ test("GRD-11 status line underlined with a fine line as wide as the grid, also w
   e = await edges();
   eq(e.msg.join(), e.grid.join(), "line as wide as the grid with the pinned queue");
 });
+
+// ---------- grid covers ----------
+// Runs in the page: every grid cover on the screen is loaded
+const coversOnScreen = () => {
+  const imgs = [...document.querySelectorAll("#grid .cov img")].filter((i) => {
+    const r = i.getBoundingClientRect();
+    return r.bottom > 0 && r.top < innerHeight;
+  });
+  return imgs.length > 0 && imgs.every((i) => i.complete && i.naturalWidth > 0);
+};
+// Request paths of the grid covers on the screen (their data-url without the player address)
+const screenCovers = (t) =>
+  t.page.$$eval(
+    "#grid .cov img",
+    (imgs, base) =>
+      imgs
+        .filter((i) => {
+          const r = i.getBoundingClientRect();
+          return r.bottom > 0 && r.top < innerHeight;
+        })
+        .map((i) => i.dataset.url.slice(base.length)),
+    BASE,
+  );
+const gridCovers = (t) => t.reqs(/^\/Artwork\?/).filter((r) => !/[?&]width=3000&/.test(r));
+
+test(
+  "GRD-12 grid covers in the size of a tile, asked again in a larger size when the tiles grow",
+  async (t) => {
+    await t.all();
+    // column width × pixel ratio, rounded up to 50 px; from 600 px without a size
+    const want = () =>
+      t.page.$eval(
+        "#grid",
+        (g) => Math.ceil((parseFloat(getComputedStyle(g).gridTemplateColumns) * devicePixelRatio) / 50) * 50,
+      );
+    const sized = (px) => (u) =>
+      px >= 600 ? !/[?&](width|height)=/.test(u) : u.endsWith(`&width=${px}&height=${px}&followRedirects=1`);
+    const m = await want();
+    const urls = await t.page.$$eval("#grid .cov img", (i) => i.map((x) => x.dataset.url));
+    ok(urls.length > 0 && urls.every(sized(m)), `grid covers asked in ${m} px: ${urls[0]}`);
+    await t.page.waitForFunction(coversOnScreen);
+    // Cover size L: the covers on the screen are asked again in the larger size
+    await t.page.click("#gear");
+    await t.page.click('#sizes [data-size="l"]');
+    await t.page.keyboard.press("Escape");
+    const l = await t.page.waitForFunction((old) => {
+      const g = document.querySelector("#grid");
+      const px = Math.ceil((parseFloat(getComputedStyle(g).gridTemplateColumns) * devicePixelRatio) / 50) * 50;
+      return px > old && px;
+    }, m);
+    const px = Math.min(600, await l.jsonValue());
+    if (m >= 600) return; // both without a size
+    // the tiles' covers get the new size after the next layout (ResizeObserver)
+    await t.page.waitForFunction(
+      (p) =>
+        [...document.querySelectorAll("#grid .cov img")].every((i) =>
+          p >= 600 ? !/[?&]width=/.test(i.dataset.url) : i.dataset.url.includes(`&width=${p}&height=${p}&`),
+        ),
+      px,
+    );
+    // the covers on the screen or just below it (on a phone with one column the random tile may fill the screen)
+    const now = (
+      await t.page.$$eval("#grid .cov img", (i) =>
+        i.filter((x) => x.getBoundingClientRect().top < innerHeight + 400).map((x) => x.dataset.url),
+      )
+    ).map((u) => u.slice(BASE.length));
+    ok(now.length > 0 && now.every(sized(px)), `covers near the screen in ${px} px: ${now[0]}`);
+    // the old images stay until the new ones are loaded: wait for the requests
+    const askedAll = () => {
+      const asked = new Set(gridCovers(t));
+      return now.every((u) => asked.has(decodeURIComponent(u)));
+    };
+    for (let i = 0; i < 50 && !askedAll(); i++) await sleep(100);
+    ok(askedAll(), "the covers near the screen were asked again in the new size");
+  },
+  R,
+);
+
+test(
+  "GRD-13 grid covers: at most 2 requests at the same time, the covers on the screen first",
+  async (t) => {
+    // no cover of Favourites open any more (on a small screen some are far below it and never asked)
+    await t.page.waitForFunction(coversOnScreen);
+    for (let i = 0; i < 50 && t.player.state.open["/Artwork"]; i++) await sleep(100);
+    t.player.state.maxOpen = {};
+    const n = gridCovers(t).length;
+    await t.all();
+    await t.page.waitForFunction(coversOnScreen);
+    eq(t.player.state.maxOpen["/Artwork"], 2, "at most 2 cover requests at the same time");
+    const screen = (await screenCovers(t)).map(decodeURIComponent);
+    const first = gridCovers(t).slice(n, n + screen.length);
+    eq([...first].sort(), [...screen].sort(), "the covers on the screen are asked first");
+  },
+  { playing: false, overrides: [{ match: /^\/Artwork/, delay: 300 }] },
+);
+
+test(
+  "GRD-14 grid covers of a former view are not asked for",
+  async (t) => {
+    await t.page.waitForFunction(coversOnScreen);
+    const n = gridCovers(t).length;
+    await t.chip("All");
+    await t.page.waitForFunction(
+      () => document.querySelectorAll("#grid .cov img[data-src]").length > 0 && activeKey === "__all",
+    );
+    await t.chip("Favourites");
+    await t.waitMsg(nAlb(TD.FAV.length));
+    await t.page.waitForFunction(coversOnScreen);
+    await t.settle(1000); // a cover of All asked later would have been asked by now
+    const favs = await t.page.evaluate(() => shown.map((a) => a.img));
+    const all = gridCovers(t)
+      .slice(n)
+      .filter((r) => !favs.some((f) => r.startsWith(decodeURIComponent(f) + "&")));
+    ok(all.length <= 2, `at most the 2 covers of All asked before the switch (${all.length})`);
+  },
+  { playing: false, overrides: [{ match: /^\/Artwork/, delay: 600 }] },
+);
+
+test(
+  "GRD-15 grid covers of tiles scrolled past quickly are not asked for",
+  async (t) => {
+    await t.all();
+    await t.page.waitForFunction(coversOnScreen);
+    const n = gridCovers(t).length;
+    await t.page.evaluate(async () => {
+      for (let i = 0; i < 15; i++) {
+        window.scrollBy(0, innerHeight);
+        await new Promise((z) => requestAnimationFrame(() => requestAnimationFrame(z)));
+      }
+    });
+    await t.page.waitForFunction(coversOnScreen, null, { timeout: 30000 });
+    // tiles scrolled past: now more than 800 px above the screen (outside the area where covers are loaded)
+    const past = await t.page.$$eval(
+      "#grid .cov img",
+      (imgs, base) =>
+        imgs.filter((i) => i.getBoundingClientRect().bottom < -800).map((i) => i.dataset.url.slice(base.length)),
+      BASE,
+    );
+    const asked = new Set(gridCovers(t).slice(n)),
+      pastAsked = past.filter((u) => asked.has(decodeURIComponent(u))).length;
+    ok(past.length > 20, `tiles scrolled past (${past.length})`);
+    ok(pastAsked < past.length / 2, `${pastAsked} covers asked for ${past.length} tiles scrolled past`);
+  },
+  {
+    playing: false,
+    usb: false,
+    big: createLibrary(1500, { genres: [...fx("04").matchAll(/ text="([^"]*)" type="genre"/g)].map((m) => m[1]) }),
+    overrides: [{ match: /^\/Artwork/, delay: 100 }],
+  },
+);
 
 test(
   "GRD-10 long title and artist: one line each, fade out, scroll while hovering",
@@ -2624,7 +2775,8 @@ test(
       ["button", 0, "zoom-in"],
       "loaded cover is a button",
     );
-    const covers = () => t.reqs(/^\/Artwork\?/).length,
+    // full-size covers (grid covers may still load meanwhile)
+    const covers = () => t.reqs(/^\/Artwork\?.*[?&]width=3000&/).length,
       n = covers();
     const view = () => t.page.$eval("#covdlg", (d) => d.open);
     const popup = () => t.page.$eval("#dlg", (d) => d.open);
@@ -3800,7 +3952,7 @@ test(
 );
 
 test(
-  "POP-15 FUL-07 full-size covers in the popup and now playing, grid covers without a size",
+  "POP-15 FUL-07 full-size covers in the popup and now playing",
   async (t) => {
     const full = (u) => /[?&]width=3000&height=3000&followRedirects=1$/.test(u || "");
     await t.page.waitForFunction(() => document.querySelector("#fimg").dataset.src);
@@ -3808,12 +3960,6 @@ test(
     ok(full(fimg), "now playing asks the full size: " + fimg);
     eq(await t.page.$eval("#cov", (e) => e.dataset.src), fimg, "footer and full screen share one request");
     await t.all();
-    const grid = await t.page.$$eval("#grid .item img", (i) => i.map((x) => x.dataset.url).filter(Boolean));
-    ok(grid.length > 0, "grid has covers");
-    ok(
-      grid.every((u) => /followRedirects=1$/.test(u) && !/[?&](width|height)=/.test(u)),
-      "grid covers without a size",
-    );
     await openLibAlbum(t);
     const dimg = await t.page.$eval("#dimg", (e) => e.dataset.src);
     ok(full(dimg), "popup asks the full size: " + dimg);

@@ -18,7 +18,7 @@ Every function of the app (`blualbum.html`) as a test case, grouped into test bl
 | CON | 4.1 Connection & start | Start page, IP form, connect, errors, time limit, compact connection line, changing the player | 14 | 10 | 4 |
 | SRC | 4.2 Music sources | Source detection, one switch per source, stored per player | 6 | 3 | 1 |
 | CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results, sort order, library changes | 22 | 14 | 9 |
-| GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons, status line | 11 | 8 | 3 |
+| GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons, status line, loading the covers | 15 | 9 | 3 |
 | FAV | 4.5 Favourites | Heart on the cover, toggling via the player, no local favourites | 6 | 5 | 2 |
 | ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache, artist links (several artists, track artists) | 5 | 4 | 1 |
 | POP | 4.7 Album popup | Details, technical data, track list, playing a track, closing, cover in full screen | 22 | 11 | 4 |
@@ -33,7 +33,7 @@ Every function of the app (`blualbum.html`) as a test case, grouped into test bl
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 4 | 1 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 1 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **192** | **129** | **49** |
+| | | **Total** | **196** | **130** | **49** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -152,6 +152,10 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | GRD-09 | Add an album last | Click add on a tile | `addAll-last` URL with `where=last`; toast "Added to queue: <title>" | write | – |
 | GRD-10 | Long title and artist | Mock favourites with a title and an artist longer than a tile; hover the tile, leave it; again with reduced motion | Title and artist one line each, cut lines fade out (`.cut`), short lines not cut; hover (after 300 ms) scrolls both cut lines, leaving stops it; reduced motion: no scrolling, full text as tooltip | – | – |
 | GRD-11 | Status line with a fine line | Favourites view; pin the queue (window 800 px or wider) | A fine line under the status line (with the sort order), from the left to the right edge of the grid's tiles; with the pinned queue it ends where the grid ends, with space to the queue | – | – |
+| GRD-12 | Covers in tile size | All; then cover size L | Grid covers asked with `&width=<px>&height=<px>&followRedirects=1`, px = column width × pixel ratio rounded up to 50 (from 600 px without a size); after L the covers on and just below the screen are asked again in the larger size | read | – |
+| GRD-13 | Covers two at a time | Mock: covers answer after 300 ms, nothing playing; All | At most 2 cover requests at the same time; the covers of the tiles on the screen are asked first | – | – |
+| GRD-14 | Covers of a former view | Mock: covers answer after 600 ms, nothing playing; All, at once Favourites | At most the 2 covers of All asked before the switch; no further cover of All asked; the Favourites covers are shown | – | – |
+| GRD-15 | Covers of tiles scrolled past | Mock: generated library of 1,500 albums (`big-library.js`), covers after 100 ms; All, scroll 15 screens quickly | The covers on the screen are shown; covers asked for fewer than half of the tiles scrolled past (now more than 800 px above the screen) | – | – |
 
 ### 4.5 Favourites (FAV)
 
@@ -192,7 +196,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | POP-12 | Close the popup | Close button; click on the backdrop; Esc | Popup closed each time; Esc does not close the settings panel behind it | read | – |
 | POP-13 | Track list fails | Mock answers HTTP 500 for the album's `/Browse` | Empty list, popup "Loading the tracks did not succeed" with the `/Browse` request; songs missing (`/library/v1/Songs` fails) → popup "Loading the album details did not succeed", no year / technical data, tracks still shown | – | – |
 | POP-14 | Page behind stays still | Page scrollable; popup open; mouse wheel over the backdrop and over the track list (also past its end) | Only the popup content scrolls; the page keeps its scroll position; after closing the page scrolls again | – | – |
-| POP-15 | Full-size cover | Open the popup of TD-ALB-LIB | Cover asked with `&width=3000&height=3000&followRedirects=1` (`COVER_FULL`); grid covers without a size | read | – |
+| POP-15 | Full-size cover | Open the popup of TD-ALB-LIB | Cover asked with `&width=3000&height=3000&followRedirects=1` (`COVER_FULL`); grid covers: GRD-12 | read | – |
 | POP-16 | Multi-disc album | Mock state `discs`: TD-TRK split into disc 1 (first half) and disc 2, numbers start again at 1 per disc (like API test E32) | Header "Disc N" (shown in capitals) before the tracks of each disc; numbers as in TD-TRK per disc; album details "2 discs · total time"; a click on the first track of disc 2 plays it | – | – |
 | POP-17 | Multi-disc album numbered across the discs | Like POP-16, mock state `discRunOn`: numbers run on over both discs | Disc 2 header before the first song with `discno` 2; numbers run on | – | – |
 | POP-18 | Same title on two discs | Like POP-16; the first track of disc 2 gets the title of track 1 and another artist | Artist shown only on the first track of disc 2 (song of the same position) | – | – |

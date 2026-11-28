@@ -2002,7 +2002,7 @@ dialog * {
  *   6. Albums from /Browse             Album lists (All, genres) from the player's browse menus.
  *   7. Albums from /library/v1/Albums  New, favourites, quality and year lists from the library endpoint.
  *   8. Views                           What the chips show: genre, All, New, Favourites, quality, decade, artist; their sort order.
- *   9. Album grid                      Lazy rendering of the album tiles and the random album tile.
+ *   9. Album grid                      Lazy rendering of the album tiles, loading their covers, the random album tile.
  *  10. Favourites                      Favourite state and toggling for the heart on the cover.
  *  11. Popups                          Album popup and the popup for unsuccessful player answers.
  *  12. Playlists                       BluOS and library playlists: the Playlists chip, its tiles (play, add, delete), track lists.
@@ -2049,8 +2049,12 @@ const TILE = { s: "110px", m: "150px", l: "220px" };
 // Cover size asked from /Artwork for the album popup and now playing (footer and full screen): the player
 // scales its stored cover to it but never beyond the original, so this gets the full resolution up to
 // 3000 px; larger originals are scaled down to it (API test E31).
-// The grid asks without a size (at most 600 px). The stored cover has 600 px when "Optimize Artwork" is on.
+// The stored cover has 600 px when "Optimize Artwork" is on.
 const COVER_FULL = 3000;
+// Grid covers: asked in the size of a tile (column width × pixel ratio, rounded up to COVER_STEP px; from COVER_MAX px
+// without a size, which gives at most 600 px), at most COVER_PARALLEL at a time: the player works on about 2 covers at
+// once and queues the rest, more requests only wait longer (private/docs/blu-album-api-usage.md).
+const COVER_STEP = 50, COVER_MAX = 600, COVER_PARALLEL = 2;
 // File formats of /library/v1/Songs (atype) and which of them are lossy (no bit depth shown).
 const FORMATS = { flc: "FLAC", mp3: "MP3", alac: "ALAC", aac: "AAC", m4a: "AAC", wav: "WAV", aif: "AIFF", aiff: "AIFF", ogg: "OGG", opus: "Opus", wma: "WMA", dsf: "DSD", dff: "DSD", ape: "APE", wv: "WavPack" };
 const LOSSY = ["MP3", "AAC", "OGG", "Opus", "WMA"];
@@ -2205,22 +2209,28 @@ function imgUrl(p, size) {
 // (Access-Control-Allow-Origin: *, API test E24). URLs of other hosts (now playing) are set directly.
 // The blob URL is released once the image is decoded. A failed load fires the element's "error" event.
 // `img` may be an array: the image is fetched once for all of them (now playing: footer and full screen).
-async function showImg(img, url) {
+// signal: aborts the request (grid covers, see pumpCovers()): no image, no "error" event.
+// True if an image was set.
+async function showImg(img, url, signal) {
   const els = [].concat(img);
   els.forEach((e) => e.dataset.src = url);
   if (!url) {
     els.forEach((e) => e.removeAttribute("src"));
-    return;
+    return false;
   }
   if (new URL(url).origin !== new URL(base).origin) {
     els.forEach((e) => e.src = url);
-    return;
+    return true;
   }
   let blob = null;
   try {
-    const r = await fetch(url);
+    const r = await fetch(url, { signal });
     if (r.ok) blob = await r.blob();
   } catch { // network error: handled below like an HTTP error (a missing cover is no error to show)
+  }
+  if (signal?.aborted) {
+    els.forEach((e) => e.dataset.src === url && delete e.dataset.src);
+    return false;
   }
   els.filter((e) => e.dataset.src === url).forEach((e) => { // others got another image meanwhile
     if (!blob) {
@@ -2234,6 +2244,7 @@ async function showImg(img, url) {
     e.addEventListener("error", done, { once: true });
     e.src = o;
   });
+  return !!blob;
 }
 
 /* ---------- State ---------- */
@@ -2256,6 +2267,8 @@ let viewList = [], viewTail = [], viewText = "", viewSort = "", sortBy = store.g
 let sources = [], srcs = [], epoch = 0;
 // Album grid: lazy rendering observer, a token that cancels an older render, observer that loads the covers.
 let lazyObs = null, lazyTok = 0, coverObs = null, cutObs = null;
+// Grid covers: size of the shown tiles (gridCoverPx()), covers waiting to be asked, asked covers (img -> AbortController)
+let coverPx = COVER_MAX, coverWait = new Set(), coverBusy = new Map();
 // Playlists. playlistsKey: browse key of the BluOS playlists ("" if the player has none), plSeq: request counter,
 // plBtn: the Playlists chip (re-added after the genre chips are rebuilt), plCount: number for the stats (null = unknown),
 // playlists: tiles like albums (toAlbum() + pl: true), the BluOS playlists first, then the library playlists of the
@@ -2773,6 +2786,7 @@ function selectView(key, btn) {
 }
 // Empties the album grid (a view that loads first).
 function clearGrid() {
+  stopCovers();
   $("#grid").innerHTML = "";
   shown = [];
 }
@@ -3067,9 +3081,11 @@ function fitLines(item) {
 // group line. noRandom: without the random album tile (search results), years: the year in front of the artist.
 function render(list, noRandom, years = false) {
   const g = $("#grid");
+  stopCovers();
   g.innerHTML = "";
   [cutObs, lazyObs, coverObs].forEach((o) => o?.disconnect());
   lazyObs = coverObs = null;
+  coverPx = gridCoverPx();
   cutObs = new ResizeObserver((e) => e.forEach(({ target: x }) => x.classList.toggle("cut", x.scrollWidth > x.clientWidth)));
   const tok = ++lazyTok, STEP = 60;
   let at = 0;
@@ -3096,13 +3112,69 @@ function render(list, noRandom, years = false) {
   lazyObs = new IntersectionObserver((e) => {
     if (e.some((x) => x.isIntersecting)) more();
   }, { rootMargin: "800px 0px" });
-  // Covers are loaded when they come near the visible area (showImg() fetches, so <img loading="lazy"> does not apply)
-  coverObs = new IntersectionObserver((e) => e.forEach((x) => {
-    if (!x.isIntersecting) return;
-    coverObs.unobserve(x.target);
-    showImg(x.target, x.target.dataset.url);
-  }), { rootMargin: "800px 0px" });
+  // Covers are loaded when they come near the visible area (showImg() fetches, so <img loading="lazy"> does not apply);
+  // one that leaves it before it is loaded is not asked for or aborted (pumpCovers())
+  coverObs = new IntersectionObserver((e) => e.forEach((x) => coverNear(x.target, x.isIntersecting)), { rootMargin: "800px 0px" });
   more();
+}
+// Cover size of the grid tiles in px: the column width × pixel ratio, rounded up to COVER_STEP, at most COVER_MAX.
+function gridCoverPx() {
+  const px = Math.ceil(parseFloat(getComputedStyle($("#grid")).gridTemplateColumns) * devicePixelRatio / COVER_STEP) * COVER_STEP;
+  return px > 0 ? Math.min(px, COVER_MAX) : COVER_MAX;
+}
+// Cover URL of a grid tile in the size coverPx (COVER_MAX: without a size).
+const gridCoverUrl = (p) => imgUrl(p, coverPx < COVER_MAX ? coverPx : 0);
+// A grid cover came near the visible area (near = true) or left it: waits to be asked, or is not asked / aborted.
+function coverNear(img, near) {
+  if (near) {
+    if (!coverBusy.has(img)) coverWait.add(img);
+  } else {
+    coverWait.delete(img);
+    coverBusy.get(img)?.abort();
+    coverBusy.delete(img);
+  }
+  pumpCovers();
+}
+// Asks the waiting grid covers, at most COVER_PARALLEL at a time, the one nearest to the screen first. A loaded cover
+// (or a failed one, its img is removed) is no longer observed; an aborted one is asked again when it comes near.
+function pumpCovers() {
+  while (coverBusy.size < COVER_PARALLEL && coverWait.size) {
+    let img = null, best = Infinity;
+    coverWait.forEach((i) => {
+      const r = i.getBoundingClientRect(), d = r.top > innerHeight ? r.top - innerHeight : Math.max(0, -r.bottom);
+      if (d < best) [img, best] = [i, d];
+    });
+    coverWait.delete(img);
+    const c = new AbortController(), obs = coverObs;
+    coverBusy.set(img, c);
+    showImg(img, img.dataset.url, c.signal).then(() => {
+      if (coverBusy.get(img) !== c) return; // aborted (left the area, other view)
+      coverBusy.delete(img);
+      obs.unobserve(img);
+      pumpCovers();
+    });
+  }
+}
+// Stops loading the grid covers (new view): waiting ones are dropped, asked ones aborted.
+function stopCovers() {
+  coverBusy.forEach((c) => c.abort());
+  coverBusy.clear();
+  coverWait.clear();
+}
+// The tiles grew (cover size, window, pinned queue): covers of a smaller size are asked again in the new size; the
+// old image stays until the new one is loaded.
+function growCovers() {
+  const px = gridCoverPx();
+  if (!coverObs || px <= coverPx) return;
+  coverPx = px;
+  $("#grid").querySelectorAll(".cov img").forEach((i) => {
+    i.dataset.url = gridCoverUrl(i.dataset.img);
+    coverBusy.get(i)?.abort();
+    coverBusy.delete(i);
+    coverWait.delete(i);
+    coverObs.unobserve(i);
+    coverObs.observe(i); // a new callback with the current state
+  });
 }
 // Tile of the grid: the cover (or the random tile's dice) with its round buttons, then the title and second line.
 const tile = (cover, buttons, ...lines) => el("div", { className: "item" }, el("div", { className: "cw" }, cover, ...buttons), ...lines);
@@ -3113,10 +3185,11 @@ const addBtn = (label, title, onclick) => el("button", { className: "play addq",
 // (a BluOS playlist: delete button instead of the heart; a playlist: the line "Playlist" instead of the artist).
 // year: the album's year in front of the artist.
 function albumTile(a, year) {
-  const cov = el("div", { className: "cov" }), isrc = imgUrl(a.img);
+  const cov = el("div", { className: "cov" }), isrc = gridCoverUrl(a.img);
   if (isrc) {
     const im = el("img", { alt: "", onerror: () => im.remove() });
     im.dataset.url = isrc;
+    im.dataset.img = a.img;
     cov.append(im);
     coverObs.observe(im);
   }
@@ -4360,6 +4433,8 @@ $("#sk").onclick = () => xml("/Skip");
 addEventListener("resize", () => {
   if (qOpen) setBars();
 });
+// Grid covers in the size of grown tiles (cover size, window, pinned queue)
+new ResizeObserver(growCovers).observe($("#grid"));
 $("#qbtn").innerHTML = ICON_PLAYLIST;
 showRepeat("2");
 $("#pp").innerHTML = ICON_PLAY;
