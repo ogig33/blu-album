@@ -739,6 +739,9 @@ test(
     ok(await t.page.$eval("#side", (e) => e.classList.contains("open")), "settings panel open");
     eq(await t.page.inputValue("#ip"), "", "IP field empty");
     ok(await t.page.getAttribute("#ip", "placeholder"), "placeholder");
+    // touch keyboards: "decimal" offers a comma instead of the dot in some regions
+    eq(await t.page.getAttribute("#ip", "inputmode"), "url", "IP keyboard with a dot");
+    eq(await t.page.getAttribute("#ip", "autocapitalize"), "off", "IP field without auto-capitalisation");
     ok(await t.page.isVisible("#iphelp"), "help text visible");
     ok(/Connect/.test(await t.msg()), "status line asks to connect");
     eq(t.player.state.requests, [], "no request to the player");

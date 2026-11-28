@@ -49,6 +49,7 @@ The test cases of chapter 4 are the same in every environment; the environments 
 | ENV-2 | Browsers, remote (GitHub Actions), mock data | Automated | macOS: Safari (WebKit), Chrome · Windows: Edge, Chrome, Firefox · Linux: Chrome, Firefox | 1280x800, 1440x900@2, 1920x1080; all 188 cases; screenshots of the main views as artifact | Mock player, fixtures | `.github/workflows/ui-tests.yml`: push, pull request, Mondays, on demand |
 | ENV-3 | Browsers, local, real player | Automated | macOS (home network): Chrome, Safari (WebKit) | 1200x800; the cases marked read (with `--write` also write): 128 of 188 (99 read, 29 write), one at a time | Owner's player, live answers | `node run.js --player <ip>` (read) or `--player <ip> --write` |
 | ENV-4 | Safari app, real player | Manual, before a release | macOS: the Safari app (Playwright's WebKit is its engine, not the app) | Main views; the Safari pitfalls of `CLAUDE.md` (popup track list of a long album, old cached file) | Owner's player | By hand |
+| ENV-5 | iOS Simulator, real player | Manual, after layout changes | macOS: Xcode's iOS Simulator, Safari on iPhone (portrait, landscape) and iPad | Main views, IP entry with the touch keyboard, no zoom after focusing a field, nothing under the camera housing in landscape, full-screen cover not cut off | Owner's player | Serve the folder (`python3 -m http.server 8000`), open `http://localhost:8000/blualbum.html` in the simulator; by hand |
 
 In the automated environments the app runs as a `file://` page in a fresh browser profile per case. The mock player `tests/ui/mock-player.js` answers from the fixtures at a documentation address (`IP`, a second mock player `IP2`) and records every request and command; with `--player` the requests of the real player are recorded the same way. Options of the mock and of the start per test: `tests/ui/README.md`.
 
@@ -115,7 +116,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 
 | ID | Test case | Input | Expected output | Real player | Core |
 |---|---|---|---|---|---|
-| CON-01 | Start page without stored IP | Open the app, no `ip` in localStorage | Settings panel open, IP field empty with placeholder, help text visible, status line asks to connect; no request to the player | read | local |
+| CON-01 | Start page without stored IP | Open the app, no `ip` in localStorage | Settings panel open, IP field empty with placeholder, help text visible, status line asks to connect; IP field with `inputmode="url"` (touch keyboard with a dot) and `autocapitalize="off"`; no request to the player | read | local |
 | CON-02 | Stored IP is restored | localStorage `ip` = TD-IP, open the app | IP field contains TD-IP, panel open; no automatic connect | read | yes |
 | CON-03 | Connect with the button | Enter TD-IP, click **Connect** | `/Browse` (top menu), sources opened, chips built, default view loaded; `ip` stored; panel closed | read | local |
 | CON-04 | Connect with Enter | Enter TD-IP, press Enter in the IP field | Same as CON-03 | read | yes |
