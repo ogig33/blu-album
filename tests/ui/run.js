@@ -47,7 +47,7 @@ const LOCAL_MAX = 50;
 // --device: a phone or tablet of Playwright's device list (e.g. "iPhone 15", "iPad (gen 11) landscape"): its window
 // size, pixel ratio, user agent and touch screen (the page sees any-pointer: coarse and hover: none); clicks stay
 // mouse clicks. Tests with opts.mouse (hover, mouse wheel) or opts.desktop (they check the desktop layout: pinned
-// queue, visible chip row, cover sizes side by side) are skipped with it.
+// queue, visible chip row) are skipped with it.
 const DEVICE_ARG = arg("--device");
 const DEVICE = DEVICE_ARG ? devices[DEVICE_ARG] : null;
 if (process.argv.includes("--device") && (!DEVICE || !DEVICE.hasTouch)) {
@@ -4780,7 +4780,7 @@ test(
       "stored",
     );
   },
-  { ...R, desktop: true },
+  R,
 );
 
 test(

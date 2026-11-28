@@ -54,7 +54,7 @@ Do not build these; when asked, point to the alternative.
 - **Avoid self-built API URLs.** Play / queue / favourite URLs come from `/Browse`; the only exception are the `/library/v1` lists (New, Favourites, quality, decades, genres, album artist search), built by the fixed pattern in `libAlbum()`.
 - **Store changes at the player.** Favourites, playlists and every other change the player supports are stored there, so they persist across sessions and are visible in other player clients. localStorage only for conveniences (see "Code conventions").
 - **Expose API errors.** Show failed player requests to the user (network error, HTTP status other than 200, `<e>` answer) with the endpoint URL and the error answer. Exceptions: expected failures – `/audioPreset` on players without listening modes, status polling (aborted or retried), missing covers, statistic lists that are not available.
-- **Check layout changes in Safari** as well (see "Known pitfalls"), and on touch screens in the iOS Simulator (iPhone portrait and landscape, iPad).
+- **Check layout changes in Safari** as well (see "Known pitfalls"), and on touch screens in the iOS Simulator (iPhone portrait, iPad portrait and landscape).
 
 ## Documentation
 
@@ -130,6 +130,7 @@ Do not build these; when asked, point to the alternative.
 - **No track duration in the player bar:** shown in the queue panel; keeps the player bar uncluttered.
 - **No mute / unmute button:** use pause instead; keeps the player bar uncluttered.
 - **No player discovery:** not technically feasible from a local HTML page in a browser.
+- **No iPhone landscape support:** a phone in landscape leaves too little height to be usable; it is neither tested nor checked by hand (the layout keeps working). A web page cannot lock the orientation: iOS Safari rejects `screen.orientation.lock()`, Android allows it only in full screen or an installed app (needs a manifest file); a "turn the phone" overlay was rejected, it would block the app (2026-11-28).
 - **No album and track info (`/Info`):** it only redirects to last.fm.
 - **No compilation chip:** the player offers no compilation filter; the `COMPILATION` tag is only in the songs of a single album, and the album artist "Various" is a convention of the library, not a value of the API.
 - **The heart re-reads the context menu** (album or library playlist) after toggling a favourite (1 request) – without it the next click would use a self-built URL.

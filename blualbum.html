@@ -1288,6 +1288,19 @@ nav .gap {
   gap: calc(var(--tile, 150px) * .225) calc(var(--tile, 150px) * .18);
   padding: 6px max(14px, var(--sr)) 40px max(14px, var(--sl));
 }
+/* Phones: the cover size is a column count (S 3, M 2, L 1). The minimum widths would give S and M the same
+   2 columns on most phones (M even a bit smaller, with its larger spacing), and M and L 1 column below 355 px. */
+@media (max-width: 480px) {
+  :root[data-tile=s] #grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  :root[data-tile=m] #grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  :root[data-tile=l] #grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .card {
   background: none;
   border: 0;
@@ -2011,7 +2024,7 @@ const SORTS = [["title", "Album title A–Z"], ["title-desc", "Album title Z–A
 // Search: only from SEARCH_MIN characters (each search costs several player requests, a shorter term
 // finds most of the library); while typing it starts after a pause of SEARCH_DELAY ms, Enter at once.
 const SEARCH_MIN = 3, SEARCH_DELAY = 800;
-// Minimum tile width of the album grid; the grid fills the row with as many tiles as fit.
+// Minimum tile width of the album grid; the grid fills the row with as many tiles as fit (phones: 3 / 2 / 1 columns).
 const TILE = { s: "110px", m: "150px", l: "220px" };
 // Cover size asked from /Artwork for the album popup and now playing (footer and full screen): the player
 // scales its stored cover to it but never beyond the original, so this gets the full resolution up to
@@ -4207,6 +4220,7 @@ function applyTheme(t) {
 function applySize(z) {
   if (!TILE[z]) z = "m";
   document.documentElement.style.setProperty("--tile", TILE[z]);
+  document.documentElement.dataset.tile = z; // phones: column count instead of the minimum width (CSS)
   return z;
 }
 // On/off switch in the settings panel (button[role=switch], aria-checked) or toggle chip (aria-pressed):

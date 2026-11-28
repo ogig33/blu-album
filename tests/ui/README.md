@@ -72,7 +72,7 @@ The job "mobile" runs every test on emulated phones and tablets (`--device`: win
 | macOS | Safari (WebKit) | iPhone 15, iPad (gen 11) |
 | Linux (Ubuntu) | Chrome | Pixel 7 |
 
-Tests marked `mouse: true` (hover, mouse wheel) or `desktop: true` (pinned queue, visible chip row, cover sizes side by side) are skipped there; Firefox has no mobile emulation. The emulation does not replace the manual check in the iOS Simulator (ENV-5).
+Tests marked `mouse: true` (hover, mouse wheel) or `desktop: true` (pinned queue, visible chip row) are skipped there; Firefox has no mobile emulation. The emulation does not replace the manual check in the iOS Simulator (ENV-5).
 
 Every job keeps the screenshots of the main views (and of failed tests) as an artifact for 14 days (*Actions → run → Artifacts*), for a visual check per system, browser and size.
 
