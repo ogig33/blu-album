@@ -965,7 +965,7 @@ request("E27 Albums with songs of a composer", {
       const a = (xml.match(/<album\b[^>]*>([\s\S]*?)<\/album>/) || [])[1] || "";
       const pick = (t) => {
         const m = a.match(new RegExp("<" + t + ">([^<]*)</" + t + ">"));
-        return m ? m[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'") : "";
+        return m ? dec(m[1]) : "";
       };
       return { album: pick("title") || pick("alb"), artist: pick("art") };
     };
@@ -1033,7 +1033,7 @@ request("E29 Albums of the artist Various (sampler)", {
     saveFixture("explore-29-various-albums.xml");
     console.log(body.slice(0, 4000));
     const m = body.match(/<album\b[^>]*>([^<]+)<\/album>/);
-    vars.eVarAlbum = m ? m[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'") : "";
+    vars.eVarAlbum = m ? dec(m[1]) : "";
     console.log("sampler: " + vars.eVarAlbum);
   },
   async tests(req, res, test) {

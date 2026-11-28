@@ -256,7 +256,7 @@ request("M09 Saved playlists (remember names)", {
     const body = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
 
     console.log("HTTP " + res.status + ", " + (res.header("content-type") || "") + "\n" + body.slice(0, 3000));
-    const names = (body.match(/<name\b[^>]*>([^<]*)<\/name>/g) || []).map((x) => x.replace(/<[^>]*>/g, "")).sort();
+    const names = [...body.matchAll(/<name\b[^>]*>([^<]*)<\/name>/g)].map((m) => m[1]).sort();
     vars.vsPlaylists = JSON.stringify(names);
   },
   async tests(req, res, test) {
@@ -353,7 +353,7 @@ request("M12 Saved playlists unchanged", {
     const body = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
 
     test("HTTP 200", () => expect(res.status).to.equal(200));
-    const names = (body.match(/<name\b[^>]*>([^<]*)<\/name>/g) || []).map((x) => x.replace(/<[^>]*>/g, "")).sort();
+    const names = [...body.matchAll(/<name\b[^>]*>([^<]*)<\/name>/g)].map((m) => m[1]).sort();
     test("same playlists as before", () => expect(JSON.stringify(names)).to.equal(vars.vsPlaylists));
   },
 });

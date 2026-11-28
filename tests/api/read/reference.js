@@ -400,10 +400,7 @@ request("V18 UI saved playlists (BrowseObjects)", {
     saveFixture("verify-ui-browseobjects.xml");
     console.log(body.slice(0, 4000));
     const list = (body.match(/<list>([\s\S]*)<\/list>/) || [])[1] || "";
-    const n = ((list.match(/<item\b[^>]*\stitle="([^"]*)"/) || [])[1] || "")
-      .replace(/&amp;/g, "&")
-      .replace(/&#39;/g, "'");
-    vars.uiPlaylist = n;
+    vars.uiPlaylist = dec((list.match(/<item\b[^>]*\stitle="([^"]*)"/) || [])[1] || "");
   },
   async tests(req, res, test) {
     const body = String(res.body || "");
@@ -1131,7 +1128,7 @@ request("V52 Playlists sorted and filtered", {
     const body = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
     const saveFixture = (file, text) => save(file, text === undefined ? body : text);
     saveFixture("verify-playlists-recent.xml");
-    const names = (xml) => (xml.match(/<name\b[^>]*>[^<]*<\/name>/g) || []).map((t) => t.replace(/<[^>]*>/g, ""));
+    const names = (xml) => [...xml.matchAll(/<name\b[^>]*>([^<]*)<\/name>/g)].map((m) => m[1]);
     // The same list A → Z, a single playlist by name and an unknown name
     const get = async (p) => {
       const r = await http.get("http://" + env.host + ":11000" + p, {

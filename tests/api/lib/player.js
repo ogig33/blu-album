@@ -142,14 +142,14 @@ function save(file, text, always = false) {
   fs.writeFileSync(f, text);
 }
 
-// XML helpers: entity decoding and an attribute of a start tag
+// XML helpers: entity decoding (&amp; last, so "&amp;lt;" stays "&lt;") and an attribute of a start tag
 const dec = (v) =>
   v
-    .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
 const attr = (tag, n) => {
   const m = tag.match(new RegExp("\\s" + n + '="([^"]*)"'));
   return m ? dec(m[1]) : "";
