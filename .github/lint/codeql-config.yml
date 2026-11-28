@@ -1,0 +1,11 @@
+# Local CodeQL run (README "Development"): the same languages and queries as the default setup of the repository
+# on GitHub (JavaScript / TypeScript and GitHub Actions, query suite "default" = code-scanning). GitHub analyses
+# only the published files; these git-ignored folders exist only locally.
+paths-ignore:
+  - private
+  - tests/api/fixtures
+  - tests/api/config.json
+  - .github/lint/codeql
+  - "**/node_modules"
+  - "**/test-results"
+  - _site

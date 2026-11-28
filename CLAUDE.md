@@ -33,10 +33,12 @@ Do not build these; when asked, point to the alternative.
 - `private/` – the owner's private content, git-ignored and never published (missing in worktrees, cloud sessions and clones): `tools/` (API tools), `docs/` (private notes), `library-tools/` (library tagging scripts). Keep every API tool, private note and the owner's library scripts there; public files only say that they exist. The API tests are public (`tests/api`); their fixtures and `config.json` (player address) are git-ignored.
 - `private/docs/blu-album-api-usage.md` – every click of the app with its requests, measurements and endpoint choices.
 - `docs/blu-album-library-guidance.md` – how users should tag their library and set "Optimize Artwork" for the best experience with BluAlbum.
-- `docs/blu-album-test-plan.md` – test plan: every function of the app as test cases per block (input, expected output, real player, core), test environments, test data dictionary; update it when a function or a UI test changes.
-- `tests/api/README.md` – API tests against the real player (Node.js only): setup, runs, request prefixes, every request per folder, fixtures (git-ignored, like `config.json`).
-- `tests/ui/README.md` – Playwright UI tests: run options, GitHub Actions matrix, updating fixtures.
-- `README.md` "Development" – overview of tests (UI, API) and GitHub workflows (UI tests, lint, format), local lint and format.
+- `tests/README.md` – test concept: test levels (API, UI, manual), test environments (ENV-1 … ENV-7, ENV-7: emulated phones and tablets), when which tests run, test IDs, rules, keeping tests and docs in step.
+- `tests/ui/test-cases.md` – UI test cases: every function of the app per block (input, expected output, real player, local), test data dictionary; update it when a function or a UI test changes.
+- `tests/ui/README.md` – Playwright UI tests: run options, mock and real player, GitHub Actions matrix, updating fixtures.
+- `tests/api/test-cases.md` – API test cases: every request with checks and notes, per block (A, E, V; C, W, S, P; M); update it when an API test changes.
+- `tests/api/README.md` – API tests against the real player (Node.js only): blocks, requirements, run steps, fixtures (git-ignored, like `config.json`), writing tests.
+- `README.md` "Development" – overview of tests (UI, API) and GitHub checks (UI tests, lint, format, CodeQL), local lint, format and CodeQL.
 - `site/index.html` – website on GitHub Pages: one static page, no subpages, plain wording (no sales tone), only the main screenshot (dark / light); published by `.github/workflows/pages.yml` with `docs/screenshots/*-main-view.jpg`.
 - Top of the `<script>` in `blualbum.html` – module overview (order of the modules).
 
@@ -63,7 +65,7 @@ Do not build these; when asked, point to the alternative.
   - BluOS API reference `docs/bluos-api.md`.
   - BluAlbum API usage `private/docs/blu-album-api-usage.md`.
   - BluAlbum music library end user guidance `docs/blu-album-library-guidance.md`
-  - BluAlbum test case in `docs/blu-album-test-plan.md`.
+  - BluAlbum test cases in `tests/ui/test-cases.md` and `tests/api/test-cases.md`, test concept in `tests/README.md`.
   - Feature list and requirements of the website `site/index.html` (like the README).
 - **`docs/bluos-api.md`:** API facts only, independent of BluAlbum.
   - Structure: per category a one-sentence description, the overview table (Endpoint | Function | Official | Verified), optionally a "Common …" block; per endpoint one `###` with request line (all parameters), parameter table, **Response format**, response keys table, **Notes** (only facts that help in the endpoint's context). Basics only for rules of every endpoint.
@@ -79,20 +81,18 @@ Do not build these; when asked, point to the alternative.
   - analyze change using materials in "where to look" section
   - Verify unknown API behaviour if needed in the API tests (`tests/api`)
   - Adapt or add the UI test (and `tests/ui/mock-player.js`).
-  - Change the code → local core tests green (`npm test` in `tests/ui`).
+  - Change the code → local tests green (`npm test` in `tests/ui`).
   - CHANGELOG line (only for changes of the app).
-  - Before a push: all UI tests green (`npm run test:all` in `tests/ui`).
+  - Before a push: all UI tests green (`npm run test:all` in `tests/ui`); lint, format and CodeQL clean (commands in README "Development"; CodeQL: only the two known certificate findings of `tests/api`).
 - After a firmware update:
   - Run the API tests `read.test.js` and `write.test.js` (details in `tests/api/README.md`).
   - Fixtures with personal data stay in `tests/api/fixtures/` (git-ignored); copy them to `tests/ui/fixtures` with `node tests/api/sanitize-fixtures.js`.
   - Find new endpoints with `node private/tools/crawl-endpoints.js <player IP>` (read-only, compares with `docs/bluos-api.md`); verify each finding in the API tests before documenting it.
   - Then `node private/tools/build-wordlist.js` (no requests): requests of the BluOS Controller app missing in `docs/bluos-api.md`, and the wordlists for ffuf (never request `denied.txt` unchecked).
-- Test methodology:
-  - The test plan has at most 150 core test cases; `tests/ui/run.js` stops when this limit or the local limit of 50 is exceeded. Both limits are reached (2026-11-23): extend an existing case or add a case outside the core ("–").
-  - UI tests: local tests performs only a subset of 50 core tests with core browsers (Safari, Chrome), run within 5 mins
-  - UI remote tests: github runs the full test case scope with all browsers (Safari, Chrome, Edge and Firefox) and OSes (macos, Linux, Windows)
-  - UI tests must not assume a window size (use `VIEWPORT`).
-  - Lint (ESLint: `blualbum.html`, `tests/ui`, `tests/api`) and format (Prettier, test scripts only; `blualbum.html` keeps its compact style) run on GitHub; locally with the commands in README "Development" when `.github/lint/node_modules` is installed (the owner installed it 2026-11-27).
+- Test methodology: `tests/README.md` (environments, when which tests run, rules).
+  - At most 50 UI tests are marked `local` (column Local of `tests/ui/test-cases.md`; `tests/ui/run.js` stops above it); the limit is reached: a new case gets "–" unless another one gives up its mark. No limit on the total.
+  - GitHub runs every UI test in every browser (Safari, Chrome, Edge, Firefox) and system (macOS, Linux, Windows), and on emulated phones and tablets (`--device`; tests marked `mouse` or `desktop` are skipped there).
+  - Lint (ESLint: `blualbum.html`, `tests/ui`, `tests/api`), format (Prettier, test scripts only; `blualbum.html` keeps its compact style) and CodeQL (default setup: JavaScript / TypeScript and GitHub Actions) run on GitHub; locally with the commands in README "Development" (`.github/lint/node_modules` installed 2026-11-27, CodeQL CLI and query packs 2026-11-28).
 
 
 ## Git and publishing

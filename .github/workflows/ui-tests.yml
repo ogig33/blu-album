@@ -1,5 +1,6 @@
 # UI tests of BluAlbum (tests/ui) on macOS, Windows and Linux in every supported browser,
 # each at three window sizes, all tests (--all); screenshots of the main views are kept as artifacts.
+# Job "mobile": phones and tablets emulated by Playwright (window size, pixel ratio, user agent, touch screen).
 # The tests run against the mock player with the sanitized fixtures: no player, no network.
 name: UI tests
 
@@ -58,6 +59,42 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: screenshots-${{ matrix.target.os }}-${{ matrix.target.browser }}-${{ matrix.viewport }}
+          path: tests/ui/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  mobile:
+    name: ${{ matrix.target.os }} / ${{ matrix.target.browser }} / ${{ matrix.target.device }}
+    runs-on: ${{ matrix.target.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          # Safari on iPhone and iPad: Playwright's WebKit with the device profile; Android: Chrome
+          - { os: macos-latest, browser: safari, install: webkit, device: "iPhone 15" }
+          - { os: macos-latest, browser: safari, install: webkit, device: "iPad (gen 11)" }
+          - { os: ubuntu-latest, browser: chrome, device: "Pixel 7" }
+    defaults:
+      run:
+        working-directory: tests/ui
+    env:
+      UI_SLOW: "2"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/ui/package-lock.json
+      - run: npm ci
+      - if: matrix.target.install
+        run: npx playwright install --with-deps ${{ matrix.target.install }}
+      - run: node run.js --all --browser ${{ matrix.target.browser }} --device "${{ matrix.target.device }}" --shots
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-${{ matrix.target.os }}-${{ matrix.target.browser }}-${{ matrix.target.device }}
           path: tests/ui/test-results/
           if-no-files-found: ignore
           retention-days: 14

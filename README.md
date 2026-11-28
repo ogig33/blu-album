@@ -47,14 +47,15 @@ Tested with BluOS 4.18.18 on a Bluesound Powernode, and with Safari, Chrome, Mic
 Everything is in [`blualbum.html`](blualbum.html): CSS, HTML and plain JavaScript, no build
 step and no dependencies. The script is split into modules, listed at its top.
 
-Tests:
-- [`tests/ui`](tests/ui) – Playwright tests of the user interface in Chrome, Safari (WebKit), Edge and Firefox against a mock player that answers with recorded (and sanitized) player responses. No player needed. Locally `npm test` runs 50 core tests; GitHub Actions runs all of them on macOS, Windows and Linux at three window sizes.
+Tests ([`tests/README.md`](tests/README.md): test concept, environments, when which tests run):
+- [`tests/ui`](tests/ui) – Playwright tests of the user interface in Chrome, Safari (WebKit), Edge and Firefox against a mock player that answers with recorded (and sanitized) player responses. No player needed. Locally `npm test` runs 50 of them; GitHub Actions runs all of them on macOS, Windows and Linux at three window sizes.
 - [`tests/api`](tests/api) – contract tests of the BluOS API against a real player (Node.js only, no packages); they record the player answers the UI tests use. Run only on your own player: the write tests interrupt playback (and restore everything), the manual ones (reboot, rescan, firmware upgrade …) run only on request.
 
 Checks on GitHub (`.github/workflows`, configs in `.github/lint`):
 - `ui-tests.yml` – the UI tests, see [`tests/ui`](tests/ui/README.md#github-actions).
 - `lint.yml` – ESLint (recommended rules) for the script in `blualbum.html`, `tests/ui` and `tests/api`.
 - `format.yml` – Prettier (`printWidth` 120) for the test scripts `tests/**/*.js`; `blualbum.html` keeps its compact style. Push / PR only check; run by hand with input `fix` to format, commit and start UI tests and lint for that commit.
+- CodeQL (default setup in the repository settings, no workflow file) – security and quality queries for JavaScript / TypeScript (`blualbum.html`, `site/`, `tests/`) and the GitHub Actions workflows; on push, pull request and weekly.
 
 Lint and format locally (optional; installs into `.github/lint/node_modules`, git-ignored, the versions of the workflows):
 
@@ -63,6 +64,18 @@ npm install --prefix .github/lint --no-save --no-package-lock prettier@3.10.1 es
 .github/lint/node_modules/.bin/eslint --config .github/lint/eslint.config.mjs blualbum.html tests/ui tests/api
 .github/lint/node_modules/.bin/prettier --config .github/lint/prettier.json --check "tests/**/*.js"
 ```
+
+CodeQL locally (optional; needs the [CodeQL CLI](https://github.com/github/codeql-cli-binaries) and its query packs: `codeql pack download codeql/javascript-queries codeql/actions-queries`). Same languages and queries as on GitHub; `.github/lint/codeql-config.yml` leaves out the folders that exist only locally; databases and results go to `.github/lint/codeql/` (git-ignored), about a minute:
+
+```
+mkdir -p .github/lint/codeql
+codeql database create .github/lint/codeql/db --db-cluster --language=javascript,actions --source-root . --codescanning-config .github/lint/codeql-config.yml --overwrite
+codeql database analyze .github/lint/codeql/db/javascript codeql/javascript-queries:codeql-suites/javascript-code-scanning.qls --format=csv --output=.github/lint/codeql/javascript.csv
+codeql database analyze .github/lint/codeql/db/actions codeql/actions-queries:codeql-suites/actions-code-scanning.qls --format=csv --output=.github/lint/codeql/actions.csv
+cat .github/lint/codeql/*.csv
+```
+
+Every line of the result is a finding. Expected are only the two "Disabling certificate validation" in `tests/api` (`lib/player.js`, `read/reference.js`): the API tests reach the player's self-signed certificate; on GitHub they are dismissed as "used in tests", which the local run does not know.
 
 ## License
 

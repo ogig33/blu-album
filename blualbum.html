@@ -2336,7 +2336,7 @@ async function api(path, init) {
 }
 // <mid> of every /Status answer is the version of the library index (= root id of the /library/v1 answers of the
 // library): it changes when a rescan ends and with every favourite added or removed, and the long poll answers at once
-// (API tests W39, M41). A new version drops what the session read from the library (libChanged()), except after the app's
+// (API tests P24, M41). A new version drops what the session read from the library (libChanged()), except after the app's
 // own heart.
 function libVersion(id) {
   if (!id || id === libVer) return;
@@ -3547,7 +3547,7 @@ async function loadQueue() {
     }
   }
 }
-// Moves queue entry `from` to position `to` (0-based; `to` = its position afterwards, API tests W34–W37: the entry
+// Moves queue entry `from` to position `to` (0-based; `to` = its position afterwards, API tests P19–P22: the entry
 // is taken out, then inserted): /Move?new=<to>&old=<from>. The rows are reordered and renumbered at once and
 // the playing entry keeps its mark (the player moves its position the same way); the changed playlist id in
 // /Status then reloads the queue. Not successful: popup and the queue is read again.

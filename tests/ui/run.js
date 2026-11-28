@@ -2,9 +2,10 @@
 // Runs the app in headless browsers against a mock player that answers with recorded fixtures, or
 // against a real player (--player).
 // Usage: node run.js [path/to/blualbum.html] [--only <text>] [--browser chrome|safari|edge|firefox]
-//                    [--all] [--viewport WIDTHxHEIGHT[@SCALE]] [--shots] [--jobs <n>] [--player <ip> [--write]]
+//                    [--all] [--viewport WIDTHxHEIGHT[@SCALE] | --device <name>] [--shots] [--jobs <n>]
+//                    [--player <ip> [--write]]
 //                    [--list]
-// Scope: by default the local core tests (column "Core" = local in docs/blu-album-test-plan.md, at most 50).
+// Scope: by default the local tests (column "Local" = local in test-cases.md, at most 50).
 // --all runs every test (GitHub Actions); --only and --player choose from every test.
 // Without --browser Chrome and Safari run one after another (the local default; GitHub Actions
 // runs every browser with --browser). --viewport sets the window size and the
@@ -17,12 +18,12 @@
 // With --player always 1: the tests share that player.
 // --list prints every test with its marks (read / write / mock, local).
 // Environment: UI_SLOW=<factor> stretches the fixed waits (settle) for slow machines such as CI runners.
-// Every test name starts with the IDs of the test plan (docs/blu-album-test-plan.md) it covers, e.g. --only QUE-
+// Every test name starts with the IDs of the test cases (test-cases.md) it covers, e.g. --only QUE-
 // runs the queue block.
 const os = require("os");
 const path = require("path");
 const { pathToFileURL } = require("url");
-const { chromium, webkit, firefox } = require("playwright");
+const { chromium, webkit, firefox, devices } = require("playwright");
 const { createPlayer, createRecorder, fx, USB } = require("./mock-player");
 const fs = require("fs");
 
@@ -40,17 +41,33 @@ const RESULTS = path.join(__dirname, "test-results"); // screenshots of failed t
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : "");
 const ONLY = arg("--only");
 const ALL = process.argv.includes("--all");
-// Test plan: its column "Core" selects the local tests
-const PLAN = path.join(__dirname, "..", "..", "docs", "blu-album-test-plan.md");
-const CORE_MAX = 150,
-  LOCAL_MAX = 50;
-const VP_ARG = arg("--viewport") || "1200x800";
-const VP_MATCH = /^(\d+)x(\d+)(?:@(\d+(?:\.\d+)?))?$/.exec(VP_ARG);
+// Test cases: their column "Local" selects the local tests
+const PLAN = path.join(__dirname, "test-cases.md");
+const LOCAL_MAX = 50;
+// --device: a phone or tablet of Playwright's device list (e.g. "iPhone 15", "iPad (gen 11) landscape"): its window
+// size, pixel ratio, user agent and touch screen (the page sees any-pointer: coarse and hover: none); clicks stay
+// mouse clicks. Tests with opts.mouse (hover, mouse wheel) or opts.desktop (they check the desktop layout: pinned
+// queue, visible chip row, cover sizes side by side) are skipped with it.
+const DEVICE_ARG = arg("--device");
+const DEVICE = DEVICE_ARG ? devices[DEVICE_ARG] : null;
+if (process.argv.includes("--device") && (!DEVICE || !DEVICE.hasTouch)) {
+  console.error(`Unknown phone or tablet: ${DEVICE_ARG} (use a name of Playwright's device list, e.g. "iPhone 15")`);
+  process.exit(2);
+}
+if (DEVICE && arg("--viewport")) {
+  console.error("Use either --device or --viewport");
+  process.exit(2);
+}
+const VP_ARG = DEVICE ? DEVICE_ARG.replace(/[^a-z0-9]+/gi, "-") : arg("--viewport") || "1200x800";
+const VP_MATCH = DEVICE ? [] : /^(\d+)x(\d+)(?:@(\d+(?:\.\d+)?))?$/.exec(VP_ARG);
 if (!VP_MATCH) {
   console.error(`Invalid viewport: ${VP_ARG} (use WIDTHxHEIGHT or WIDTHxHEIGHT@SCALE, e.g. 1440x900@2)`);
   process.exit(2);
 }
-const VIEWPORT = { width: +VP_MATCH[1], height: +VP_MATCH[2], scale: +(VP_MATCH[3] || 1) };
+const VIEWPORT = DEVICE
+  ? { width: DEVICE.viewport.width, height: DEVICE.viewport.height, scale: DEVICE.deviceScaleFactor }
+  : { width: +VP_MATCH[1], height: +VP_MATCH[2], scale: +(VP_MATCH[3] || 1) };
+const VP_LABEL = DEVICE_ARG || VP_ARG;
 const SHOTS = process.argv.includes("--shots");
 // Real player: its IP address (empty = mock player); WRITE = also the tests that change the player
 const REAL = arg("--player");
@@ -81,6 +98,10 @@ if (unknown.length) {
   console.error(`Unknown browser: ${unknown.join(", ")} (use ${Object.keys(BROWSERS).join(", ")})`);
   process.exit(2);
 }
+if (DEVICE && PICK.includes("firefox")) {
+  console.error("--device needs Chrome, Safari or Edge (Firefox has no mobile emulation)");
+  process.exit(2);
+}
 // Address of the player: the real one, or the mock (documentation range, never a real device)
 const IP = REAL || "192.0.2.50";
 const IP2 = "192.0.2.51"; // second mock player (changing the player)
@@ -96,7 +117,7 @@ const sleep = (ms) => new Promise((z) => setTimeout(z, ms));
 // ---------- test data ----------
 // Built before the tests run by asking the player the tests run against (mock: answers derived from the
 // fixtures; real player with --player) the same questions as the app, so no artist, album or number is
-// written into the tests. IDs as in "Test data dictionary" of docs/blu-album-test-plan.md.
+// written into the tests. IDs as in "Test data dictionary" of test-cases.md.
 const ent = (s) =>
   (s || "")
     .replace(/&lt;/g, "<")
@@ -496,6 +517,7 @@ async function start(browser, opts = {}) {
   const ctx = await browser.newContext({
     viewport: { width: VIEWPORT.width, height: VIEWPORT.height },
     deviceScaleFactor: VIEWPORT.scale,
+    ...(DEVICE && { userAgent: DEVICE.userAgent, isMobile: DEVICE.isMobile, hasTouch: true }),
     colorScheme: opts.colorScheme || "light",
     locale: opts.locale,
   });
@@ -2145,7 +2167,7 @@ test(
     eq((await links("#nt2 .al")).join(", "), t.st("title2"), "player bar: artist link");
     await searches("#nt2 .al", "player bar");
   },
-  { appDefaults: true, needs: ["queue"] },
+  { appDefaults: true, needs: ["queue"], desktop: true },
 );
 
 // ---------- 4.7 Album popup (POP) ----------
@@ -2548,39 +2570,47 @@ test("POP-20 closed popup: late failure is dropped, an album opened at once stil
   await t.page.waitForSelector("#tracks li button");
 });
 
-test("POP-14 open popup keeps the page behind it still", async (t) => {
-  await t.all();
-  // the page must be able to scroll, whatever the window size
-  await t.page.evaluate(() => (document.body.style.minHeight = "300vh"));
-  await openLibAlbum(t);
-  await t.page.waitForSelector("#tracks li button");
-  eq(await t.page.evaluate(() => getComputedStyle(document.documentElement).overflow), "hidden", "page scrolling off");
-  const y = await t.page.evaluate(() => scrollY);
-  await t.page.mouse.move(3, 3);
-  await t.page.mouse.wheel(0, 600);
-  const box = await t.page.$eval("#tracks", (e) => {
-    const r = e.getBoundingClientRect();
-    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-  });
-  await t.page.mouse.move(box.x, box.y);
-  await t.page.mouse.wheel(0, 3000);
-  await t.page.waitForTimeout(300);
-  eq(await t.page.evaluate(() => scrollY), y, "page not scrolled by the wheel over backdrop and track list");
-  // A short track list (whatever the window size) scrolls without a scroll bar over the durations
-  const bar = await t.page.$eval("#tracks", (e) => {
-    e.style.maxHeight = "80px";
-    e.style.overflowY = "auto";
-    const r = { scrolls: e.scrollHeight > e.clientHeight, bar: e.offsetWidth - e.clientWidth };
-    e.style.maxHeight = e.style.overflowY = "";
-    return r;
-  });
-  ok(bar.scrolls && bar.bar === 0, `track list scrolls without a scroll bar: ${JSON.stringify(bar)}`);
-  await t.page.click("#close");
-  ok(
-    await t.page.evaluate(() => getComputedStyle(document.documentElement).overflow !== "hidden"),
-    "page scrolls again",
-  );
-});
+test(
+  "POP-14 open popup keeps the page behind it still",
+  async (t) => {
+    await t.all();
+    // the page must be able to scroll, whatever the window size
+    await t.page.evaluate(() => (document.body.style.minHeight = "300vh"));
+    await openLibAlbum(t);
+    await t.page.waitForSelector("#tracks li button");
+    eq(
+      await t.page.evaluate(() => getComputedStyle(document.documentElement).overflow),
+      "hidden",
+      "page scrolling off",
+    );
+    const y = await t.page.evaluate(() => scrollY);
+    await t.page.mouse.move(3, 3);
+    await t.page.mouse.wheel(0, 600);
+    const box = await t.page.$eval("#tracks", (e) => {
+      const r = e.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    await t.page.mouse.move(box.x, box.y);
+    await t.page.mouse.wheel(0, 3000);
+    await t.page.waitForTimeout(300);
+    eq(await t.page.evaluate(() => scrollY), y, "page not scrolled by the wheel over backdrop and track list");
+    // A short track list (whatever the window size) scrolls without a scroll bar over the durations
+    const bar = await t.page.$eval("#tracks", (e) => {
+      e.style.maxHeight = "80px";
+      e.style.overflowY = "auto";
+      const r = { scrolls: e.scrollHeight > e.clientHeight, bar: e.offsetWidth - e.clientWidth };
+      e.style.maxHeight = e.style.overflowY = "";
+      return r;
+    });
+    ok(bar.scrolls && bar.bar === 0, `track list scrolls without a scroll bar: ${JSON.stringify(bar)}`);
+    await t.page.click("#close");
+    ok(
+      await t.page.evaluate(() => getComputedStyle(document.documentElement).overflow !== "hidden"),
+      "page scrolls again",
+    );
+  },
+  { mouse: true },
+);
 
 test(
   "POP-21 cover in full screen: click or Enter on the loaded cover, no new request, closes back to the popup",
@@ -3246,7 +3276,7 @@ test(
     );
     eq(t.cmds(/seek=/), [], "no seek request");
   },
-  { ...R, needs: ["library"] },
+  { ...R, needs: ["library"], mouse: true },
 );
 
 test(
@@ -3270,7 +3300,7 @@ test(
       .split("=")[1];
     ok(last <= total - 1, `limited to the end (${last})`);
   },
-  { ...W, needs: ["library"] },
+  { ...W, needs: ["library"], desktop: true },
 );
 
 test(
@@ -3649,7 +3679,7 @@ test(
     await t.page.click("#fclose");
     ok(!(await t.page.isVisible("#full")), "closed by the close button");
   },
-  { ...R, needs: ["library"] },
+  { ...R, needs: ["library"], mouse: true },
 );
 
 test(
@@ -3829,7 +3859,7 @@ test(
         "grid moves aside",
       );
   },
-  { ...R, needs: ["queue"] },
+  { ...R, needs: ["queue"], desktop: true },
 );
 
 test(
@@ -3917,7 +3947,7 @@ test(
     await t.settle();
     ok(t.player.state.commands.includes("/Delete?id=" + TD.QUEUE[1].id), "/Delete?id= sent");
   },
-  { ...W, needs: ["queue"] },
+  { ...W, needs: ["queue"], mouse: true },
 );
 
 test(
@@ -4291,7 +4321,7 @@ test(
     await t.settle(3000);
     eq(loads() - n, 1, "queue reloaded once (new playlist id, or after 1.5 s when it stays)");
   },
-  { ...W, needs: ["playlist"] },
+  { ...W, needs: ["playlist"], desktop: true },
 );
 
 test(
@@ -4750,7 +4780,7 @@ test(
       "stored",
     );
   },
-  R,
+  { ...R, desktop: true },
 );
 
 test(
@@ -5146,7 +5176,7 @@ test(
     eq((await t.tiles()).length, TD.FAV.length, "tiles stay");
     ok(!(await t.page.$eval("#apidlg", (e) => e.open)), "no error popup");
   },
-  { overrides: [{ match: /^\/Artwork/, status: 404, type: "text/plain" }] },
+  { overrides: [{ match: /^\/Artwork/, status: 404, type: "text/plain" }], desktop: true },
 );
 
 test(
@@ -5463,7 +5493,7 @@ const NEEDS = {
 };
 async function runIn(key, list, real) {
   const { label } = BROWSERS[key];
-  console.log(`\n${label} · ${VP_ARG}` + (JOBS > 1 ? ` · ${JOBS} tests at a time` : ""));
+  console.log(`\n${label} · ${VP_LABEL}` + (JOBS > 1 ? ` · ${JOBS} tests at a time` : ""));
   let browser;
   try {
     browser = await BROWSERS[key].launch();
@@ -5475,7 +5505,10 @@ async function runIn(key, list, real) {
     fail = 0,
     skip = 0;
   const runTest = async (tc) => {
-    const missing = REAL && (tc.opts.needs || []).map((n) => NEEDS[n]).find((n) => !n.ok());
+    const missing =
+      (DEVICE && tc.opts.mouse && { why: "needs a mouse (hover, wheel)" }) ||
+      (DEVICE && tc.opts.desktop && { why: "checks the desktop layout" }) ||
+      (REAL && (tc.opts.needs || []).map((n) => NEEDS[n]).find((n) => !n.ok()));
     if (missing) {
       skip++;
       console.log(`  - ${tc.name} (skipped: ${missing.why})`);
@@ -5518,29 +5551,27 @@ async function runIn(key, list, real) {
   return { label, pass, fail, skip };
 }
 
-// The local core tests: tests whose name starts with a case the test plan marks "local". Exits when the plan
-// breaks a limit, or when a test or a local mark has no counterpart.
+// The local tests: tests whose name starts with a case that test-cases.md marks "local". Exits when the file
+// breaks the limit, or when a test or a local mark has no counterpart.
 function localTests() {
-  const rows = fs.readFileSync(PLAN, "utf8").matchAll(/^\| ([A-Z]{3}-\d+) \|.*\| (local|yes|–) \|\r?$/gm);
+  const rows = fs.readFileSync(PLAN, "utf8").matchAll(/^\| ([A-Z]{3}-\d+) \|.*\| (local|–) \|\r?$/gm);
   const marks = new Map([...rows].map((m) => [m[1], m[2]]));
   const first = (x) => x.name.split(" ")[0];
   const cases = tests.filter((x) => /^[A-Z]{3}-\d+$/.test(first(x))); // not the screenshots of --shots
   const local = cases.filter((x) => marks.get(first(x)) === "local");
-  const core = [...marks.values()].filter((v) => v !== "–").length;
   const problems = [];
-  if (core > CORE_MAX) problems.push(`${core} core cases, at most ${CORE_MAX}`);
   if (local.length > LOCAL_MAX) problems.push(`${local.length} local tests, at most ${LOCAL_MAX}`);
-  for (const x of cases) if (!marks.has(first(x))) problems.push(`no Core mark for ${first(x)}`);
+  for (const x of cases) if (!marks.has(first(x))) problems.push(`no Local mark for ${first(x)}`);
   for (const [id, v] of marks)
     if (v === "local" && !local.some((x) => first(x) === id)) problems.push(`no test starts with ${id}, marked local`);
   if (problems.length) {
-    console.error("Test plan (column Core): " + problems.join("; "));
+    console.error("test-cases.md (column Local): " + problems.join("; "));
     process.exit(2);
   }
   return new Set(local);
 }
 
-// --list: names of the tests, whether they run against the real player and whether they are local core tests
+// --list: names of the tests, whether they run against the real player and whether they are local tests
 if (process.argv.includes("--list")) {
   const local = localTests();
   for (const x of tests)
@@ -5549,9 +5580,9 @@ if (process.argv.includes("--list")) {
 }
 
 (async () => {
-  // Without --all, --only and --player: the local core tests (and the screenshots of --shots)
+  // Without --all, --only and --player: the local tests (and the screenshots of --shots)
   const local = ALL || ONLY || REAL ? null : localTests();
-  if (local) console.log(`${local.size} local core tests of ${tests.length} tests (all: --all)`);
+  if (local) console.log(`${local.size} local tests of ${tests.length} tests (all: --all)`);
   const src = REAL ? createRecorder(BASE) : createPlayer();
   if (REAL) {
     console.log(`Real player ${IP}: ${WRITE ? "read and write tests" : "read-only tests"}; reading the test data …`);
@@ -5596,7 +5627,7 @@ if (process.argv.includes("--list")) {
   }
   console.log("");
   for (const r of results)
-    console.log(`${r.label} · ${VP_ARG}: ${r.pass} passed, ${r.fail} failed` + (r.skip ? `, ${r.skip} skipped` : ""));
+    console.log(`${r.label} · ${VP_LABEL}: ${r.pass} passed, ${r.fail} failed` + (r.skip ? `, ${r.skip} skipped` : ""));
   const took = Math.round((Date.now() - began) / 1000);
   console.log(`Run time: ${Math.floor(took / 60)}:${String(took % 60).padStart(2, "0")} min`);
   process.exit(results.some((r) => r.fail) ? 1 : 0);

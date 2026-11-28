@@ -242,7 +242,7 @@ function createPlayer(opts = {}) {
               .replace(/(CM\/LocalMusic-Playlist\?)/, "$1isFavourite=1&amp;");
           });
     if (/MG\/LocalMusic-Playlist\?/.test(key)) return fx("30");
-    // Context menu of a library playlist (API test W38): the recorded one, with the favourite state of the key's
+    // Context menu of a library playlist (API test P23): the recorded one, with the favourite state of the key's
     // isFavourite flag
     if (/CM\/LocalMusic-Playlist\?/.test(key)) {
       const menu = (fx("29").match(/<contextMenu>([\s\S]*?)<\/contextMenu>/) || [])[1] || "";
@@ -388,11 +388,11 @@ function createPlayer(opts = {}) {
         : '<status etag="idle"><state>stop</state><syncStat>' +
           state.syncStat +
           "</syncStat><volume>19</volume></status>";
-      // <mid> is the library version, also when nothing plays (API tests W39, M41)
+      // <mid> is the library version, also when nothing plays (API tests P24, M41)
       x = /<mid>/.test(x)
         ? x.replace(/<mid>\d*<\/mid>/, `<mid>${state.libId}</mid>`)
         : x.replace("</status>", `<mid>${state.libId}</mid></status>`);
-      // After /Move the playing entry is at its new position, like the real player (API tests W34–W37)
+      // After /Move the playing entry is at its new position, like the real player (API tests P19–P22)
       if (state.queueOrder)
         x = x.replace(/<song>(\d+)<\/song>/, (m, s) => `<song>${state.queueOrder.indexOf(s)}</song>`);
       for (const [tag, v] of Object.entries(state.statusPatch)) {
@@ -439,7 +439,7 @@ function createPlayer(opts = {}) {
       return "<repeat>" + state.repeat + "</repeat>";
     }
     if (p === "/Save") return "<saved><entries>12</entries></saved>";
-    // Moving a queue entry: like the real player (API tests W34–W37) the entry is taken out of the queue and
+    // Moving a queue entry: like the real player (API tests P19–P22) the entry is taken out of the queue and
     // inserted at position `new`
     if (p === "/Move") {
       const ids = state.queueOrder || [...fx("20").matchAll(/<song [^>]*id="(\d+)">/g)].map((m) => m[1]);

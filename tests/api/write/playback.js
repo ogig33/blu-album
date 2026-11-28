@@ -165,6 +165,20 @@ request("W08 Status is stopped", {
 
 request("W09 Next preset", {
   url: `http://${env.host}:11000/Preset?id=+1`,
+  async pre(req) {
+    // Skipped without a preset (W10 and W11 as well)
+    const p = await http.get("http://" + env.host + ":11000/Presets", {
+      responseType: "text",
+      transformResponse: (x) => x,
+      validateStatus: () => true,
+      timeout: 10000,
+    });
+    vars.vrPreset = /<preset\b/.test(String(p.data || "")) ? "1" : "";
+    if (!vars.vrPreset) {
+      console.log("No preset – W09–W11 skipped");
+      req.skip();
+    }
+  },
   async post(req, res) {
     const body = String(res.body || "");
 
@@ -182,7 +196,12 @@ request("W09 Next preset", {
 
 request("W10 Status of the preset", {
   url: `http://${env.host}:11000/Status`,
-  async pre() {
+  async pre(req) {
+    if (!vars.vrPreset) {
+      vars.vrSkipUrl = "";
+      req.skip();
+      return;
+    }
     const H = "http://" + env.host + ":11000";
     // A radio stream may stay "connecting" for several seconds: wait until it plays (at most 20 s)
     for (let i = 0; i < 20; i++) {

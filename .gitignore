@@ -6,6 +6,8 @@
 /tests/api/fixtures/
 # Website assembled by .github/workflows/pages.yml
 _site/
+# Local CodeQL databases and results (README "Development")
+/.github/lint/codeql/
 # Node / Playwright
 node_modules/
 test-results/

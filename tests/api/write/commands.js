@@ -42,8 +42,7 @@ request("C02 Remember queue", {
 
     test("HTTP 200", () => expect(res.status).to.equal(200));
 
-    test("queue is not empty (play an album first)", () =>
-      expect(+attr(tags("playlist")[0] || "", "length")).to.be.above(0));
+    test("queue is not empty", () => expect(+attr(tags("playlist")[0] || "", "length")).to.be.above(0));
   },
 });
 

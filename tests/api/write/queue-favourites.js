@@ -2,7 +2,7 @@
 
 const { request, env, vars, http, save, dec, attr, expect } = require("../lib/player");
 
-request("W16 Remember state and save the queue", {
+request("P01 Remember state and save the queue", {
   url: `http://${env.host}:11000/Save?name=__bluos_verify_add__`,
   async pre(req) {
     const H = "http://" + env.host + ":11000";
@@ -20,8 +20,8 @@ request("W16 Remember state and save the queue", {
       );
     const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
 
-    // Start of W16–W29: autoplayURLs with category / composer / offset and a song favourite (fn=).
-    // The queue is saved as playlist __bluos_verify_add__ and restored by W27–W29.
+    // Start of P01–P14: autoplayURLs with category / composer / offset and a song favourite (fn=).
+    // The queue is saved as playlist __bluos_verify_add__ and restored by P12–P14.
     const s = await get("/Status");
     const v = (t) => {
       const m = s.match(new RegExp("<" + t + ">([^<]*)</" + t + ">"));
@@ -34,7 +34,7 @@ request("W16 Remember state and save the queue", {
     vars.vaLength = len;
     vars.vaExpect = "";
     if (/<streamUrl>/.test(s) || len === "0") {
-      console.log("Not playing from a queue (or the queue is empty) – W16–W29 skipped");
+      console.log("Not playing from a queue (or the queue is empty) – P01–P14 skipped");
       vars.vaSkip = "1";
       req.skip();
       return;
@@ -50,124 +50,7 @@ request("W16 Remember state and save the queue", {
   },
 });
 
-request("W17 Play the favourite songs (category=FAVOURITES)", {
-  url: `http://${env.host}:11000/Add`,
-  async pre(req) {
-    if (vars.vaSkip === "1") {
-      req.skip();
-      return;
-    }
-    const H = "http://" + env.host + ":11000";
-    const get = async (p) =>
-      String(
-        (
-          await http.get(H + p, {
-            responseType: "text",
-            transformResponse: (x) => x,
-            validateStatus: () => true,
-            timeout: 15000,
-            headers: { "Accept-Language": "en" },
-          })
-        ).data || "",
-      );
-    const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
-    const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
-
-    // Library menu -> Favourites -> Songs; autoplayURL of the first song
-    vars.vaExpect = "";
-    const keys = (xml) =>
-      tagsOf(xml, "item")
-        .map((t) => attr(t, "browseKey"))
-        .filter(Boolean);
-    const favKey = keys(await browse("LocalMusic:")).find((k) => /Favourites/.test(k));
-    const songsKey = favKey ? keys(await browse(favKey)).find((k) => /^LocalMusic:Song\//.test(k)) : "";
-    vars.vaFavSongsKey = songsKey || "";
-    const item = songsKey
-      ? tagsOf(await browse(songsKey), "item").find((t) => /category=FAVOURITES/.test(attr(t, "autoplayURL")))
-      : "";
-    if (!item) {
-      console.log("No favourite songs (or no category=FAVOURITES in autoplayURL) – skipped");
-      req.skip();
-      return;
-    }
-    vars.vaExpect = attr(item, "text");
-    req.url = H + attr(item, "autoplayURL");
-  },
-  async post(req, res) {
-    const body = String(res.body || "");
-    // Stores the answer in fixtures/
-    save("verify-add-category-favourites.xml", "<!-- " + req.url.replace(/^https?:\/\/[^/]+/, "") + " -->\n" + body);
-    console.log(req.url + "\n" + body);
-  },
-  async tests(req, res, test) {
-    const body = String(res.body || "");
-
-    test("HTTP 200", () => expect(res.status).to.equal(200));
-    test("answer <playlist>, no error", () => expect(/<playlist\b/.test(body) && !/<error/.test(body)).to.equal(true));
-  },
-});
-
-request("W18 Status plays the favourite song", {
-  url: `http://${env.host}:11000/Status`,
-  async pre(req) {
-    if (vars.vaSkip === "1") {
-      req.skip();
-      return;
-    }
-    if (!vars.vaExpect) {
-      req.skip();
-      return;
-    }
-    await new Promise((r) => setTimeout(r, 2000)); // give the player time to start the song
-  },
-  async post(req, res) {
-    const H = "http://" + env.host + ":11000";
-    const get = async (p) =>
-      String(
-        (
-          await http.get(H + p, {
-            responseType: "text",
-            transformResponse: (x) => x,
-            validateStatus: () => true,
-            timeout: 15000,
-            headers: { "Accept-Language": "en" },
-          })
-        ).data || "",
-      );
-    const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
-
-    const body = String(res.body || "");
-    const val = (t) => {
-      const m = body.match(new RegExp("<" + t + ">([^<]*)</" + t + ">"));
-      return m ? dec(m[1]) : "";
-    };
-    const q = await get("/Playlist?start=0&end=0");
-    const len = attr(tagsOf(q, "playlist")[0] || "", "length");
-    console.log(
-      "category=FAVOURITES: plays '" +
-        val("title1") +
-        "' (expected '" +
-        vars.vaExpect +
-        "'), queue entry " +
-        val("song") +
-        " of " +
-        len +
-        " (before the test: " +
-        vars.vaLength +
-        " entries)",
-    );
-    vars.vaTitle = val("title1");
-  },
-  async tests(req, res, test) {
-    const body = String(res.body || "");
-
-    test("HTTP 200", () => expect(res.status).to.equal(200));
-    test("plays the song of the autoplayURL", () => expect(vars.vaTitle).to.equal(vars.vaExpect));
-    test("plays from the queue (no streamUrl)", () => expect(/<streamUrl>/.test(body)).to.equal(false));
-  },
-});
-
-request("W19 Play the songs of a composer (composer=)", {
+request("P02 Play the songs of a composer (composer=)", {
   url: `http://${env.host}:11000/Add`,
   async pre(req) {
     if (vars.vaSkip === "1") {
@@ -234,7 +117,7 @@ request("W19 Play the songs of a composer (composer=)", {
   },
 });
 
-request("W20 Status plays the composer song", {
+request("P03 Status plays the composer song", {
   url: `http://${env.host}:11000/Status`,
   async pre(req) {
     if (vars.vaSkip === "1") {
@@ -294,123 +177,7 @@ request("W20 Status plays the composer song", {
   },
 });
 
-request("W21 Play the test playlist from its second page (offset=)", {
-  url: `http://${env.host}:11000/Add`,
-  async pre(req) {
-    if (vars.vaSkip === "1") {
-      req.skip();
-      return;
-    }
-    const H = "http://" + env.host + ":11000";
-    const get = async (p) =>
-      String(
-        (
-          await http.get(H + p, {
-            responseType: "text",
-            transformResponse: (x) => x,
-            validateStatus: () => true,
-            timeout: 15000,
-            headers: { "Accept-Language": "en" },
-          })
-        ).data || "",
-      );
-    const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
-    const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
-
-    // Saved playlist __bluos_verify_add__ (W16) -> second page (nextKey) -> autoplayURL of its first song
-    vars.vaExpect = "";
-    const pl = tagsOf(await browse("BluOS:"), "item").find((t) => attr(t, "text") === "__bluos_verify_add__");
-    const first = pl ? await browse(attr(pl, "browseKey")) : "";
-    const next = attr(tagsOf(first, "browse")[0] || "", "nextKey");
-    if (!next) {
-      console.log("The queue has no second page (10 entries or fewer) – skipped");
-      req.skip();
-      return;
-    }
-    const item = tagsOf(await browse(next), "item").find((t) => /offset=/.test(attr(t, "autoplayURL")));
-    if (!item) {
-      console.log("No offset= in the autoplayURL of the second page – skipped");
-      req.skip();
-      return;
-    }
-    vars.vaExpect = attr(item, "text");
-    req.url = H + attr(item, "autoplayURL");
-  },
-  async post(req, res) {
-    const body = String(res.body || "");
-    // Stores the answer in fixtures/
-    save("verify-add-offset.xml", "<!-- " + req.url.replace(/^https?:\/\/[^/]+/, "") + " -->\n" + body);
-    console.log(req.url + "\n" + body);
-  },
-  async tests(req, res, test) {
-    const body = String(res.body || "");
-
-    test("HTTP 200", () => expect(res.status).to.equal(200));
-    test("answer <playlist>, no error", () => expect(/<playlist\b/.test(body) && !/<error/.test(body)).to.equal(true));
-  },
-});
-
-request("W22 Status plays the song of the second page", {
-  url: `http://${env.host}:11000/Status`,
-  async pre(req) {
-    if (vars.vaSkip === "1") {
-      req.skip();
-      return;
-    }
-    if (!vars.vaExpect) {
-      req.skip();
-      return;
-    }
-    await new Promise((r) => setTimeout(r, 2000)); // give the player time to start the song
-  },
-  async post(req, res) {
-    const H = "http://" + env.host + ":11000";
-    const get = async (p) =>
-      String(
-        (
-          await http.get(H + p, {
-            responseType: "text",
-            transformResponse: (x) => x,
-            validateStatus: () => true,
-            timeout: 15000,
-            headers: { "Accept-Language": "en" },
-          })
-        ).data || "",
-      );
-    const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
-
-    const body = String(res.body || "");
-    const val = (t) => {
-      const m = body.match(new RegExp("<" + t + ">([^<]*)</" + t + ">"));
-      return m ? dec(m[1]) : "";
-    };
-    const q = await get("/Playlist?start=0&end=0");
-    const len = attr(tagsOf(q, "playlist")[0] || "", "length");
-    console.log(
-      "offset=: plays '" +
-        val("title1") +
-        "' (expected '" +
-        vars.vaExpect +
-        "'), queue entry " +
-        val("song") +
-        " of " +
-        len +
-        " (before the test: " +
-        vars.vaLength +
-        " entries)",
-    );
-    vars.vaTitle = val("title1");
-  },
-  async tests(req, res, test) {
-    const body = String(res.body || "");
-
-    test("HTTP 200", () => expect(res.status).to.equal(200));
-    test("plays the song of the autoplayURL", () => expect(vars.vaTitle).to.equal(vars.vaExpect));
-    test("plays from the queue (no streamUrl)", () => expect(/<streamUrl>/.test(body)).to.equal(false));
-  },
-});
-
-request("W23 Favourite a song (AddFavourite fn=)", {
+request("P04 Favourite a song (AddFavourite fn=)", {
   url: `http://${env.host}:11000/AddFavourite`,
   async pre(req) {
     if (vars.vaSkip === "1") {
@@ -472,7 +239,124 @@ request("W23 Favourite a song (AddFavourite fn=)", {
   },
 });
 
-request("W24 Favourite songs contain the song", {
+request("P05 Play the favourite songs (category=FAVOURITES)", {
+  url: `http://${env.host}:11000/Add`,
+  async pre(req) {
+    if (vars.vaSkip === "1") {
+      req.skip();
+      return;
+    }
+    const H = "http://" + env.host + ":11000";
+    const get = async (p) =>
+      String(
+        (
+          await http.get(H + p, {
+            responseType: "text",
+            transformResponse: (x) => x,
+            validateStatus: () => true,
+            timeout: 15000,
+            headers: { "Accept-Language": "en" },
+          })
+        ).data || "",
+      );
+    const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+    const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
+
+    // Library menu -> Favourites -> Songs; autoplayURL of the first song
+    vars.vaExpect = "";
+    const keys = (xml) =>
+      tagsOf(xml, "item")
+        .map((t) => attr(t, "browseKey"))
+        .filter(Boolean);
+    const favKey = keys(await browse("LocalMusic:")).find((k) => /Favourites/.test(k));
+    const songsKey = favKey ? keys(await browse(favKey)).find((k) => /^LocalMusic:Song\//.test(k)) : "";
+    vars.vaFavSongsKey = songsKey || "";
+    const item = songsKey
+      ? tagsOf(await browse(songsKey), "item").find((t) => /category=FAVOURITES/.test(attr(t, "autoplayURL")))
+      : "";
+    if (!item) {
+      console.log("No favourite songs (or no category=FAVOURITES in autoplayURL) – skipped");
+      req.skip();
+      return;
+    }
+    vars.vaExpect = attr(item, "text");
+    req.url = H + attr(item, "autoplayURL");
+  },
+  async post(req, res) {
+    const body = String(res.body || "");
+    // Stores the answer in fixtures/
+    save("verify-add-category-favourites.xml", "<!-- " + req.url.replace(/^https?:\/\/[^/]+/, "") + " -->\n" + body);
+    console.log(req.url + "\n" + body);
+  },
+  async tests(req, res, test) {
+    const body = String(res.body || "");
+
+    test("HTTP 200", () => expect(res.status).to.equal(200));
+    test("answer <playlist>, no error", () => expect(/<playlist\b/.test(body) && !/<error/.test(body)).to.equal(true));
+  },
+});
+
+request("P06 Status plays the favourite song", {
+  url: `http://${env.host}:11000/Status`,
+  async pre(req) {
+    if (vars.vaSkip === "1") {
+      req.skip();
+      return;
+    }
+    if (!vars.vaExpect) {
+      req.skip();
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 2000)); // give the player time to start the song
+  },
+  async post(req, res) {
+    const H = "http://" + env.host + ":11000";
+    const get = async (p) =>
+      String(
+        (
+          await http.get(H + p, {
+            responseType: "text",
+            transformResponse: (x) => x,
+            validateStatus: () => true,
+            timeout: 15000,
+            headers: { "Accept-Language": "en" },
+          })
+        ).data || "",
+      );
+    const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+
+    const body = String(res.body || "");
+    const val = (t) => {
+      const m = body.match(new RegExp("<" + t + ">([^<]*)</" + t + ">"));
+      return m ? dec(m[1]) : "";
+    };
+    const q = await get("/Playlist?start=0&end=0");
+    const len = attr(tagsOf(q, "playlist")[0] || "", "length");
+    console.log(
+      "category=FAVOURITES: plays '" +
+        val("title1") +
+        "' (expected '" +
+        vars.vaExpect +
+        "'), queue entry " +
+        val("song") +
+        " of " +
+        len +
+        " (before the test: " +
+        vars.vaLength +
+        " entries)",
+    );
+    vars.vaTitle = val("title1");
+  },
+  async tests(req, res, test) {
+    const body = String(res.body || "");
+
+    test("HTTP 200", () => expect(res.status).to.equal(200));
+    test("plays the song of the autoplayURL", () => expect(vars.vaTitle).to.equal(vars.vaExpect));
+    test("plays from the queue (no streamUrl)", () => expect(/<streamUrl>/.test(body)).to.equal(false));
+  },
+});
+
+request("P07 Favourite songs contain the song", {
   url: `http://${env.host}:11000/Browse`,
   async pre(req) {
     if (vars.vaSkip === "1") {
@@ -523,7 +407,7 @@ request("W24 Favourite songs contain the song", {
   },
 });
 
-request("W25 Remove the song favourite (DeleteFavourite fn=)", {
+request("P08 Remove the song favourite (DeleteFavourite fn=)", {
   url: `http://${env.host}:11000/DeleteFavourite`,
   async pre(req) {
     if (vars.vaSkip === "1") {
@@ -551,7 +435,7 @@ request("W25 Remove the song favourite (DeleteFavourite fn=)", {
   },
 });
 
-request("W26 Favourite songs no longer contain the song", {
+request("P09 Favourite songs no longer contain the song", {
   url: `http://${env.host}:11000/Browse`,
   async pre(req) {
     if (vars.vaSkip === "1") {
@@ -581,7 +465,123 @@ request("W26 Favourite songs no longer contain the song", {
   },
 });
 
-request("W27 Load the saved queue", {
+request("P10 Play the test playlist from its second page (offset=)", {
+  url: `http://${env.host}:11000/Add`,
+  async pre(req) {
+    if (vars.vaSkip === "1") {
+      req.skip();
+      return;
+    }
+    const H = "http://" + env.host + ":11000";
+    const get = async (p) =>
+      String(
+        (
+          await http.get(H + p, {
+            responseType: "text",
+            transformResponse: (x) => x,
+            validateStatus: () => true,
+            timeout: 15000,
+            headers: { "Accept-Language": "en" },
+          })
+        ).data || "",
+      );
+    const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+    const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
+
+    // Saved playlist __bluos_verify_add__ (P01) -> second page (nextKey) -> autoplayURL of its first song
+    vars.vaExpect = "";
+    const pl = tagsOf(await browse("BluOS:"), "item").find((t) => attr(t, "text") === "__bluos_verify_add__");
+    const first = pl ? await browse(attr(pl, "browseKey")) : "";
+    const next = attr(tagsOf(first, "browse")[0] || "", "nextKey");
+    if (!next) {
+      console.log("The queue has no second page (10 entries or fewer) – skipped");
+      req.skip();
+      return;
+    }
+    const item = tagsOf(await browse(next), "item").find((t) => /offset=/.test(attr(t, "autoplayURL")));
+    if (!item) {
+      console.log("No offset= in the autoplayURL of the second page – skipped");
+      req.skip();
+      return;
+    }
+    vars.vaExpect = attr(item, "text");
+    req.url = H + attr(item, "autoplayURL");
+  },
+  async post(req, res) {
+    const body = String(res.body || "");
+    // Stores the answer in fixtures/
+    save("verify-add-offset.xml", "<!-- " + req.url.replace(/^https?:\/\/[^/]+/, "") + " -->\n" + body);
+    console.log(req.url + "\n" + body);
+  },
+  async tests(req, res, test) {
+    const body = String(res.body || "");
+
+    test("HTTP 200", () => expect(res.status).to.equal(200));
+    test("answer <playlist>, no error", () => expect(/<playlist\b/.test(body) && !/<error/.test(body)).to.equal(true));
+  },
+});
+
+request("P11 Status plays the song of the second page", {
+  url: `http://${env.host}:11000/Status`,
+  async pre(req) {
+    if (vars.vaSkip === "1") {
+      req.skip();
+      return;
+    }
+    if (!vars.vaExpect) {
+      req.skip();
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 2000)); // give the player time to start the song
+  },
+  async post(req, res) {
+    const H = "http://" + env.host + ":11000";
+    const get = async (p) =>
+      String(
+        (
+          await http.get(H + p, {
+            responseType: "text",
+            transformResponse: (x) => x,
+            validateStatus: () => true,
+            timeout: 15000,
+            headers: { "Accept-Language": "en" },
+          })
+        ).data || "",
+      );
+    const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
+
+    const body = String(res.body || "");
+    const val = (t) => {
+      const m = body.match(new RegExp("<" + t + ">([^<]*)</" + t + ">"));
+      return m ? dec(m[1]) : "";
+    };
+    const q = await get("/Playlist?start=0&end=0");
+    const len = attr(tagsOf(q, "playlist")[0] || "", "length");
+    console.log(
+      "offset=: plays '" +
+        val("title1") +
+        "' (expected '" +
+        vars.vaExpect +
+        "'), queue entry " +
+        val("song") +
+        " of " +
+        len +
+        " (before the test: " +
+        vars.vaLength +
+        " entries)",
+    );
+    vars.vaTitle = val("title1");
+  },
+  async tests(req, res, test) {
+    const body = String(res.body || "");
+
+    test("HTTP 200", () => expect(res.status).to.equal(200));
+    test("plays the song of the autoplayURL", () => expect(vars.vaTitle).to.equal(vars.vaExpect));
+    test("plays from the queue (no streamUrl)", () => expect(/<streamUrl>/.test(body)).to.equal(false));
+  },
+});
+
+request("P12 Load the saved queue", {
   url: `http://${env.host}:11000/Load?service=BluOS&name=__bluos_verify_add__`,
   async pre(req) {
     if (vars.vaSkip === "1") {
@@ -597,7 +597,7 @@ request("W27 Load the saved queue", {
   },
 });
 
-request("W28 Back to the former position", {
+request("P13 Back to the former position", {
   url: `http://${env.host}:11000/Play`,
   async pre(req) {
     if (vars.vaSkip === "1") {
@@ -622,7 +622,7 @@ request("W28 Back to the former position", {
         ).data || "",
       );
 
-    // Pause again if the player was not playing before W16
+    // Pause again if the player was not playing before P01
     if (!["play", "stream"].includes(vars.vaState)) {
       await new Promise((r) => setTimeout(r, 1500));
       await get("/Pause");
@@ -636,7 +636,7 @@ request("W28 Back to the former position", {
   },
 });
 
-request("W29 Delete the saved queue playlist", {
+request("P14 Delete the saved queue playlist", {
   url: `http://${env.host}:11000/Delete?service=BluOS&name=__bluos_verify_add__`,
   async pre(req) {
     if (vars.vaSkip === "1") {
@@ -660,12 +660,18 @@ request("W29 Delete the saved queue playlist", {
       );
     const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
 
-    await new Promise((r) => setTimeout(r, 1000));
-    const s = await get("/Status");
+    // The player needs a moment until it plays (or pauses) again: up to 10 s
+    const playing = (x) => ["play", "stream"].includes(x);
+    let s = "";
     const v = (t) => {
       const m = s.match(new RegExp("<" + t + ">([^<]*)</" + t + ">"));
       return m ? m[1] : "";
     };
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 1000));
+      s = await get("/Status");
+      if (v("song") === vars.vaSong && playing(v("state")) === playing(vars.vaState)) break;
+    }
     vars.vaLengthNow = attr(tagsOf(await get("/Playlist?start=0&end=0"), "playlist")[0] || "", "length");
     vars.vaSongNow = v("song");
     vars.vaStateNow = v("state");
@@ -678,13 +684,14 @@ request("W29 Delete the saved queue playlist", {
     const playing = (s) => ["play", "stream"].includes(s);
     test("accepted", () => expect(/<error/i.test(body)).to.equal(false));
     test("test playlist is gone", () => expect(vars.vaPlaylistsNow).to.equal(""));
-    test("queue length as before W16", () => expect(vars.vaLengthNow).to.equal(vars.vaLength));
-    test("queue position as before W16", () => expect(vars.vaSongNow).to.equal(vars.vaSong));
-    test("playing / paused as before W16", () => expect(playing(vars.vaStateNow)).to.equal(playing(vars.vaState)));
+    test("queue length as before P01", () => expect(vars.vaLengthNow).to.equal(vars.vaLength));
+    test("queue position as before P01", () => expect(vars.vaSongNow).to.equal(vars.vaSong));
+    test(`playing / paused as before P01 (${vars.vaState} → ${vars.vaStateNow})`, () =>
+      expect(playing(vars.vaStateNow)).to.equal(playing(vars.vaState)));
   },
 });
 
-request("W30 Favourite an artist (AddFavourite artist=)", {
+request("P15 Favourite an artist (AddFavourite artist=)", {
   url: `http://${env.host}:11000/AddFavourite`,
   async pre(req) {
     const H = "http://" + env.host + ":11000";
@@ -703,7 +710,7 @@ request("W30 Favourite an artist (AddFavourite artist=)", {
     const tagsOf = (xml, name) => xml.match(new RegExp("<" + name + "\\b[^>]*>", "g")) || [];
     const browse = (key) => get("/Browse?key=" + encodeURIComponent(key));
     // First artist of the library that is no favourite; its context menu gives /AddFavourite?artist=…
-    // (W30–W33 change no queue and run without W16)
+    // (P15–P18 change no queue and run without P01)
     vars.vfArtist = "";
     const keys = (xml) =>
       tagsOf(xml, "item")
@@ -752,7 +759,7 @@ request("W30 Favourite an artist (AddFavourite artist=)", {
   },
 });
 
-request("W31 Favourite artists contain the artist", {
+request("P16 Favourite artists contain the artist", {
   url: `http://${env.host}:11000/Browse`,
   async pre(req) {
     if (!vars.vfArtist || !vars.vfFavArtistsKey) {
@@ -797,7 +804,7 @@ request("W31 Favourite artists contain the artist", {
   },
 });
 
-request("W32 Remove the artist favourite (DeleteFavourite artist=)", {
+request("P17 Remove the artist favourite (DeleteFavourite artist=)", {
   url: `http://${env.host}:11000/DeleteFavourite`,
   async pre(req) {
     if (!vars.vfUnfavUrl) {
@@ -820,7 +827,7 @@ request("W32 Remove the artist favourite (DeleteFavourite artist=)", {
   },
 });
 
-request("W33 Favourite artists no longer contain the artist", {
+request("P18 Favourite artists no longer contain the artist", {
   url: `http://${env.host}:11000/Browse`,
   async pre(req) {
     if (!vars.vfArtist || !vars.vfFavArtistsKey) {
@@ -845,7 +852,7 @@ request("W33 Favourite artists no longer contain the artist", {
   },
 });
 
-request("W34 Move entry 0 to position 3", {
+request("P19 Move entry 0 to position 3", {
   url: `http://${env.host}:11000/Move?new=3&old=0`,
   async pre(req) {
     const H = "http://" + env.host + ":11000";
@@ -864,7 +871,7 @@ request("W34 Move entry 0 to position 3", {
     // Queue entries in order: the content of every <song> without its id (same song = same text)
     const songs = (xml) =>
       [...xml.matchAll(/<song [^>]*>([\s\S]*?)<\/song>/g)].map((m) => dec(m[1]).replace(/\s+/g, " ").trim());
-    // Queue before the move (W34–W37 change only the order and restore it; independent of W16)
+    // Queue before the move (P19–P22 change only the order and restore it; independent of P01)
     const xml = await get("/Playlist?start=0&end=199");
     const list = songs(xml);
     vars.vmOrder = "";
@@ -885,7 +892,7 @@ request("W34 Move entry 0 to position 3", {
   },
 });
 
-request("W35 Queue order after the move", {
+request("P20 Queue order after the move", {
   url: `http://${env.host}:11000/Playlist?start=0&end=199`,
   async pre(req) {
     if (!vars.vmOrder) req.skip();
@@ -906,7 +913,7 @@ request("W35 Queue order after the move", {
   },
 });
 
-request("W36 Move entry 3 back to position 0", {
+request("P21 Move entry 3 back to position 0", {
   url: `http://${env.host}:11000/Move?new=0&old=3`,
   async pre(req) {
     if (!vars.vmOrder) req.skip();
@@ -920,7 +927,7 @@ request("W36 Move entry 3 back to position 0", {
   },
 });
 
-request("W37 Queue order restored", {
+request("P22 Queue order restored", {
   url: `http://${env.host}:11000/Playlist?start=0&end=199`,
   async pre(req) {
     if (!vars.vmOrder) req.skip();
@@ -931,11 +938,11 @@ request("W37 Queue order restored", {
     const songs = (xml) =>
       [...xml.matchAll(/<song [^>]*>([\s\S]*?)<\/song>/g)].map((m) => dec(m[1]).replace(/\s+/g, " ").trim());
     test("HTTP 200", () => expect(res.status).to.equal(200));
-    test("order as before W34", () => expect(songs(body)).to.deep.equal(JSON.parse(vars.vmOrder || "[]")));
+    test("order as before P19", () => expect(songs(body)).to.deep.equal(JSON.parse(vars.vmOrder || "[]")));
   },
 });
 
-request("W38 Favourite a library playlist and back (playlistid=)", {
+request("P23 Favourite a library playlist and back (playlistid=)", {
   url: `http://${env.host}:11000/library/v1/Playlists`,
   async pre(req) {
     const H = "http://" + env.host + ":11000";
@@ -957,7 +964,7 @@ request("W38 Favourite a library playlist and back (playlistid=)", {
       Object.fromEntries(tagsOf(await browse(key), "item").map((t) => [attr(t, "type"), attr(t, "actionURL")]));
     // Like the heart of the app: the first library playlist that is no favourite; /AddFavourite?playlistid= of its context
     // menu, the menu read again with &isFavourite=1 appended to the key (favourite-delete), /DeleteFavourite?playlistid=,
-    // the menu without the flag (favourite-add). Changes no queue, runs without W16; skipped without a library playlist.
+    // the menu without the flag (favourite-add). Changes no queue, runs without P01; skipped without a library playlist.
     const r = { skipped: true };
     vars.w38 = JSON.stringify(r);
     const plKey = tagsOf(await browse("LocalMusic:"), "item")
@@ -1010,7 +1017,7 @@ request("W38 Favourite a library playlist and back (playlistid=)", {
   },
 });
 
-request("W39 Library id in Status follows a favourite", {
+request("P24 Library id in Status follows a favourite", {
   url: `http://${env.host}:11000/Status`,
   async pre(req) {
     const H = "http://" + env.host + ":11000";
@@ -1043,7 +1050,7 @@ request("W39 Library id in Status follows a favourite", {
     // Is <mid> of /Status the library version (root id of the /library/v1 answers), and does the long poll answer when
     // it changes? Favourites the first library album that is no favourite with the /AddFavourite of its context menu and
     // removes it again with /DeleteFavourite (menu key with &isFavourite=1); each time a long poll with the etag from
-    // before is open. Changes no queue, runs without W16.
+    // before is open. Changes no queue, runs without P01.
     const r = { skipped: true };
     vars.w39 = JSON.stringify(r);
     const albKey = tagsOf(await browse("LocalMusic:"), "item")
