@@ -380,6 +380,26 @@ body.qdrag * {
 li.cur .qn {
   color: var(--acct);
 }
+/* Touch screens: the row number is the drag handle, above the play button and as high as the row; a swipe
+   elsewhere scrolls the list. A long press selects no text. */
+@media (any-pointer: coarse) {
+  #qlist li {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  #qlist .qn {
+    position: relative;
+    z-index: 1;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin: -8px 0 -8px -10px;
+    padding-left: 10px;
+    touch-action: none;
+  }
+}
 .qt {
   flex: 1;
   min-width: 0;
@@ -3578,12 +3598,13 @@ function moveEntry(from, to) {
   markCur(false);
   xml("/Move?new=" + to + "&old=" + from).then((d) => d || loadQueue());
 }
-// Drag and drop of a queue row with the mouse (pointer events, so it works on the buttons of the row in
-// every browser): the drag starts after 6 px; a line shows where the row lands, the list scrolls near its
-// top / bottom edge; on release moveEntry(). The remove button and the artist links do not start a drag.
+// Drag and drop of a queue row (pointer events, so it works on the buttons of the row in every browser): with
+// the mouse anywhere on the row, by touch only on the row number (the rest of the row scrolls the list); the
+// drag starts after 6 px; a line shows where the row lands, the list scrolls near its top / bottom edge; on
+// release moveEntry(). The remove button and the artist links do not start a drag.
 function qDrag(li) {
   li.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0 || e.target.closest(".rm, .al")) return;
+    if (e.button !== 0 || e.target.closest(".rm, .al") || (e.pointerType === "touch" && !e.target.closest(".qn"))) return;
     const ol = $("#qlist"), y0 = e.clientY, from = [...ol.children].indexOf(li);
     let on = false, y = y0, to = from, raf = 0;
     // Position after the drop: index among the other rows of the first row whose middle is below the pointer

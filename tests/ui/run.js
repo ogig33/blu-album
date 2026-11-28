@@ -508,7 +508,7 @@ function watchAsk() {
 // and the search areas Artist and Composer are switched on unless appDefaults or stored), appDefaults (true =
 // the app's own defaults: genre, quality and decade chips off, only the search area Album on), locale,
 // colorScheme, promptValue / dialog ("accept" | "dismiss") for the question popup, unreachable (every player
-// request fails), blockStorage (localStorage throws), and the mock options (usb, playing, listeningModes,
+// request fails), blockStorage (localStorage throws), touch (a touch screen: any-pointer: coarse), and the mock options (usb, playing, listeningModes,
 // statusPatch, overrides, mock).
 async function start(browser, opts = {}) {
   const player = REAL ? createRecorder(BASE) : createPlayer(opts);
@@ -518,6 +518,7 @@ async function start(browser, opts = {}) {
     viewport: { width: VIEWPORT.width, height: VIEWPORT.height },
     deviceScaleFactor: VIEWPORT.scale,
     ...(DEVICE && { userAgent: DEVICE.userAgent, isMobile: DEVICE.isMobile, hasTouch: true }),
+    ...(opts.touch && { hasTouch: true }),
     colorScheme: opts.colorScheme || "light",
     locale: opts.locale,
   });
@@ -3912,7 +3913,9 @@ test(
   "QUE-06 click on a queue entry plays it",
   async (t) => {
     await t.openQueue();
-    await t.page.click("#qlist li:nth-child(3) .it", { position: { x: 10, y: 10 } });
+    // On the title: on a touch screen the number is the drag handle
+    const b = await (await t.page.$("#qlist li:nth-child(3) .it")).boundingBox();
+    await t.page.click("#qlist li:nth-child(3) .it", { position: { x: b.width / 2, y: 10 } });
     await t.settle();
     ok(t.player.state.commands.includes("/Play?id=" + TD.QUEUE[2].id), "/Play?id= sent");
   },
@@ -4204,6 +4207,64 @@ test(
     eq(await t.page.getAttribute("#qlist li.cur", "data-id"), String(to), "at its new position");
   },
   { ...W, needs: ["library", "queue"] },
+);
+
+test(
+  "QUE-17 touch screen: the row number is the drag handle; elsewhere a touch scrolls and selects no text",
+  async (t) => {
+    await t.openQueue();
+    await qStill(t);
+    // The number lies above the play button of the row, takes the touch itself (no scrolling) and selects no text
+    eq(
+      await t.page.$eval("#qlist li:nth-child(1)", (li) => {
+        const n = li.querySelector(".qn"),
+          b = n.getBoundingClientRect();
+        return [
+          getComputedStyle(n).touchAction,
+          getComputedStyle(li).webkitUserSelect || getComputedStyle(li).userSelect,
+          document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2)?.closest(".qn") === n,
+        ];
+      }),
+      ["none", "none", true],
+      "number: touch-action none, row: no text selection, number above the play button",
+    );
+    // A touch drag: pointer events of type touch from the title (no drag) and from the number (drag)
+    const touchDrag = (from, sel, over) =>
+      t.page.evaluate(
+        ([from, sel, over]) => {
+          const rows = document.querySelectorAll("#qlist li"),
+            el = rows[from].querySelector(sel),
+            a = el.getBoundingClientRect(),
+            b = rows[over].getBoundingClientRect(),
+            x = a.left + a.width / 2,
+            ev = (type, y) =>
+              new PointerEvent(type, {
+                bubbles: true,
+                pointerId: 7,
+                pointerType: "touch",
+                button: 0,
+                clientX: x,
+                clientY: y,
+              });
+          el.dispatchEvent(ev("pointerdown", a.top + a.height / 2));
+          for (let i = 1; i <= 8; i++)
+            document.dispatchEvent(
+              ev("pointermove", a.top + a.height / 2 + ((b.top + b.height * 0.75 - a.top - a.height / 2) * i) / 8),
+            );
+          document.dispatchEvent(ev("pointerup", b.top + b.height * 0.75));
+        },
+        [from, sel, over],
+      );
+    const before = await qTitles(t);
+    await touchDrag(0, ".qt", 3);
+    await t.settle(300);
+    eq(t.cmds(/^\/Move/), [], "no drag from the title");
+    await touchDrag(0, ".qn", 3);
+    await t.settle(300);
+    eq(t.cmds(/^\/Move/), ["/Move?new=3&old=0"], "drag from the number: /Move sent");
+    eq(await qTitles(t), moved(before, 0, 3), "rows reordered");
+  },
+  { needs: ["queue"], touch: true },
 );
 
 test(

@@ -9,6 +9,7 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 - Fix: an album popup without tracks (e.g. during a library rescan) shows "No tracks" and is read again when opened next.
 - Fix: on touch screens the IP address can be typed, fields no longer zoom and landscape fits beside the camera.
 - Fix: on phones the cover sizes S, M and L show 3, 2 and 1 columns.
+- Fix: on touch screens a queue entry is moved by dragging its number.
 
 ## 0.13.0
 - Design: one consistent style for buttons, icons, corners and shadows; every button reacts to the mouse.
