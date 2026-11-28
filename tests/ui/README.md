@@ -10,6 +10,7 @@ Every function of the app is a test case in [`test-cases.md`](test-cases.md); th
 - `run.js` – the test scenarios and a small test runner
 - `test-cases.md` – the test cases; its column Local selects the local tests
 - `mock-player.js` – the mock player (fixtures + derived answers, records all commands)
+- `perf.js`, `big-library.js` – performance measurement with a generated large library (see "Performance")
 - `fixtures/` – recorded player answers (`NN-name.xml`, `NN` = number of the API test request `ANN` / `CNN`),
   with personal details removed
 
@@ -75,6 +76,16 @@ The job "mobile" runs every test on emulated phones and tablets (`--device`: win
 Tests marked `mouse: true` (hover, mouse wheel) or `desktop: true` (pinned queue, visible chip row) are skipped there; Firefox has no mobile emulation. The emulation does not replace the manual check in the iOS Simulator (ENV-5).
 
 Every job keeps the screenshots of the main views (and of failed tests) as an artifact for 14 days (*Actions → run → Artifacts*), for a visual check per system, browser and size.
+
+## Performance
+`node perf.js` (or `npm run perf`) measures the app with a large library: the mock player answers the library's requests from a generated library (`big-library.js`: albums, album and track artists, years, genres, quality, favourites; the same on every run) in the formats of the real player, every other request from the fixtures. Per library size (default `--albums 2000,10000,30000`) it connects and measures: All (first time, from the cache), the sort orders, scrolling All to the end, a search, the largest genre, CD, a decade and New.
+
+Per step: time, requests and data (without covers), covers and their data, long tasks (main thread blocked > 50 ms), tiles and DOM nodes, JS heap and process memory (renderer + GPU). Chrome by default; `--browser safari` measures times only (WebKit has no long tasks and no memory figures). Results: console and `test-results/perf/<date>-<browser>.json`.
+
+- **Answer time:** every answer of the mock waits `--latency <base ms>,<ms per KB>` (default `10,0.5`, calibrated at the owner's player with single requests). `node perf.js --calibrate <player IP>` reads 4 lists from the real player (read-only, 3 times each, the median counts) and prints the values that fit; then the times and sizes of 10 covers without a size and at 600 / 400 / 300 / 200 px. `node perf.js --covers <player IP>` loads covers of the real player with 1, 2, 3, 6 and 10 requests at the same time (24 other covers per row, without a size and at 400 / 200 px; read-only).
+- **Covers:** every album gets the same noisy JPEG, 600 px of `--cover <KB>` (default 170 KB, the average grid cover with "Optimize Artwork" off); a request with `width` gets it scaled down (steps of 50 px, like the player scales), so the memory of decoded covers is realistic. `--scale <n>` sets the pixel ratio (default 1, 2 = Retina).
+- **Cover queue:** like the real player (`--covers`), the mock works on at most 2 covers at the same time, each 130 ms + 0.29 ms per px of the asked width (600 px without width); the others wait in order. `--cover-queue <places>,<base ms>,<ms per px>` changes it, `0` switches it off (covers then answer with `--latency`). The steps "covers on the screen" wait until every cover on the screen is shown.
+- **Scrolling:** scrolling to the end of All stops after `--scroll-max <s>` (default 180; the row shows the tiles reached); `--no-scroll` leaves it out.
 
 ## Update the fixtures
 Before recording, at least one favourite album must be in the first album section of the library (e.g. "1" by Peter Gabriel): the mock lists the albums of an artist from that section only, ART-01 and SRH-13 need a favourite among them.

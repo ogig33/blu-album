@@ -48,7 +48,7 @@ Everything is in [`blualbum.html`](blualbum.html): CSS, HTML and plain JavaScrip
 step and no dependencies. The script is split into modules, listed at its top.
 
 Tests ([`tests/README.md`](tests/README.md): test concept, environments, when which tests run):
-- [`tests/ui`](tests/ui) – Playwright tests of the user interface in Chrome, Safari (WebKit), Edge and Firefox against a mock player that answers with recorded (and sanitized) player responses. No player needed. Locally `npm test` runs 50 of them; GitHub Actions runs all of them on macOS, Windows and Linux at three window sizes.
+- [`tests/ui`](tests/ui) – Playwright tests of the user interface in Chrome, Safari (WebKit), Edge and Firefox against a mock player that answers with recorded (and sanitized) player responses. No player needed. Locally `npm test` runs 50 of them; GitHub Actions runs all of them on macOS, Windows and Linux at three window sizes. `npm run perf` measures times and memory with a generated library of up to 30,000 albums.
 - [`tests/api`](tests/api) – contract tests of the BluOS API against a real player (Node.js only, no packages); they record the player answers the UI tests use. Run only on your own player: the write tests interrupt playback (and restore everything), the manual ones (reboot, rescan, firmware upgrade …) run only on request.
 
 Checks on GitHub (`.github/workflows`, configs in `.github/lint`):

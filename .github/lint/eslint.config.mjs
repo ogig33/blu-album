@@ -10,7 +10,7 @@ const APP_GLOBALS = [
   "shown", "openAlbum", "setState", "showArtist", "imgUrl", "render", "APP", "playerName", "favOf",
   "activeKey", "cache", "pos", "curPos", "openSources", "playlists",
   "LAN_MSG", "QUALITIES", "FORMATS", "LOSSY", "SEARCH_MIN", "SEARCH_DELAY", "TILE", "ONOFF", "RELEASES_LATEST",
-  "CONNECT_TIMEOUT", "NO_REPLY_MSG", "viewList", "SORTS", "plLoad",
+  "CONNECT_TIMEOUT", "NO_REPLY_MSG", "viewList", "SORTS", "plLoad", "search", "sortAlbums",
 ];
 
 export default [
@@ -27,8 +27,8 @@ export default [
     languageOptions: { ecmaVersion: "latest", sourceType: "commonjs", globals: globals.node },
   },
   {
-    // UI tests: callbacks of page.evaluate() run in the page
-    files: ["tests/ui/run.js"],
+    // UI tests and performance measurement: callbacks of page.evaluate() run in the page
+    files: ["tests/ui/run.js", "tests/ui/perf.js"],
     languageOptions: {
       globals: { ...globals.browser, ...Object.fromEntries(APP_GLOBALS.map((n) => [n, "readonly"])) },
     },

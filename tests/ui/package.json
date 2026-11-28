@@ -4,7 +4,8 @@
   "description": "UI tests for BluAlbum: the app in headless Chromium against a mock BluOS player",
   "scripts": {
     "test": "node run.js",
-    "test:all": "node run.js --all"
+    "test:all": "node run.js --all",
+    "perf": "node perf.js"
   },
   "devDependencies": {
     "playwright": "^1.48.0"

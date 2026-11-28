@@ -88,6 +88,31 @@ function createPlayer(opts = {}) {
     overrides: [...(opts.overrides || [])],
     times: [], // time (ms) of every request, same order as requests
     langs: [], // Accept-Language of every request, same order as requests
+    bytes: [], // { path, size } of every answer (size in bytes), in the order the answers are sent
+    // Performance tests (perf.js): a generated library (big-library.js) that answers the library's requests before
+    // the fixtures, the image of every /Artwork answer ({ type, body }, or a function of the query that returns
+    // it, e.g. for the size asked with width), the answer time of the player
+    // (latency(path, bytes) -> ms), and a queue for the requests that match queue.match: at most queue.workers of
+    // them are worked on at the same time, each for queue.ms(url) ms, the others wait in order (like the real player
+    // with covers, perf.js --covers)
+    big: opts.big || null,
+    artwork: opts.artwork || null,
+    latency: opts.latency || null,
+    queue: opts.queue || null,
+    // Requests per path being answered now, and the most at the same time (e.g. { "/Artwork": 2 }); a request the
+    // browser aborted counts until the mock has answered it
+    open: {},
+    maxOpen: {},
+  };
+  // Waiting requests and working places of state.queue
+  const waiting = [];
+  let working = 0;
+  const work = async (url) => {
+    if (working >= state.queue.workers) await new Promise((z) => waiting.push(z));
+    working++;
+    await new Promise((z) => setTimeout(z, state.queue.ms(url)));
+    working--;
+    if (waiting.length) waiting.shift()();
   };
   if (opts.mock) opts.mock(state);
   // First override that matches the request (and has uses left); counts its use.
@@ -127,7 +152,9 @@ function createPlayer(opts = {}) {
     };
   };
   const QUEUE_CHANGES = /^\/(Add|Delete\?id=|Shuffle|Clear|Move)/;
-  const browse = (key, lang) => {
+  const browse = (key, lang, term) => {
+    const big = state.big && state.big.browse(key, term);
+    if (big) return big;
     if (!key) {
       let top = fx("01");
       if (!state.usb) top = top.replace(/\s*<item browseKey="1A2B_3C4D:"[^>]*><\/item>/, "");
@@ -271,6 +298,8 @@ function createPlayer(opts = {}) {
     });
   };
   const library = (q) => {
+    const big = state.big && state.big.library(q);
+    if (big) return big;
     const svc = q.get("service");
     // Only the first page is recorded; further pages (nextlink with start=) are empty
     if (q.get("start")) return "<albums></albums>";
@@ -364,10 +393,13 @@ function createPlayer(opts = {}) {
     return a;
   };
   const mockAnswer = (p, q, lang) => {
-    if (p === "/Artwork") return { type: "image/png", body: PNG };
+    if (p === "/Artwork")
+      return (
+        (typeof state.artwork === "function" ? state.artwork(q) : state.artwork) || { type: "image/png", body: PNG }
+      );
     if (/^\/images\/((USB|Library)Icon|settings\/icon_[a-z]+-mode-active)\.png$/.test(p))
       return { type: "image/png", body: PNG };
-    if (p === "/Browse") return browse(q.get("key"), lang);
+    if (p === "/Browse") return browse(q.get("key"), lang, q.get("q"));
     if (p === "/library/v1/Albums") return libVersion(library(q), q);
     if (p === "/library/v1/Songs") {
       let x = q.get("service") === USB ? fx("26") : discSongs(fx("25"));
@@ -459,6 +491,21 @@ function createPlayer(opts = {}) {
   const route = async (r) => {
     const a = answer(r.request().url(), r.request().headers()["accept-language"] || "");
     const res = typeof a === "string" ? { type: "text/xml", body: a } : a;
+    const url = r.request().url(),
+      size = Buffer.byteLength(res.body || ""),
+      p = new URL(url).pathname;
+    state.open[p] = (state.open[p] || 0) + 1;
+    state.maxOpen[p] = Math.max(state.maxOpen[p] || 0, state.open[p]);
+    try {
+      await reply(r, res, url, size, p);
+    } finally {
+      state.open[p]--;
+    }
+  };
+  const reply = async (r, res, url, size, p) => {
+    if (state.queue && state.queue.match.test(p)) await work(url);
+    else if (state.latency) await new Promise((z) => setTimeout(z, state.latency(url, size)));
+    state.bytes.push({ path: p, size });
     if (res.delay) await new Promise((z) => setTimeout(z, res.delay));
     if (res.held) {
       res.held.arrived();

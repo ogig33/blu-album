@@ -9,6 +9,7 @@ How BluAlbum is tested: the test levels and how they connect, the test environme
 | API tests (`api/`) | The player answers as the app and the API reference [`docs/bluos-api.md`](../docs/bluos-api.md) expect (contract tests: structure of the answers, not concrete albums or numbers) | [`api/test-cases.md`](api/test-cases.md) | The owner's real player (Node.js) |
 | UI tests (`ui/`) | The app does what its test cases say: what the user sees and which requests reach the player | [`ui/test-cases.md`](ui/test-cases.md) | A mock player with recorded answers, or the real player (Playwright) |
 | Manual checks | What the automation cannot reach: the Safari app itself, Safari on iPhone and iPad | ENV-4, ENV-5 below | The real player |
+| Performance measurement (`ui/perf.js`) | Times, requests and memory of the main views with a large library (default 2,000 / 10,000 / 30,000 albums); no pass / fail, a comparison before and after a change | – | The mock player with a generated library (`ui/big-library.js`) and an answer time per request; `--calibrate` measures it at the real player |
 
 The API tests record the answers that the UI tests replay:
 
@@ -44,6 +45,7 @@ In the UI environments the app runs as a `file://` page in a fresh browser profi
 | Before a push | Every UI test; lint, format and CodeQL (commands in the root README "Development") | ENV-1 (`npm run test:all`) |
 | Push, pull request, Mondays, on demand | Every UI test in every browser, system and window size, and on emulated phones and tablets; lint, format and CodeQL (CodeQL also weekly) | ENV-2, ENV-7 |
 | After a layout change | The UI tests on an emulated phone (`--device`); main views on touch screens | ENV-7, ENV-5 |
+| Before and after a change of loading, rendering, sorting or search | `node perf.js` in `tests/ui`, compared with the previous result | ENV-1 |
 | After a firmware update | `read.test.js` and `write.test.js`, new fixtures, every UI test; optionally the UI tests against the player | ENV-6, ENV-1, ENV-3 |
 | Before a release | The Safari app | ENV-4 |
 
