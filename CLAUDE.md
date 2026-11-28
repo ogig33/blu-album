@@ -4,6 +4,7 @@
 
 - BluAlbum: single-file app (`blualbum.html`) to browse and play your **local BluOS music library**.
 - No installation, no setup: open the file in your browser and enter the IP address of your BluOS player.
+- Phones and tablets are supported: they cannot open a local HTML file, so they open `blualbum.html` from a web server in the home network (e.g. `python3 -m http.server` on a computer, or a NAS); the app itself is the same file.
 - Companion to the vendor app "BluOS Controller": overcomes its slow and unappealing browsing of the local music library.
 - Uses the official BluOS Custom Integration API (HTTP GET on port 11000, XML answers).
 - Minimalistic design for fast and efficient access to the library: no tree-based navigation, find music with search, filters and sorting instead.
@@ -12,7 +13,7 @@
 - **Terms:** queue (what the player plays), BluOS playlist (stored in the player, changeable), library playlist (imported playlist file of the share or USB drive, read-only), service playlist (streaming service); no "saved playlist".
 - Owner: Ingmar Gebert. MIT licence. Repository: `blu-album`.
 - Independent project, not affiliated with Lenbrook / Bluesound (no need to mention in README, file header or the about popup).
-- Owner's test setup: Bluesound Powernode, BluOS 4.18.26, API v0.5.51, library on a network share plus a USB drive. Main browser: Safari on macOS; Chrome as second browser.
+- Owner's test setup: Bluesound Powernode, BluOS 4.18.26, API v0.5.51, library on a network share plus a USB drive. Main browser: Safari on macOS; Chrome as second browser. Phones and tablets: Safari in Xcode's iOS Simulator (iPhone, iPad; test environment ENV-5).
 
 ## Not in scope
 
@@ -25,7 +26,6 @@ Do not build these; when asked, point to the alternative.
 - Folder browser – BluAlbum expects a tagged library.
 - Album data from the internet (e.g. missing cover art, lyrics, album details, artist pictures, artist details). Only two kinds of requests leave the home network: the update check in the about popup (on click) and the now-playing image when the player names an internet host for it (`/Status`, e.g. radio).
 - Changing the player configuration (e.g. player grouping, listening modes, reindexing the library) – use the BluOS Controller app. Showing such values (e.g. the listening mode icon in the player bar) is fine.
-- Mobile devices – they do not open local HTML files properly; there is no user-friendly solution (only third-party apps).
 
 ## Where to look
 
@@ -52,7 +52,7 @@ Do not build these; when asked, point to the alternative.
 - **Avoid self-built API URLs.** Play / queue / favourite URLs come from `/Browse`; the only exception are the `/library/v1` lists (New, Favourites, quality, decades, genres, album artist search), built by the fixed pattern in `libAlbum()`.
 - **Store changes at the player.** Favourites, playlists and every other change the player supports are stored there, so they persist across sessions and are visible in other player clients. localStorage only for conveniences (see "Code conventions").
 - **Expose API errors.** Show failed player requests to the user (network error, HTTP status other than 200, `<e>` answer) with the endpoint URL and the error answer. Exceptions: expected failures – `/audioPreset` on players without listening modes, status polling (aborted or retried), missing covers, statistic lists that are not available.
-- **Check layout changes in Safari** as well (see "Known pitfalls").
+- **Check layout changes in Safari** as well (see "Known pitfalls"), and on touch screens in the iOS Simulator (iPhone portrait and landscape, iPad).
 
 ## Documentation
 
@@ -139,7 +139,7 @@ Do not build these; when asked, point to the alternative.
 - **No workaround for the empty MQA chip:** BluOS bug, albums with `mqaBrowse` songs are in no quality list (`docs/bluos-api.md`); the chip keeps the player's filter. Documented only.
 - **No default IP address** in the app.
 - **No service functions for the library** (`/Albums`, `/Songs`, … with `service=LocalMusic` or the USB id): they only redirect (302) to `/library/v1` on port 11004, which sends no CORS headers, so the browser cannot read the answer; same data, one more round trip, neither is in the official documentation. More robust against API changes is `/Browse` (official), already used for menus, All, genres, artists, search, tracks, playlists and every play / queue / favourite URL; `/library/v1` stays for the lists `/Browse` does not offer as well (checked 2026-11-27).
-- **No hosted version, no HTTPS API (port 11005):** the official documentation uses HTTP on port 11000; BluAlbum stays on the recommended path. Tested 2026-11-27 with a page on GitHub Pages: HTTP is blocked as mixed content in every browser; port 11005 (HTTP/2, CORS `*`) fails in Safari even after accepting the certificate (self-signed, no extensions, valid until 2040: Apple rejects it), so iOS devices are out as well.
+- **No hosted version, no HTTPS API (port 11005):** the official documentation uses HTTP on port 11000; BluAlbum stays on the recommended path. Tested 2026-11-27 with a page on GitHub Pages: HTTP is blocked as mixed content in every browser; port 11005 (HTTP/2, CORS `*`) fails in Safari even after accepting the certificate (self-signed, no extensions, valid until 2040: Apple rejects it), so a hosted page fails on iOS devices as well.
 - **No song title search area:** the search's songs list has no link to the album of a song (no browse key, no "Go to album" in the song context menu); the album would need a self-built URL, which fails for samplers (the song carries the track artist, not the album artist).
 - **Album artist search in the app:** the player's search does not match the album artist (see pitfalls); the Artist search area also matches the album artist of every album of the library (`section=all` without a filter, 1 request per source, shared with the decade chips) in the app, with the player's rules (`atWordStart()`); result group "as an album artist" before "as a track artist", one chip for both.
 - **No song favourites:** no heart per track in the album popup and no "Favourite songs" chip, although the API supports both (`/AddFavourite?fn=`, `autoplayURL` with `category=FAVOURITES`); BluAlbum keeps to album favourites and the favourites of library playlists (heart on their tile; BluOS playlists have none).
@@ -151,6 +151,7 @@ Do not build these; when asked, point to the alternative.
 
 - Safari collapses a flex child with an indefinite height to 0 (happened with the popup track list) – avoid flex sizing for scrolling lists, use a max-height.
 - Safari may keep an old version of the local file: reload without cache (⌥⌘R) before chasing a "bug".
+- iOS Safari: a field with text below 16 px zooms in on focus and stays zoomed (`--fs-l` on touch screens); `inputmode="decimal"` offers a comma instead of the dot in some regions; with `viewport-fit=cover` content lies under the camera housing in landscape unless it keeps the safe areas (`--sl`, `--sr`); `vh` includes the toolbar (use `dvh`).
 - The player's search does not find albums by their album artist, only by title and track artists (API test E40, `docs/bluos-api.md`): albums of "Various" or "Putumayo Presents" whose tracks carry other artists are found only by the app's own album artist match. Test search behaviour with albums whose album artist is on none of their tracks.
 - MQA comes in FLAC: format, bit depth and sample rate do not rule it out. An empty MQA chip is the BluOS bug (see Decisions), not an app bug.
 - `section=all` fails silently: `category`, `recent` and `composer` are ignored (all albums), its index (`length=1`) counts 0 with `artist` / `expr`, Songs and Composers list nothing, in a browse key only the first section answers (`docs/bluos-api.md`).

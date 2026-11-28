@@ -24,7 +24,7 @@
 ## Use it
 
 1. Download the latest release
-2. Open it in your browser. 
+2. Open it in your browser. Phones and tablets cannot open a local HTML file: serve it from a web server in your home network, e.g. a NAS or `python3 -m http.server` on a computer, and open `http://<server>:<port>/blualbum.html`.
 3. Enter the IP address of your player, e.g. `192.168.1.50`, and press **Connect**.
    You find the address in the BluOS Controller app under **Settings > Diagnostics**
    or in your router's device list.
@@ -38,9 +38,9 @@ Settings such as the last IP address and the design are kept in the browser's lo
 
 - A BluOS player in your local network
 - a local music library (network share and/or a USB drive) setup at your player with proper tagging: see the [library guidance](docs/blu-album-library-guidance.md)
-- A current browser
+- A current browser: Safari, Chrome, Edge or Firefox on a computer; Safari on iPhone and iPad
 
-Tested with BluOS 4.18.18 on a Bluesound Powernode, and with Safari, Chrome, Microsoft Edge and Firefox on macOS, Windows and Linux (automated UI tests, see [Development](#development)).
+Tested with BluOS 4.18.18 on a Bluesound Powernode, and with Safari, Chrome, Microsoft Edge and Firefox on macOS, Windows and Linux (automated UI tests, see [Development](#development)); Safari on iPhone and iPad in the iOS Simulator (by hand).
 
 ## Development
 
