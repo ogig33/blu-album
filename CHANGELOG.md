@@ -4,6 +4,7 @@ All notable changes to BluAlbum. Versions follow [semantic versioning](https://s
 
 ## Unreleased
 - Album grid: covers appear faster, also after switching views or scrolling quickly.
+- Album grid: scrolling stays smooth with very large libraries.
 - Favourites: also shows the favourite library playlists, after the albums.
 - Album popup: a click on the cover shows it in full screen.
 - Library: after a rescan or a favourite changed in another app, the albums are read again without reconnecting.

@@ -18,7 +18,7 @@ Every function of the app (`blualbum.html`) as a test case, grouped into test bl
 | CON | 4.1 Connection & start | Start page, IP form, connect, errors, time limit, compact connection line, changing the player | 14 | 10 | 4 |
 | SRC | 4.2 Music sources | Source detection, one switch per source, stored per player | 6 | 3 | 1 |
 | CHP | 4.3 Chips & views | Chip row, All, Favourites, New, quality, genres, caching, outdated results, sort order, library changes | 22 | 14 | 9 |
-| GRD | 4.4 Album grid | Tiles, lazy rendering, random album tile, hover buttons, status line, loading the covers | 15 | 9 | 3 |
+| GRD | 4.4 Album grid | Tiles, rows near the screen, random album tile, hover buttons, status line, loading the covers | 16 | 10 | 3 |
 | FAV | 4.5 Favourites | Heart on the cover, toggling via the player, no local favourites | 6 | 5 | 2 |
 | ART | 4.6 Artist view | Albums of an artist across sources, favourite state, cache, artist links (several artists, track artists) | 5 | 4 | 1 |
 | POP | 4.7 Album popup | Details, technical data, track list, playing a track, closing, cover in full screen | 22 | 11 | 4 |
@@ -33,7 +33,7 @@ Every function of the app (`blualbum.html`) as a test case, grouped into test bl
 | SEC | 4.16 Security & robustness | Image URLs, blob covers, blocked storage, clean-up of old keys | 5 | 4 | 1 |
 | LAY | 4.17 Layout & accessibility | Contrast, horizontal scrolling, control names, keyboard, favicon, header logo | 4 | 4 | 1 |
 | REG | 4.18 Regression & session | No playback on load, request budget, no JavaScript errors | 3 | 3 | 3 |
-| | | **Total** | **196** | **130** | **49** |
+| | | **Total** | **197** | **131** | **49** |
 
 Test order across blocks: CON → SRC → CHP → GRD → FAV → ART → POP → SRH → FTR → FUL → QUE → PLS → SET → ABT → ERR → SEC → LAY → REG. A block only relies on blocks before it (e.g. FAV needs the grid, QUE needs the footer's long polling). `run.js` runs the tests in this order.
 
@@ -146,7 +146,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | GRD-03 | Random album: play | Hover the random tile, click play | `/Add?playnow=1…` of one album of the current view; toast "Playing: <title> – <artist>" | write | – |
 | GRD-04 | Random album: add last | Click the add button of the random tile | `addAll-last` URL of one album of the view (`where=last`); toast "Added to queue: …"; album without that URL: toast "Could not add …" | write | – |
 | GRD-05 | No random tile for search results and empty lists | Search; empty view | No random tile | – | – |
-| GRD-06 | Lazy rendering | View with more than 60 albums | Tiles added in batches of 60 when the end comes near; never everything at once | read | local |
+| GRD-06 | Rows near the screen | New rendered ten times over; scroll to the end; back to the top | Fewer tiles in the grid than albums, the first ones in order; every tile with `role=listitem`, `aria-setsize` = albums + random tile, `aria-posinset` its position; the grid as high as all rows; at the end the last album on the screen, the last tiles in order; at the top the random tile again | read | local |
 | GRD-07 | Hover buttons | Hover a library tile | Play, add last and heart visible | read | local |
 | GRD-08 | Play an album | Click play on a tile | The album's play URL (`/Add?playnow=1…`); toast "Playing: <title>" | write | local |
 | GRD-09 | Add an album last | Click add on a tile | `addAll-last` URL with `where=last`; toast "Added to queue: <title>" | write | – |
@@ -155,7 +155,8 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | GRD-12 | Covers in tile size | All; then cover size L | Grid covers asked with `&width=<px>&height=<px>&followRedirects=1`, px = column width × pixel ratio rounded up to 50 (from 600 px without a size); after L the covers on and just below the screen are asked again in the larger size | read | – |
 | GRD-13 | Covers two at a time | Mock: covers answer after 300 ms, nothing playing; All | At most 2 cover requests at the same time; the covers of the tiles on the screen are asked first | – | – |
 | GRD-14 | Covers of a former view | Mock: covers answer after 600 ms, nothing playing; All, at once Favourites | At most the 2 covers of All asked before the switch; no further cover of All asked; the Favourites covers are shown | – | – |
-| GRD-15 | Covers of tiles scrolled past | Mock: generated library of 1,500 albums (`big-library.js`), covers after 100 ms; All, scroll 15 screens quickly | The covers on the screen are shown; covers asked for fewer than half of the tiles scrolled past (now more than 800 px above the screen) | – | – |
+| GRD-15 | Covers of tiles scrolled past | Mock: generated library of 1,500 albums (`big-library.js`), covers after 100 ms; All, scroll 15 screens quickly | The covers on the screen are shown; covers asked for fewer than half of the tiles scrolled past (their row now more than 800 px above the screen) | – | – |
+| GRD-16 | Rows change | New rendered ten times over, scroll down 3 screens; cover size S, then L (desktop) | The album at the top of the screen stays there (within one row) | read | – |
 
 ### 4.5 Favourites (FAV)
 

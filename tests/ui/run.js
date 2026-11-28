@@ -1181,6 +1181,18 @@ const screenCovers = (t) =>
     BASE,
   );
 const gridCovers = (t) => t.reqs(/^\/Artwork\?/).filter((r) => !/[?&]width=3000&/.test(r));
+// Scrolls to the tile of album i of the view (index in shown; position i + 2 after the random tile): the grid renders
+// only the rows near the screen. Returns its selector.
+async function scrollToTile(t, i) {
+  const tile = `#grid .item[aria-posinset="${i + 2}"]`;
+  for (let n = 0; n < 100 && !(await t.page.$(tile)); n++) {
+    await t.page.evaluate(() => scrollBy(0, innerHeight));
+    await sleep(50);
+  }
+  await t.page.evaluate((s) => document.querySelector(s)?.scrollIntoView({ block: "center" }), tile);
+  await t.settle(100);
+  return tile;
+}
 
 test(
   "GRD-12 grid covers in the size of a tile, asked again in a larger size when the tiles grow",
@@ -1288,17 +1300,23 @@ test(
       }
     });
     await t.page.waitForFunction(coversOnScreen, null, { timeout: 30000 });
-    // tiles scrolled past: now more than 800 px above the screen (outside the area where covers are loaded)
-    const past = await t.page.$$eval(
-      "#grid .cov img",
-      (imgs, base) =>
-        imgs.filter((i) => i.getBoundingClientRect().bottom < -800).map((i) => i.dataset.url.slice(base.length)),
-      BASE,
-    );
-    const asked = new Set(gridCovers(t).slice(n)),
-      pastAsked = past.filter((u) => asked.has(decodeURIComponent(u))).length;
-    ok(past.length > 20, `tiles scrolled past (${past.length})`);
-    ok(pastAsked < past.length / 2, `${pastAsked} covers asked for ${past.length} tiles scrolled past`);
+    // albums scrolled past: their row now more than 800 px above the screen (outside the area where covers are
+    // loaded), from the position in the list (aria-posinset; All has no group lines); their cover URL without a size
+    const past = await t.page.evaluate(() => {
+      const g = document.querySelector("#grid"),
+        cs = getComputedStyle(g),
+        first = g.firstElementChild;
+      const cols = cs.gridTemplateColumns.split(" ").length,
+        pitch = first.offsetHeight + parseFloat(cs.rowGap);
+      const firstRow = Math.floor((+first.getAttribute("aria-posinset") - 1) / cols);
+      const rowTop = (r) => first.getBoundingClientRect().top + (r - firstRow) * pitch;
+      // posinset 1 is the random tile: album i has the position i + 2
+      return shown.filter((a, i) => rowTop(Math.floor((i + 1) / cols)) + pitch < -800).map((a) => a.img);
+    });
+    const asked = gridCovers(t).slice(n);
+    const pastAsked = past.filter((p) => asked.some((r) => r.startsWith(decodeURIComponent(p) + "&"))).length;
+    ok(past.length > 20, `albums scrolled past (${past.length})`);
+    ok(pastAsked < past.length / 2, `${pastAsked} covers asked for ${past.length} albums scrolled past`);
   },
   {
     playing: false,
@@ -1410,7 +1428,10 @@ test(
     await t.chip("New");
     await t.waitMsg(/recently added, newest first/);
     eq(await t.page.evaluate(() => shown.map((a) => a.t)), [...TD.NEW_LIB, ...TD.NEW_USB], "order");
-    if (TD.NEW_USB.length) ok((await t.tiles()).includes(TD.NEW_USB[0]) || TD.NEW_LIB.length >= 59, "USB album shown");
+    if (TD.NEW_USB.length) {
+      const tile = await scrollToTile(t, TD.NEW_LIB.length);
+      eq(await t.page.textContent(tile + " b"), TD.NEW_USB[0], "USB album shown");
+    }
   },
   R,
 );
@@ -1960,22 +1981,100 @@ test(
 );
 
 test(
-  "GRD-06 lazy rendering in batches of 60",
+  "GRD-06 only the rows near the screen are rendered, the page has the height of all rows",
   async (t) => {
-    // The view is rendered five times over, so it has more than one batch; a large window fills itself
-    // with more than one batch, so only whole batches and not everything are expected
+    // The view rendered ten times over: much longer than the window
     await t.chip("New");
     await t.settle();
     const total = await t.page.evaluate(() => {
-      const list = Array(5).fill(shown).flat();
+      const list = Array(10).fill(shown).flat();
       render(list);
-      return list.length;
+      return list.length + 1; // with the random tile
     });
     await t.settle();
-    const rendered = await t.page.$$eval("#grid .item", (x) => x.length - 1);
-    ok(rendered > 0 && rendered % 60 === 0 && rendered < total, `rendered ${rendered} of ${total}`);
+    const grid = () =>
+      t.page.evaluate(() => {
+        const g = document.querySelector("#grid"),
+          its = [...g.children],
+          cs = getComputedStyle(g);
+        const cols = cs.gridTemplateColumns.split(" ").length,
+          pitch = its[0].offsetHeight + parseFloat(cs.rowGap);
+        return {
+          n: its.length,
+          pos: its.map((e) => +e.getAttribute("aria-posinset")),
+          size: [...new Set(its.map((e) => e.getAttribute("aria-setsize")))],
+          height: g.offsetHeight,
+          rows: Math.ceil(+its[0].getAttribute("aria-setsize") / cols) * pitch,
+          last: its[its.length - 1].getBoundingClientRect(),
+          vh: innerHeight,
+        };
+      });
+    let g = await grid();
+    ok(g.n > 0 && g.n < total, `rendered ${g.n} of ${total} tiles`);
+    eq(g.size, [String(total)], "every tile knows the size of the list");
+    eq(
+      g.pos,
+      Array.from({ length: g.n }, (_, i) => i + 1),
+      "the first tiles, in order",
+    );
+    ok(Math.abs(g.height - g.rows) < 100, `grid as high as all rows (${g.height} px, rows ${g.rows} px)`);
+    await t.page.evaluate(() => scrollTo(0, document.body.scrollHeight));
+    await t.page.waitForFunction(
+      (n) => +document.querySelector("#grid").lastElementChild.getAttribute("aria-posinset") === n,
+      total,
+    );
+    g = await grid();
+    ok(g.n < total, `at the end ${g.n} of ${total} tiles rendered`);
+    ok(g.last.top < g.vh && g.last.bottom > 0, "the last album is on the screen");
+    eq(
+      g.pos,
+      Array.from({ length: g.n }, (_, i) => total - g.n + 1 + i),
+      "the last tiles, in order",
+    );
+    await t.page.evaluate(() => scrollTo(0, 0));
+    await t.page.waitForFunction(
+      () => document.querySelector("#grid").firstElementChild.getAttribute("aria-posinset") === "1",
+    );
+    eq(await t.page.textContent("#grid .item:first-child b"), "Random album", "back at the top: the random tile");
   },
   R,
+);
+
+test(
+  "GRD-16 the album at the top of the screen stays there when the rows change (cover size)",
+  async (t) => {
+    await t.chip("New");
+    await t.settle();
+    await t.page.evaluate(() => render(Array(10).fill(shown).flat()));
+    await t.settle();
+    // Position in the list of the first tile whose top is on the screen (below the sticky header)
+    const top = () =>
+      t.page.evaluate(() => {
+        const h = document.querySelector("header").getBoundingClientRect().bottom;
+        const e = [...document.querySelectorAll("#grid .item")].find((x) => x.getBoundingClientRect().top >= h);
+        return +e.getAttribute("aria-posinset");
+      });
+    await t.page.evaluate(() => scrollBy(0, innerHeight * 3));
+    await t.settle(200);
+    const before = await top();
+    ok(before > 1, `scrolled down (album ${before} at the top)`);
+    let was = await t.page.$eval("#grid", (g) => getComputedStyle(g).gridTemplateColumns.split(" ").length);
+    for (const size of ["s", "l"]) {
+      await t.page.click("#gear");
+      await t.page.click(`#sizes [data-size="${size}"]`);
+      await t.page.keyboard.press("Escape");
+      await t.settle(300);
+      const cols = await t.page.$eval("#grid", (g) => getComputedStyle(g).gridTemplateColumns.split(" ").length);
+      const now = await top();
+      // within one row of the old or the new size
+      ok(
+        Math.abs(now - before) <= Math.max(cols, was),
+        `${size.toUpperCase()}: album ${now} at the top (before ${before})`,
+      );
+      was = cols;
+    }
+  },
+  { ...R, desktop: true },
 );
 
 test(
@@ -2081,13 +2180,7 @@ test(
     await t.settle();
     const i = await t.page.evaluate((usb) => shown.findIndex((a) => usb && a.key.startsWith(usb)), TD.USB);
     ok(i >= 0, "USB album in New");
-    const tile = "#grid .item:nth-child(" + (i + 2) + ")";
-    // the grid renders tiles while scrolling: scroll to the last tile until the USB album is there
-    for (let n = 0; n < 50 && !(await t.page.$(tile)); n++) {
-      await t.page.evaluate(() => [...document.querySelectorAll("#grid .item")].pop()?.scrollIntoView());
-      await sleep(200);
-    }
-    await t.page.evaluate((s) => document.querySelector(s)?.scrollIntoView(), tile);
+    const tile = await scrollToTile(t, i);
     await t.page.hover(tile);
     ok(!(await t.page.isVisible(tile + " .favc")), "heart hidden");
   },
@@ -4808,13 +4901,19 @@ test("PLS-13 library playlist: the heart adds and removes the favourite via the 
   const favGroup = async () => {
     await t.page.click("#az button[aria-label=Favourites]");
     await t.waitMsg(/in favourites/);
-    return t.page.evaluate(() => {
+    // at the end of the page (the grid renders only the rows near the screen), then back at the top
+    await t.page.evaluate(() => scrollTo(0, document.body.scrollHeight));
+    await t.settle(200);
+    const g = await t.page.evaluate(() => {
       const kids = [...document.querySelector("#grid").children],
         i = kids.findIndex((e) => e.classList.contains("gl"));
       return i < 0
         ? null
         : { line: kids[i].textContent, tiles: kids.slice(i + 1).map((e) => e.querySelector("b")?.textContent) };
     });
+    await t.page.evaluate(() => scrollTo(0, 0));
+    await t.settle(200);
+    return g;
   };
   eq(await favGroup(), null, "Favourites: no playlist group");
   await openPlaylists(t);

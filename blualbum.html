@@ -1306,7 +1306,10 @@ nav .gap {
      rows a bit more than columns because title and artist sit below the cover */
   grid-template-columns: repeat(auto-fill, minmax(var(--tile, 150px), 1fr));
   gap: calc(var(--tile, 150px) * .225) calc(var(--tile, 150px) * .18);
-  padding: 6px max(14px, var(--sr)) 40px max(14px, var(--sl));
+  /* --wt / --wb: height of the rows above and below the rendered ones (layoutGrid()); no scroll anchoring (Chrome,
+     Firefox), the window keeps the position itself (as in Safari) */
+  padding: calc(6px + var(--wt, 0px)) max(14px, var(--sr)) calc(40px + var(--wb, 0px)) max(14px, var(--sl));
+  overflow-anchor: none;
 }
 /* Phones: the cover size is a column count (S 3, M 2, L 1). The minimum widths would give S and M the same
    2 columns on most phones (M even a bit smaller, with its larger spacing), and M and L 1 column below 355 px. */
@@ -1850,7 +1853,7 @@ dialog * {
   <div id="msg">Open the settings, enter your player's IP address and tap Connect.</div>
   <select id="sort" aria-label="Sort albums" hidden></select>
 </div>
-<main id="grid"></main>
+<main><div id="grid" role="list"></div></main>
 <!-- Album popup -->
 <dialog id="dlg">
   <button id="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
@@ -2002,7 +2005,7 @@ dialog * {
  *   6. Albums from /Browse             Album lists (All, genres) from the player's browse menus.
  *   7. Albums from /library/v1/Albums  New, favourites, quality and year lists from the library endpoint.
  *   8. Views                           What the chips show: genre, All, New, Favourites, quality, decade, artist; their sort order.
- *   9. Album grid                      Lazy rendering of the album tiles, loading their covers, the random album tile.
+ *   9. Album grid                      The rows of album tiles near the screen, loading their covers, the random album tile.
  *  10. Favourites                      Favourite state and toggling for the heart on the cover.
  *  11. Popups                          Album popup and the popup for unsuccessful player answers.
  *  12. Playlists                       BluOS and library playlists: the Playlists chip, its tiles (play, add, delete), track lists.
@@ -2055,6 +2058,9 @@ const COVER_FULL = 3000;
 // without a size, which gives at most 600 px), at most COVER_PARALLEL at a time: the player works on about 2 covers at
 // once and queues the rest, more requests only wait longer (private/docs/blu-album-api-usage.md).
 const COVER_STEP = 50, COVER_MAX = 600, COVER_PARALLEL = 2;
+// Album grid: only the rows within WIN_PX above and below the screen are rendered (more than the 800 px in which
+// covers are loaded).
+const WIN_PX = 1200;
 // File formats of /library/v1/Songs (atype) and which of them are lossy (no bit depth shown).
 const FORMATS = { flc: "FLAC", mp3: "MP3", alac: "ALAC", aac: "AAC", m4a: "AAC", wav: "WAV", aif: "AIFF", aiff: "AIFF", ogg: "OGG", opus: "Opus", wma: "WMA", dsf: "DSD", dff: "DSD", ape: "APE", wv: "WavPack" };
 const LOSSY = ["MP3", "AAC", "OGG", "Opus", "WMA"];
@@ -2265,8 +2271,9 @@ let viewList = [], viewTail = [], viewText = "", viewSort = "", sortBy = store.g
 // menu, secs} (playlistsKey: its library playlists, secs: promise of the album sections, see albumSections()).
 // epoch increases on every connect / source change so late async results can be ignored (see ctx()).
 let sources = [], srcs = [], epoch = 0;
-// Album grid: lazy rendering observer, a token that cancels an older render, observer that loads the covers.
-let lazyObs = null, lazyTok = 0, coverObs = null, cutObs = null;
+// Album grid: the rendered window (render(), layoutGrid(); null = empty grid), the frame of a pending layout, the
+// observers that load the covers and mark cut lines
+let win = null, winFrame = 0, coverObs = null, cutObs = null;
 // Grid covers: size of the shown tiles (gridCoverPx()), covers waiting to be asked, asked covers (img -> AbortController)
 let coverPx = COVER_MAX, coverWait = new Set(), coverBusy = new Map();
 // Playlists. playlistsKey: browse key of the BluOS playlists ("" if the player has none), plSeq: request counter,
@@ -2786,8 +2793,7 @@ function selectView(key, btn) {
 }
 // Empties the album grid (a view that loads first).
 function clearGrid() {
-  stopCovers();
-  $("#grid").innerHTML = "";
+  resetGrid();
   shown = [];
 }
 // Empties the chip row, the grid and the search field (connect, source change).
@@ -3043,7 +3049,7 @@ function searchArtist(name) {
 }
 
 /* ---------- Album grid ---------- */
-// Lazy rendering of the album tiles and the random album tile.
+// The rows of album tiles near the screen, their covers, the random album tile.
 
 // Title and artist of a tile stay on one line. A cut line fades out (CSS .cut, kept up to date by
 // cutObs) and scrolls to its end while the tile is hovered or has the keyboard focus for 300 ms:
@@ -3077,45 +3083,132 @@ function fitLines(item) {
   item.addEventListener("focusout", stop);
 }
 
-// Renders the tiles of `list` into the grid (lazy, STEP tiles at a time as the end comes near); a {line} entry is a
-// group line. noRandom: without the random album tile (search results), years: the year in front of the artist.
+// Renders the tiles of `list` into the grid; a {line} entry is a group line. noRandom: without the random album tile
+// (search results), years: the year in front of the artist. Only the rows near the screen are in the grid
+// (layoutGrid()); a new view starts at the top of the page.
 function render(list, noRandom, years = false) {
-  const g = $("#grid");
-  stopCovers();
-  g.innerHTML = "";
-  [cutObs, lazyObs, coverObs].forEach((o) => o?.disconnect());
-  lazyObs = coverObs = null;
+  resetGrid();
   coverPx = gridCoverPx();
   cutObs = new ResizeObserver((e) => e.forEach(({ target: x }) => x.classList.toggle("cut", x.scrollWidth > x.clientWidth)));
-  const tok = ++lazyTok, STEP = 60;
-  let at = 0;
-  const sentinel = document.createElement("div");
-  sentinel.style.cssText = "grid-column:1/-1;height:1px";
-  // A tile or group line; new ones go before the sentinel while it is in the grid
-  const add = (a) => g.insertBefore(a.line ? el("div", { className: "gl" }, a.line) : albumTile(a, years), sentinel.parentNode === g ? sentinel : null);
-  const more = () => {
-    if (tok !== lazyTok) return;
-    list.slice(at, at + STEP).forEach(add);
-    at += STEP;
-    if (at >= list.length) {
-      lazyObs.disconnect();
-      lazyObs = null;
-      sentinel.remove();
-    } else {
-      g.append(sentinel);
-      lazyObs.unobserve(sentinel);
-      lazyObs.observe(sentinel);
-    }
-  };
-  // "Random album" tile first, but not for search results; of the first group's kind (Favourites: only the albums).
-  if (!noRandom && list.length) g.append(randomTile(list.filter((a) => !a.line && !a.pl === !list[0].pl)));
-  lazyObs = new IntersectionObserver((e) => {
-    if (e.some((x) => x.isIntersecting)) more();
-  }, { rootMargin: "800px 0px" });
   // Covers are loaded when they come near the visible area (showImg() fetches, so <img loading="lazy"> does not apply);
   // one that leaves it before it is loaded is not asked for or aborted (pumpCovers())
   coverObs = new IntersectionObserver((e) => e.forEach((x) => coverNear(x.target, x.isIntersecting)), { rootMargin: "800px 0px" });
-  more();
+  // "Random album" tile first, but not for search results; of the first group's kind (Favourites: only the albums).
+  const items = !noRandom && list.length ? [{ rnd: list.filter((a) => !a.line && !a.pl === !list[0].pl) }, ...list] : list;
+  // A tile or group line, an item of the list for screen readers (position and size of the whole list)
+  const build = (a, i) => {
+    const e = a.line ? el("div", { className: "gl" }, a.line) : a.rnd ? randomTile(a.rnd) : albumTile(a, years);
+    e.setAttribute("role", "listitem");
+    e.setAttribute("aria-posinset", i + 1);
+    e.setAttribute("aria-setsize", items.length);
+    return e;
+  };
+  win = { items, build, els: new Map(), first: 0, end: 0, cols: 0, pitch: 0, linePitch: 0, rows: [], tops: [0], wt: 0, anchor: -1, anchorPart: 0, anchorTop: NaN };
+  if ($("#grid").getBoundingClientRect().top < 0) scrollTo(0, 0);
+  layoutGrid();
+}
+// Empties the grid: no window, no covers loading, no observers.
+function resetGrid() {
+  const g = $("#grid");
+  win?.els.forEach((e, i) => forgetHeart(e, win.items[i]));
+  stopCovers();
+  [cutObs, coverObs].forEach((o) => o?.disconnect());
+  cutObs = coverObs = win = null;
+  g.replaceChildren();
+  g.style.removeProperty("--wt");
+  g.style.removeProperty("--wb");
+}
+// The rows of the grid (a row of tiles or a group line each, their heights measured on the rendered ones) and the
+// rendered window: the rows within WIN_PX above and below the screen; the padding of the grid (--wt, --wb) stands for
+// the rows above and below it. Runs on render, scrolling and size changes. When the rows change (column count, tile
+// size), the album at the top of the screen stays there.
+function layoutGrid() {
+  if (!win) return;
+  const g = $("#grid");
+  for (let pass = 0; pass < 2; pass++) {
+    const cs = getComputedStyle(g), gap = parseFloat(cs.rowGap) || 0, cols = cs.gridTemplateColumns.split(" ").length;
+    const t = g.querySelector(".item"), l = g.querySelector(".gl"), ls = l && getComputedStyle(l);
+    const pitch = t ? t.offsetHeight + gap : win.pitch || parseFloat(cs.gridTemplateColumns) + 60 + gap;
+    const linePitch = l ? l.offsetHeight + parseFloat(ls.marginTop) + parseFloat(ls.marginBottom) + gap : win.linePitch || 40;
+    let viewTop = -(g.getBoundingClientRect().top + parseFloat(cs.paddingTop) - win.wt);
+    // The album at the top of the screen (below the sticky header) and how far its row is hidden under it: taken
+    // anew when the page was scrolled, kept while the rows change (no drift over several changes)
+    const hdr = Math.max(0, $("header").getBoundingClientRect().bottom);
+    if (win.rows.length && !(Math.abs(viewTop - win.anchorTop) <= 1)) {
+      const at = rowAt(viewTop + hdr);
+      win.anchor = viewTop + hdr > 0 ? win.rows[at].start : -1;
+      win.anchorPart = (viewTop + hdr - win.tops[at]) / (win.tops[at + 1] - win.tops[at]);
+      win.anchorTop = viewTop;
+    }
+    if (cols !== win.cols || pitch !== win.pitch || linePitch !== win.linePitch) {
+      Object.assign(win, { cols, pitch, linePitch, rows: [], tops: [] });
+      let y = 0;
+      for (let i = 0; i < win.items.length;) {
+        let j = i + 1;
+        if (!win.items[i].line) while (j < win.items.length && j - i < cols && !win.items[j].line) j++;
+        win.rows.push({ start: i, end: j });
+        win.tops.push(y);
+        y += win.items[i].line ? linePitch : pitch;
+        i = j;
+      }
+      win.tops.push(y);
+      // the album that was at the top of the screen stays there
+      if (win.anchor >= 0) {
+        const r = win.rows.findIndex((x) => x.end > win.anchor);
+        const to = win.tops[r] + win.anchorPart * (win.tops[r + 1] - win.tops[r]) - hdr;
+        scrollBy(0, to - viewTop);
+        viewTop = win.anchorTop = to;
+      }
+    }
+    const rows = win.rows, r0 = rowAt(viewTop - WIN_PX), r1 = Math.min(rows.length, rowAt(viewTop + innerHeight + WIN_PX) + 1);
+    const first = rows.length ? rows[r0].start : 0, end = r1 < rows.length ? rows[r1].start : win.items.length;
+    if (first !== win.first || end !== win.end) {
+      win.els.forEach((e, i) => {
+        if (i >= first && i < end) return;
+        dropTile(e, win.items[i]);
+        win.els.delete(i);
+      });
+      // new items before the ones that stay (scrolled up) or after them
+      const head = document.createDocumentFragment(), tail = document.createDocumentFragment(), keep = win.els.size;
+      for (let i = first; i < end; i++) {
+        if (win.els.has(i)) continue;
+        const e = win.build(win.items[i], i);
+        win.els.set(i, e);
+        (keep && i < win.first ? head : tail).append(e);
+      }
+      g.prepend(head);
+      g.append(tail);
+      win.first = first;
+      win.end = end;
+    }
+    win.wt = win.tops[r0] || 0;
+    g.style.setProperty("--wt", win.wt + "px");
+    g.style.setProperty("--wb", (win.tops[rows.length] - (win.tops[r1] ?? win.tops[rows.length])) + "px");
+    // measured again on the rendered tiles: a second pass only if the estimate of the first was off
+    const t2 = g.querySelector(".item");
+    if (!t2 || t2.offsetHeight + gap === win.pitch) break;
+  }
+}
+// Index of the last row of the grid window that starts at or above y (0 for y above the first row).
+function rowAt(y) {
+  const tops = win.tops;
+  let lo = 0, hi = win.rows.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (tops[mid] <= y) lo = mid;
+    else hi = mid - 1;
+  }
+  return Math.max(0, lo);
+}
+// A tile leaves the grid window: its cover is no longer loaded, its lines no longer observed, its heart forgotten.
+function dropTile(e, a) {
+  forgetHeart(e, a);
+  e.querySelectorAll(".cov img").forEach((i) => {
+    coverObs?.unobserve(i);
+    coverNear(i, false);
+  });
+  e.querySelectorAll(".mq").forEach((m) => cutObs?.unobserve(m.parentElement));
+  e.remove();
 }
 // Cover size of the grid tiles in px: the column width × pixel ratio, rounded up to COVER_STEP, at most COVER_MAX.
 function gridCoverPx() {
@@ -3270,6 +3363,11 @@ function randomTile(list) {
 const favOf = (a) => a.menu["favourite-delete"] ? { on: true, url: a.menu["favourite-delete"] } : a.menu["favourite-add"] ? { on: false, url: a.menu["favourite-add"] } : { on: false, url: "" };
 // Heart buttons on covers per album object, repainted after every change.
 const coverHearts = new WeakMap();
+// The tile e of album a leaves the grid: its heart is no longer repainted (the album lives on in the view's list, so the
+// entry would keep the whole tile in memory).
+const forgetHeart = (e, a) => {
+  if (e.contains(coverHearts.get(a))) coverHearts.delete(a);
+};
 const paintHeart = (b, a) => {
   const f = favOf(a), t = f.on ? "Remove from favourites" : "Add to favourites";
   b.hidden = !f.url;
@@ -4433,8 +4531,18 @@ $("#sk").onclick = () => xml("/Skip");
 addEventListener("resize", () => {
   if (qOpen) setBars();
 });
-// Grid covers in the size of grown tiles (cover size, window, pinned queue)
-new ResizeObserver(growCovers).observe($("#grid"));
+// Album grid: the rows near the screen while scrolling (once per frame); the rows and the covers in the size of the
+// tiles when the grid changes its size (cover size, window, pinned queue)
+// (in the next frame: a layout inside the ResizeObserver would notify it again in the same frame)
+const nextLayout = () => {
+  winFrame ||= requestAnimationFrame(() => {
+    winFrame = 0;
+    layoutGrid();
+    growCovers();
+  });
+};
+addEventListener("scroll", nextLayout, { passive: true });
+new ResizeObserver(nextLayout).observe($("#grid"), { box: "border-box" });
 $("#qbtn").innerHTML = ICON_PLAYLIST;
 showRepeat("2");
 $("#pp").innerHTML = ICON_PLAY;
