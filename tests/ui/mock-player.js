@@ -76,6 +76,8 @@ function createPlayer(opts = {}) {
     // Library version: root id of every /library/v1 answer of the library (USB: the recorded 1). Like the real player
     // (API tests M39–M41), every favourite added or removed raises it by 65536; a test sets it for a rescan.
     libId: 458791,
+    // Favourite library playlists (ids), changed by /AddFavourite and /DeleteFavourite with playlistid
+    plFavs: new Set(),
     // Values that replace (or add) tags of the recorded /Status, e.g. { quality: "hd", canSeek: "0" }
     statusPatch: { ...(opts.statusPatch || {}) },
     // Generated queue of this many songs instead of fixture 20 (paging with start / end like the player)
@@ -224,15 +226,21 @@ function createPlayer(opts = {}) {
         );
       return `<browse serviceIcon="/images/BluOSIcon.png" serviceName="BluOS" type="tracks" playURL="/Load?service=BluOS&amp;name=${pl2}">${tracks.join("")}</browse>`;
     }
-    // Library playlists (API tests A29 / A30): the library has the recorded ones, no favourite whatever the recording
-    // had, the USB drive none (like the real player); the track list of every library playlist is the recorded
-    // one, all tracks in one answer.
+    // Library playlists (API tests A29 / A30): the library has the recorded ones, favourites as in state.plFavs (none
+    // at the start, whatever the recording had), the USB drive none (like the real player); the track list of every
+    // library playlist is the recorded one, all tracks in one answer.
     if (/:Playlist\/%2Flibrary%2Fv1%2FPlaylists%3F/.test(key))
       return key.startsWith(USB)
         ? '<browse serviceIcon="/images/USBIcon.png" serviceName="USB" type="playlists"></browse>'
-        : favMenu(fx("29"), false)
-            .replace(/ isFavourite="true"/g, "")
-            .replace(/\?isFavourite=1&amp;/g, "?");
+        : fx("29").replace(/<item [^>]*type="playlist">[\s\S]*?<\/contextMenu>\s*<\/item>/g, (it) => {
+            const off = favMenu(it, false)
+              .replace(/ isFavourite="true"/g, "")
+              .replace(/\?isFavourite=1&amp;/g, "?");
+            if (!state.plFavs.has((it.match(/playlistid=([0-9a-f]+)/) || [])[1])) return off;
+            return favMenu(off, true)
+              .replace(/ type="playlist">/, ' isFavourite="true" type="playlist">')
+              .replace(/(CM\/LocalMusic-Playlist\?)/, "$1isFavourite=1&amp;");
+          });
     if (/MG\/LocalMusic-Playlist\?/.test(key)) return fx("30");
     // Context menu of a library playlist (API test W38): the recorded one, with the favourite state of the key's
     // isFavourite flag
@@ -347,6 +355,8 @@ function createPlayer(opts = {}) {
     if (o && (o.status || o.body !== undefined))
       return { status: o.status || 200, type: o.type || "text/xml", body: o.body || "", delay: o.delay, held: o.held };
     if (/^\/(Add|Delete)Favourite\?/.test(pq)) state.libId += 65536;
+    const plFav = /^\/(Add|Delete)Favourite\?playlistid=([0-9a-f]+)/.exec(pq);
+    if (plFav) state.plFavs[plFav[1] === "Add" ? "add" : "delete"](plFav[2]);
     let a = mockAnswer(p, q, lang);
     if (o && o.edit && typeof a === "string") a = o.edit(a);
     if (o && (o.delay || o.held))

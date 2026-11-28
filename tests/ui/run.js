@@ -1224,7 +1224,7 @@ test(
 test(
   "CHP-03 GRD-05 no favourites: message, no tiles",
   async (t) => {
-    eq(await t.msg(), "No favourite albums yet.", "status line");
+    eq(await t.msg(), "No favourites yet.", "status line");
     eq(await t.page.$$eval("#grid .item", (x) => x.length), 0, "no tiles, no random tile");
   },
   { overrides: [{ match: /category=FAVOURITES/, body: '<albums category="FAVOURITES"></albums>' }] },
@@ -4561,12 +4561,27 @@ test(
   { ...W, needs: ["playlist"] },
 );
 
-test("PLS-13 library playlist: the heart adds and removes the favourite via the player", async (t) => {
+test("PLS-13 library playlist: the heart adds and removes the favourite via the player, shown in Favourites", async (t) => {
   const p = TD.LPL[0],
     tile = await openTile(t, p.text),
     heart = tile + " .favc",
     pressed = (v) =>
       t.page.waitForFunction(([s, x]) => document.querySelector(s).getAttribute("aria-pressed") === x, [heart, v]);
+  // Favourites view: the tiles after the group line (null: no group line)
+  const favGroup = async () => {
+    await t.page.click("#az button[aria-label=Favourites]");
+    await t.waitMsg(/in favourites/);
+    return t.page.evaluate(() => {
+      const kids = [...document.querySelector("#grid").children],
+        i = kids.findIndex((e) => e.classList.contains("gl"));
+      return i < 0
+        ? null
+        : { line: kids[i].textContent, tiles: kids.slice(i + 1).map((e) => e.querySelector("b")?.textContent) };
+    });
+  };
+  eq(await favGroup(), null, "Favourites: no playlist group");
+  await openPlaylists(t);
+  await t.page.evaluate(() => plLoad); // the playlists read again
   await t.page.hover(tile);
   eq(await t.page.getAttribute(heart, "aria-pressed"), "false", "empty heart");
   eq(await t.page.getAttribute(heart, "aria-label"), "Add to favourites: " + p.text, "label");
@@ -4578,10 +4593,24 @@ test("PLS-13 library playlist: the heart adds and removes the favourite via the 
   );
   await pressed("true");
   eq(t.reqs(/CM\/LocalMusic-Playlist.*isFavourite=1/).length, 1, "context menu read again with isFavourite=1");
+  const n = t.player.state.requests.length,
+    g = await favGroup();
+  eq(g, { line: "1 library playlist in favourites", tiles: [p.text] }, "Favourites: playlist group after the albums");
+  eq(await t.page.textContent("#grid .item:first-child b"), "Random album", "random tile of the albums");
+  eq(
+    t.player.state.requests.slice(n).filter((r) => /Playlist/.test(r)),
+    [],
+    "no playlist request of its own",
+  );
+  await openTile(t, p.text);
+  await t.page.evaluate(() => plLoad);
+  await t.page.hover(tile);
+  await pressed("true");
   await t.page.click(heart);
   await t.waitToast("Removed from favourites");
   ok(/^\/DeleteFavourite\?playlistid=/.test(t.cmds(/^\/DeleteFavourite/)[0] || ""), "DeleteFavourite of its menu");
   await pressed("false");
+  eq(await favGroup(), null, "Favourites: playlist group gone");
 });
 
 // ---------- 4.13 Settings panel (SET) ----------

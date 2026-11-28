@@ -148,7 +148,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 |---|---|---|---|---|---|
 | CHP-01 | Chip row | Connect (quality and genre chips switched on, as in most tests) | Order: All, Favourites (heart icon), New, Playlists, separator, HD, CD, MQA, separator, genres of TD-GEN sorted A–Z (decade chips off by default) | read | local |
 | CHP-02 | Default view Favourites | Connect | Favourites chip pressed; tiles = albums of TD-FAV (count and titles); request `/library/v1/Albums?…category=FAVOURITES` per source | read | local |
-| CHP-03 | No favourites | Fixture 12 without albums | Status line "No favourite albums yet." | – | – |
+| CHP-03 | No favourites | Fixture 12 without albums | Status line "No favourites yet." | – | – |
 | CHP-04 | New | Click **New** | Tiles = TD-NEW library albums (newest first) followed by the USB albums; status "N albums recently added, newest first"; at most 200 per source | read | local |
 | CHP-05 | Quality CD | Click **CD** | One request per source with album sections (`quality=cd&section=all`), no album section request; number of tiles = TD-QCD; status "… in CD quality" | read | local |
 | CHP-06 | Quality HD / MQA | Click **HD**, then **MQA** | Filter `quality=hr` / `quality=mqa`; empty result: "No HD albums." / "No MQA albums." | – | yes |
@@ -327,7 +327,7 @@ Built by `buildTD()` from the answers of the player the tests run against (mock:
 | PLS-10 | Delete a playlist | Delete button (trash icon) of a playlist tile (real player: `__blualbum_test_list__`, saved for the test), confirm in the question popup | Button label "Delete playlist <name>"; question names it, button "Delete"; the "delete" action of its context menu (`/Delete?name=<name>&service=BluOS`); toast "Deleted playlist “<name>”"; playlists reloaded, its tile gone | write | local |
 | PLS-11 | Delete cancelled / failed | Cancel the question popup; mock answers with `<error>` | Cancel: no request, all tiles stay; failure: popup "Deleting the playlist did not succeed" | read (part) | yes |
 | PLS-12 | Random playlist | Playlists view: play button, add button of the random playlist tile | Play: label "Play a random playlist", the play URL of a playlist of TD-PL or TD-LPL, toast "Playing playlist: <name>"; add: its `add-last` URL, toast "Added to queue: <name>" | write | – |
-| PLS-13 | Favourite a library playlist | Playlists view, heart of the first playlist of TD-LPL (mock: no favourite); click again | Empty heart, label "Add to favourites: <name>"; click: `/AddFavourite?playlistid=…&service=LocalMusic` of its context menu, toast "Added to favourites", heart filled, context menu read again with `isFavourite=1`; again: `/DeleteFavourite?playlistid=…`, toast "Removed from favourites", heart empty | – | – |
+| PLS-13 | Favourite a library playlist | Favourites; Playlists view, heart of the first playlist of TD-LPL (mock: no favourite); Favourites; Playlists, click again; Favourites | Favourites without a group line. Empty heart, label "Add to favourites: <name>"; click: `/AddFavourite?playlistid=…&service=LocalMusic` of its context menu, toast "Added to favourites", heart filled, context menu read again with `isFavourite=1`. Favourites: the albums, then the group line "1 library playlist in favourites" and the playlist's tile; random tile "Random album"; no playlist request. Again: `/DeleteFavourite?playlistid=…`, toast "Removed from favourites", heart empty; Favourites without the group | – | – |
 
 ### 4.13 Settings panel (SET)
 

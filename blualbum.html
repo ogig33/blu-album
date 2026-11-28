@@ -2212,9 +2212,10 @@ async function showImg(img, url) {
 // activeBtn: selected chip.
 let base = "", cache = {}, shown = [], activeKey = "", activeBtn = null;
 // Album view: its albums in the order loaded (viewList; the grid shows them in the sort order) and its status line
-// (viewText); viewSort: "sort" = sorted, "new" = New keeps the player's order, "" = no album view (loading, playlists).
+// (viewText); viewTail: unsorted tiles after the albums (Favourites: a group line and the favourite library playlists);
+// viewSort: "sort" = sorted, "new" = New keeps the player's order, "" = no album view (loading, playlists).
 // sortBy: the chosen sort order (SORTS, stored), sortSeq: counter of the year lookup (see sortView()).
-let viewList = [], viewText = "", viewSort = "", sortBy = store.get("sort") || "random", sortSeq = 0;
+let viewList = [], viewTail = [], viewText = "", viewSort = "", sortBy = store.get("sort") || "random", sortSeq = 0;
 // sources: music sources found on the player (USB drive, library).
 // srcs: the enabled sources after opening, each {key, svc, name, searchKey, genresKey, albumsKey, playlistsKey, genres,
 // menu, secs} (playlistsKey: its library playlists, secs: promise of the album sections, see albumSections()).
@@ -2225,8 +2226,8 @@ let lazyObs = null, lazyTok = 0, coverObs = null, cutObs = null;
 // Playlists. playlistsKey: browse key of the BluOS playlists ("" if the player has none), plSeq: request counter,
 // plBtn: the Playlists chip (re-added after the genre chips are rebuilt), plCount: number for the stats (null = unknown),
 // playlists: tiles like albums (toAlbum() + pl: true), the BluOS playlists first, then the library playlists of the
-// enabled sources (lib: true).
-let playlistsKey = "", plSeq = 0, plBtn = null, plCount = null, playlists = [];
+// enabled sources (lib: true), plLoad: promise of the latest loadPlaylists().
+let playlistsKey = "", plSeq = 0, plBtn = null, plCount = null, playlists = [], plLoad = null;
 // Decade chips: ctx() for which they were built or are loading ("" = not yet).
 let dcCtx = "";
 // Library version: <mid> of /Status ("" = not read yet), see libVersion(). libOwn: the app changed a favourite itself
@@ -2276,6 +2277,7 @@ function resetPlayerState() {
   libOwn = false;
   playlistsKey = "";
   playlists = [];
+  plLoad = null;
   plCount = null;
 }
 // Forgets everything loaded from the current source selection (called on connect and source change).
@@ -2287,7 +2289,7 @@ function resetLibrary() {
   activeBtn = null;
   activeKey = "";
   shown = [];
-  viewList = [];
+  viewList = viewTail = [];
   viewSort = "";
   endSearch();
 }
@@ -2730,7 +2732,7 @@ function selectView(key, btn) {
   document.querySelectorAll("#az button").forEach((b) => b.setAttribute("aria-pressed", b === btn));
   activeKey = key;
   activeBtn = btn;
-  viewList = [];
+  viewList = viewTail = [];
   viewSort = "";
   $("#q").value = "";
   endSearch();
@@ -2755,9 +2757,10 @@ function viewOut(key, mine, show) {
   else show();
 }
 // The result of an album view: its albums in the sort order and the status line. fixed: New keeps the player's order
-// (newest first; the sort order is shown, but disabled).
-function showView(list, text, fixed = false) {
+// (newest first; the sort order is shown, but disabled). tail: tiles after the albums, not sorted (viewTail).
+function showView(list, text, fixed = false, tail = []) {
   viewList = list;
+  viewTail = tail;
   viewText = text;
   viewSort = fixed ? "new" : "sort";
   sortView();
@@ -2806,7 +2809,7 @@ function sortView() {
   const key = activeKey, mine = ctx(), seq = ++sortSeq, list = viewList, sorted = viewSort === "sort";
   const show = () => {
     if (seq !== sortSeq) return;
-    shown = sorted ? sortAlbums(list, sortBy) : list;
+    shown = [...sorted ? sortAlbums(list, sortBy) : list, ...viewTail];
     render(shown, false, tileYears());
     msg(viewText);
     showSort();
@@ -2871,26 +2874,29 @@ async function loadAllAlbums(btn) {
 // filter: of the request, max: albums per source (plain lists), label: of the loading line, done: of the result line
 // (after the number of albums), empty: line of an empty list. sectioned: the sectioned list (libSectionAlbums), kept
 // for the session (New and Favourites are always fresh). newest: each source's newest-first order is kept (sources
-// one after another); otherwise the lists are joined A-Z.
-async function loadLibView(key, btn, { filter, max = 0, label, done, empty, sectioned = false, newest = false }) {
+// one after another); otherwise the lists are joined A-Z. favPl: the favourite library playlists after the albums (a
+// group like the search results: the status line names the first group, a line in the grid the second one).
+async function loadLibView(key, btn, { filter, max = 0, label, done, empty, sectioned = false, newest = false, favPl = false }) {
   selectView(key, btn);
   clearGrid();
   const mine = ctx();
   msg("Loading " + label + " \u2026");
   try {
     const per = (x) => sectioned ? libSectionAlbums(x, filter) : libAlbums(x.svc, filter, max);
-    const lists = sectioned && cache[key] ? null : await Promise.all(srcs.map(per));
+    const [lists, pls] = await Promise.all([sectioned && cache[key] ? null : Promise.all(srcs.map(per)), favPl ? favPlaylists() : []]);
     if (mine !== ctx()) return; // not into the cache of another source selection
     const list = sectioned ? cache[key] || (cache[key] = joinSources(lists)) : newest ? lists.flat() : joinSources(lists);
-    viewOut(key, mine, () => showView(list, list.length ? nAlb(list.length) + " " + done : empty, newest));
+    const plText = pls.length ? nPl(pls.length, "library") + " " + done : "";
+    const text = list.length ? nAlb(list.length) + " " + done : plText || empty;
+    viewOut(key, mine, () => showView(list, text, newest, list.length && pls.length ? [{ line: plText }, ...pls] : pls));
   } catch (e) {
     viewFailed(key, mine, e);
   }
 }
 // "New" chip: the 200 most recently added albums, newest first.
 const loadNew = (btn) => loadLibView(VIEW.new, btn, { filter: "recent=1", max: 200, label: "new albums", done: "recently added, newest first", empty: "No recently added albums.", newest: true });
-// "Favourites" chip: the player's favourite albums.
-const loadFavourites = (btn) => loadLibView(VIEW.fav, btn, { filter: "category=FAVOURITES", max: 5000, label: "favourites", done: "in favourites", empty: "No favourite albums yet." });
+// "Favourites" chip: the player's favourite albums, then its favourite library playlists.
+const loadFavourites = (btn) => loadLibView(VIEW.fav, btn, { filter: "category=FAVOURITES", max: 5000, label: "favourites", done: "in favourites", empty: "No favourites yet.", favPl: true });
 // Quality chip (q: filter value of QUALITIES).
 const loadQuality = (btn, q, name) => loadLibView(VIEW.quality(q), btn, { filter: "quality=" + q, label: name + " albums", done: "in " + name + " quality", empty: "No " + name + " albums.", sectioned: true });
 // Every album of the enabled sources with year and album artist: the sectioned /library/v1/Albums list without a
@@ -3052,8 +3058,8 @@ function render(list, noRandom, years = false) {
       lazyObs.observe(sentinel);
     }
   };
-  // "Random album" tile first, but not for search results.
-  if (!noRandom && list.length) g.append(randomTile(list.filter((a) => !a.line)));
+  // "Random album" tile first, but not for search results; of the first group's kind (Favourites: only the albums).
+  if (!noRandom && list.length) g.append(randomTile(list.filter((a) => !a.line && !a.pl === !list[0].pl)));
   lazyObs = new IntersectionObserver((e) => {
     if (e.some((x) => x.isIntersecting)) more();
   }, { rootMargin: "800px 0px" });
@@ -3363,8 +3369,12 @@ const playlistTiles = async (key, lib) => (await fetchItems(key)).map((it) => {
 }).filter((p) => p.play);
 // Loads the BluOS playlists (top menu) and the library playlists of every enabled source (link "Playlists" of its
 // menu). Called after opening the sources, after saving / deleting a playlist and on every click of the Playlists
-// chip; an open Playlists view is drawn again when the list has changed.
-async function loadPlaylists() {
+// chip; an open Playlists view is drawn again when the list has changed. The promise is kept in plLoad.
+function loadPlaylists() {
+  plLoad = readPlaylists();
+  return plLoad;
+}
+async function readPlaylists() {
   const seq = ++plSeq, mine = ctx(), keys = [playlistsKey, ...srcs.map((x) => x.playlistsKey)];
   if (!keys.some(Boolean)) {
     playlists = [];
@@ -3374,16 +3384,26 @@ async function loadPlaylists() {
   try {
     const list = (await Promise.all(keys.map((k, i) => k ? playlistTiles(k, i > 0) : []))).flat();
     if (seq !== plSeq || mine !== ctx()) return;
-    const sig = (l) => l.map((p) => [p.t, p.img, p.play].join("\n")).join("\n\n"), changed = sig(list) !== sig(playlists);
+    const sig = (l) => l.map((p) => [p.t, p.img, p.play, favOf(p).on].join("\n")).join("\n\n"), changed = sig(list) !== sig(playlists);
     // statistic only when the player has BluOS playlists or library playlists
     plCount = playlistsKey || list.length ? list.length : null;
-    playlists = list;
+    // Unchanged: the shown tiles keep their objects (a heart changes the favourite state of its object)
+    if (changed) playlists = list;
     renderLib();
     renderPlChip();
     if (changed && activeKey === VIEW.pl && !searching) showPlaylists(); // clearing a search shows them as well
   } catch (e) {
     if (seq === plSeq) apiFail("Loading the playlists did not succeed", e);
   }
+}
+// The favourite library playlists (Favourites view): from the playlists of loadPlaylists() (no request of its own),
+// once the latest one has finished (on connect it runs with the Favourites view); their heart has the favourite state.
+async function favPlaylists() {
+  for (let p; p !== plLoad;) {
+    p = plLoad;
+    await p;
+  }
+  return playlists.filter((p) => p.lib && favOf(p).on);
 }
 // (Re-)adds the Playlists chip next to the special chips, after New (first in the row when there is no New chip);
 // only when there are playlists.

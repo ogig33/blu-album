@@ -3,6 +3,7 @@
 All notable changes to BluAlbum. Versions follow [semantic versioning](https://semver.org/): PATCH for fixes and visual changes, MINOR for new features.
 
 ## Unreleased
+- Favourites: also shows the favourite library playlists, after the albums.
 - Album popup: a click on the cover shows it in full screen.
 - Library: after a rescan or a favourite changed in another app, the albums are read again without reconnecting.
 - Fix: an album popup without tracks (e.g. during a library rescan) shows "No tracks" and is read again when opened next.
